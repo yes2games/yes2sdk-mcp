@@ -18,6 +18,8 @@
     "prepare": "tsc",
     "build": "tsc",
     "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "sync-docs": "node scripts/sync-docs.mjs",
     "sync-compliance": "node scripts/sync-compliance.mjs"
   },
@@ -28,6 +30,7 @@
   "devDependencies": {
     "@types/node": "^20.19.0",
     "tsx": "^4.20.0",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.4"
   }
 }
