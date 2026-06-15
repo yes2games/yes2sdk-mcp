@@ -1,0 +1,33 @@
+{
+  "name": "@yes2sdk/mcp",
+  "version": "0.1.0",
+  "description": "Model Context Protocol server for the Yes2SDK — exposes SDK docs and a compliance/validation tool to AI coding clients over stdio.",
+  "type": "module",
+  "bin": {
+    "yes2sdk-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "docs",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "prepare": "tsc",
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "sync-docs": "node scripts/sync-docs.mjs",
+    "sync-compliance": "node scripts/sync-compliance.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}
