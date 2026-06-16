@@ -1,5 +1,5 @@
 {
-  "name": "@yes2sdk/mcp",
+  "name": "@yes2games/yes2sdk-mcp",
   "version": "0.1.0",
   "description": "Model Context Protocol server for the Yes2SDK — exposes SDK docs and a compliance/validation tool to AI coding clients over stdio.",
   "type": "module",
