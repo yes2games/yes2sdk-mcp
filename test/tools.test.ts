@@ -99,6 +99,15 @@ describe("validate_integration — static build checks", () => {
   });
 });
 
+describe("server instructions", () => {
+  it("exposes orientation instructions to clients", () => {
+    const instructions = client.getInstructions();
+    expect(instructions).toBeDefined();
+    expect(instructions ?? "").toMatch(/yes2sdk/i);
+    expect(instructions ?? "").toMatch(/validate_integration/);
+  });
+});
+
 describe("validate_integration — behavioral compliance checks", () => {
   it("bad event log references P-002/P-003 or FAIL", async () => {
     const badLog = JSON.stringify([
