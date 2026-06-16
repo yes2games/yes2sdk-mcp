@@ -33,11 +33,12 @@ afterAll(async () => {
 });
 
 describe("listTools", () => {
-  it("returns exactly the 7 registered tools", async () => {
+  it("returns exactly the 8 registered tools", async () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
       [
+        "detect_sdk",
         "get_api_reference",
         "get_install_instructions",
         "get_platform_requirements",
@@ -53,6 +54,12 @@ describe("listTools", () => {
     const { tools } = await client.listTools();
     const install = tools.find((t) => t.name === "get_install_instructions");
     expect(install?.annotations?.readOnlyHint).toBe(true);
+  });
+
+  it("marks detect_sdk read-only", async () => {
+    const { tools } = await client.listTools();
+    const detect = tools.find((t) => t.name === "detect_sdk");
+    expect(detect?.annotations?.readOnlyHint).toBe(true);
   });
 });
 

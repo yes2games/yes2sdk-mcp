@@ -1,0 +1,4 @@
+[project]
+title = MyGame
+version = 0.1
+dependencies#0 = https://github.com/yes2games/yes2sdk-defold/archive/refs/tags/v1.4.0.zip
