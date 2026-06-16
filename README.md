@@ -1,4 +1,4 @@
-# @yes2sdk/mcp
+# @yes2games/yes2sdk-mcp
 
 A [Model Context Protocol](https://modelcontextprotocol.io) server for the **Yes2SDK**.
 It exposes the SDK documentation and a compliance/validation tool to any AI coding
@@ -105,7 +105,7 @@ Or: `claude mcp add yes2sdk -- node /ABSOLUTE/PATH/TO/Experimental/mcp/dist/inde
 ```
 
 > Tip: once published to npm you can replace `command`/`args` with
-> `"command": "npx", "args": ["-y", "@yes2sdk/mcp"]` and drop the absolute path.
+> `"command": "npx", "args": ["-y", "@yes2games/yes2sdk-mcp"]` and drop the absolute path.
 
 ## Keeping it in sync
 
