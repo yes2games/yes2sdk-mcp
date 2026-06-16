@@ -23,7 +23,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "sync-docs": "node scripts/sync-docs.mjs",
-    "sync-compliance": "node scripts/sync-compliance.mjs"
+    "sync-compliance": "node scripts/sync-compliance.mjs",
+    "sync-sdk-meta": "node scripts/sync-sdk-meta.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
