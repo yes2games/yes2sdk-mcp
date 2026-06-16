@@ -130,3 +130,56 @@ by hand.
 - `src/lib/` — docs scanner/search, copied compliance engine + types, and static
   build-check helpers.
 - `docs/` — bundled markdown docs (self-contained for npx users).
+
+## HTTP transport
+
+An alternative Streamable HTTP entry point for clients that cannot use stdio (e.g.
+remote or containerised deployments).
+
+### Running
+
+```bash
+npm run build      # compile TypeScript to dist/ (required before first run)
+npm run http       # node dist/http.js
+```
+
+### Configuration
+
+| Env var | Default | Description |
+|---------|---------|-------------|
+| `PORT` | `8091` | TCP port the server binds on `0.0.0.0`. |
+
+There is no `HOST` variable — the server always binds `0.0.0.0`.
+
+### Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/mcp` | Stateless Streamable HTTP MCP endpoint. A fresh server + transport is created per request. |
+| `GET` | `/health` | Returns `{"status":"ok"}`. Used for container healthchecks; exempt from host validation. |
+| Other | `/mcp` | Returns 405. |
+| Any | anything else | Returns 404. |
+
+### DNS-rebinding protection
+
+Host-header validation is enabled. Only the following `Host` values are accepted on
+`POST /mcp`:
+
+- `mcp.yes2games.com` — the public hostname behind Cloudflare/NGINX.
+- `127.0.0.1:<PORT>` — loopback access (e.g. `127.0.0.1:8091`).
+
+`GET /health` is served outside the transport and bypasses this check entirely, so
+container probes on `127.0.0.1` work without needing to be in the allowlist.
+
+Clients connecting from any other host must be added to `ALLOWED_HOSTS` in `src/http.ts`.
+
+### Security note
+
+v1 is unauthenticated. The server exposes only public SDK docs and the stateless
+compliance validator — no secrets and no user data — so this is acceptable for the
+initial deployment.
+
+### Production deployment
+
+DNS, TLS termination, NGINX reverse proxy, and rootless Podman Quadlet service on the
+deploy host (`bakso`) are tracked in the **yes2infra** repo, maintained by @atqamz.
