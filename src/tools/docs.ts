@@ -117,4 +117,18 @@ export function registerDocsTools(server: McpServer): void {
       return { content: [{ type: "text" as const, text: content }] };
     }
   );
+
+  server.registerTool(
+    "list_sdk_modules",
+    {
+      title: "List SDK modules",
+      description:
+        "List all Yes2SDK API reference module names available for integration. " +
+        "Use the returned names with get_api_reference(module) or the yes2sdk://docs/{module} resource.",
+      inputSchema: {},
+    },
+    async () => ({
+      content: [{ type: "text" as const, text: API_MODULES.join("\n") }],
+    })
+  );
 }
