@@ -16,7 +16,7 @@ export function createServer(): McpServer {
     },
     {
       instructions: [
-        "Yes2SDK MCP server. Helps integrate the Yes2SDK (Defold and Unity, HTML5/WebGL only) into games targeting Poki, CrazyGames, Yandex, GameDistribution, and YouTube.",
+        "Yes2SDK MCP server. Helps integrate the Yes2SDK (TypeScript/JavaScript, Unity, and Defold — HTML5/WebGL only) into games targeting Poki, CrazyGames, Yandex, GameDistribution, and YouTube.",
         "",
         "Modules: ads, analytics, auth, banners, data, errors, friends, game, player, score, session, lifecycle.",
         "",
