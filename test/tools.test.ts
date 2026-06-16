@@ -33,11 +33,18 @@ afterAll(async () => {
 });
 
 describe("listTools", () => {
-  it("returns exactly the 5 registered tools", async () => {
+  it("returns exactly the 6 registered tools", async () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
-      ["get_api_reference", "get_quickstart", "list_sdk_modules", "search_docs", "validate_integration"].sort()
+      [
+        "get_api_reference",
+        "get_platform_requirements",
+        "get_quickstart",
+        "list_sdk_modules",
+        "search_docs",
+        "validate_integration",
+      ].sort()
     );
   });
 });
@@ -75,6 +82,18 @@ describe("search_docs", () => {
     const text = textOf(res);
     expect(text.length).toBeGreaterThan(0);
     expect(text.toLowerCase()).toContain("match");
+  });
+});
+
+describe("get_platform_requirements", () => {
+  it("returns Poki rejection rules", async () => {
+    const res = await client.callTool({
+      name: "get_platform_requirements",
+      arguments: { platform: "poki" },
+    });
+    const text = textOf(res);
+    expect(text.length).toBeGreaterThan(0);
+    expect(/P-\d{3}/.test(text)).toBe(true);
   });
 });
 

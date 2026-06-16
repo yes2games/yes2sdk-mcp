@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerDocsTools } from "./tools/docs.js";
 import { registerValidateTool } from "./tools/validate.js";
+import { registerRequirementsTool } from "./tools/requirements.js";
 import { registerModuleResources } from "./resources/modules.js";
 
 /**
@@ -29,6 +30,7 @@ export function createServer(): McpServer {
 
   registerDocsTools(server);
   registerValidateTool(server);
+  registerRequirementsTool(server);
   registerModuleResources(server);
 
   return server;
