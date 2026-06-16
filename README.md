@@ -56,7 +56,7 @@ All clients spawn the built `dist/index.js` with `node` over stdio. Replace
   "mcpServers": {
     "yes2sdk": {
       "command": "node",
-      "args": ["/ABSOLUTE/PATH/TO/Experimental/mcp/dist/index.js"]
+      "args": ["/ABSOLUTE/PATH/TO/dist/index.js"]
     }
   }
 }
@@ -69,13 +69,13 @@ All clients spawn the built `dist/index.js` with `node` over stdio. Replace
   "mcpServers": {
     "yes2sdk": {
       "command": "node",
-      "args": ["/ABSOLUTE/PATH/TO/Experimental/mcp/dist/index.js"]
+      "args": ["/ABSOLUTE/PATH/TO/dist/index.js"]
     }
   }
 }
 ```
 
-Or: `claude mcp add yes2sdk -- node /ABSOLUTE/PATH/TO/Experimental/mcp/dist/index.js`
+Or: `claude mcp add yes2sdk -- node /ABSOLUTE/PATH/TO/dist/index.js`
 
 ### Windsurf — `~/.codeium/windsurf/mcp_config.json`
 
@@ -84,7 +84,7 @@ Or: `claude mcp add yes2sdk -- node /ABSOLUTE/PATH/TO/Experimental/mcp/dist/inde
   "mcpServers": {
     "yes2sdk": {
       "command": "node",
-      "args": ["/ABSOLUTE/PATH/TO/Experimental/mcp/dist/index.js"]
+      "args": ["/ABSOLUTE/PATH/TO/dist/index.js"]
     }
   }
 }
@@ -98,7 +98,7 @@ Or: `claude mcp add yes2sdk -- node /ABSOLUTE/PATH/TO/Experimental/mcp/dist/inde
     "yes2sdk": {
       "type": "stdio",
       "command": "node",
-      "args": ["/ABSOLUTE/PATH/TO/Experimental/mcp/dist/index.js"]
+      "args": ["/ABSOLUTE/PATH/TO/dist/index.js"]
     }
   }
 }
