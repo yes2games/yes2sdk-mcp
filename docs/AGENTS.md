@@ -7,8 +7,6 @@ to call the SDK correctly the first time and avoid the platform rejections below
 Only use the methods documented here and in the linked docs. Do not invent SDK
 methods. When unsure, fetch the full corpus.
 
-- Full docs (everything concatenated): `/llms-full.txt`
-- Curated index: `/llms.txt`
 - Per-platform guides: `/docs/raw/quickstart-<platform>` (poki, crazygames, yandex,
   gamedistribution, youtube)
 - API reference: `/docs/raw/api/<module>` (overview, lifecycle, ads, game, session,
