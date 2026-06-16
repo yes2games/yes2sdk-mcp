@@ -12,7 +12,7 @@ const QUICKSTART_PLATFORMS = [
 ] as const;
 
 /** API reference modules under docs/api/. */
-const API_MODULES = [
+export const API_MODULES = [
   "overview",
   "lifecycle",
   "ads",
