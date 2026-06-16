@@ -33,11 +33,11 @@ afterAll(async () => {
 });
 
 describe("listTools", () => {
-  it("returns exactly the 4 registered tools", async () => {
+  it("returns exactly the 5 registered tools", async () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
-      ["get_api_reference", "get_quickstart", "search_docs", "validate_integration"].sort()
+      ["get_api_reference", "get_quickstart", "list_sdk_modules", "search_docs", "validate_integration"].sort()
     );
   });
 });
