@@ -18,6 +18,8 @@
     "prepare": "tsc",
     "build": "tsc",
     "dev": "tsx src/index.ts",
+    "http": "node dist/http.js",
+    "dev:http": "tsx src/http.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "sync-docs": "node scripts/sync-docs.mjs",
