@@ -3,6 +3,7 @@ import { registerDocsTools } from "./tools/docs.js";
 import { registerValidateTool } from "./tools/validate.js";
 import { registerRequirementsTool } from "./tools/requirements.js";
 import { registerModuleResources } from "./resources/modules.js";
+import { registerIntegratePrompts } from "./prompts/integrate.js";
 
 /**
  * Build and configure the Yes2SDK MCP server with all tools registered.
@@ -32,6 +33,7 @@ export function createServer(): McpServer {
   registerValidateTool(server);
   registerRequirementsTool(server);
   registerModuleResources(server);
+  registerIntegratePrompts(server);
 
   return server;
 }
