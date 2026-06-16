@@ -33,12 +33,13 @@ afterAll(async () => {
 });
 
 describe("listTools", () => {
-  it("returns exactly the 6 registered tools", async () => {
+  it("returns exactly the 7 registered tools", async () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
       [
         "get_api_reference",
+        "get_install_instructions",
         "get_platform_requirements",
         "get_quickstart",
         "list_sdk_modules",
@@ -46,6 +47,46 @@ describe("listTools", () => {
         "validate_integration",
       ].sort()
     );
+  });
+
+  it("marks get_install_instructions read-only", async () => {
+    const { tools } = await client.listTools();
+    const install = tools.find((t) => t.name === "get_install_instructions");
+    expect(install?.annotations?.readOnlyHint).toBe(true);
+  });
+});
+
+describe("get_install_instructions", () => {
+  it("returns version-pinned Unity install steps incl. the template", async () => {
+    const res = await client.callTool({
+      name: "get_install_instructions",
+      arguments: { engine: "unity" },
+    });
+    const text = textOf(res);
+    expect(text).toContain("com.yes2games.yes2sdk");
+    expect(text).toMatch(/yes2sdk-unity\.git#v\d+\.\d+\.\d+/);
+    expect(text).toContain("Install Template");
+    expect(text).toContain("using Yes2SDK;");
+  });
+
+  it("returns Defold dependency + require line", async () => {
+    const res = await client.callTool({
+      name: "get_install_instructions",
+      arguments: { engine: "defold" },
+    });
+    const text = textOf(res);
+    expect(text).toMatch(/yes2sdk-defold\/archive\/refs\/tags\/v\d+\.\d+\.\d+\.zip/);
+    expect(text).toContain('require "yes2sdk.yes2sdk"');
+  });
+
+  it("explains the js runtime is dashboard-injected (no package)", async () => {
+    const res = await client.callTool({
+      name: "get_install_instructions",
+      arguments: { engine: "js" },
+    });
+    const text = textOf(res);
+    expect(text.toLowerCase()).toContain("window.yes2sdk");
+    expect(text.toLowerCase()).toContain("dashboard");
   });
 });
 
@@ -124,6 +165,7 @@ describe("server instructions", () => {
     expect(instructions).toBeDefined();
     expect(instructions ?? "").toMatch(/yes2sdk/i);
     expect(instructions ?? "").toMatch(/validate_integration/);
+    expect(instructions ?? "").toMatch(/get_install_instructions/);
   });
 });
 

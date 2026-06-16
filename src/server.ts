@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerDocsTools } from "./tools/docs.js";
 import { registerValidateTool } from "./tools/validate.js";
 import { registerRequirementsTool } from "./tools/requirements.js";
+import { registerInstallTool } from "./tools/install.js";
 import { registerModuleResources } from "./resources/modules.js";
 import { registerIntegratePrompts } from "./prompts/integrate.js";
 
@@ -23,12 +24,15 @@ export function createServer(): McpServer {
         "",
         "Modules: ads, analytics, auth, banners, data, errors, friends, game, player, score, session, lifecycle.",
         "",
-        "Typical flow: 1) get_quickstart for the target platform, 2) get_api_reference per module, 3) search_docs for specifics, 4) validate_integration against the built WebGL output or a captured Inspector event log.",
+        "IMPORTANT — install before code: a project must install the SDK before any code can reference it. Before generating engine code, call get_install_instructions(engine) and ensure the install + post-install steps are done. Never emit code referencing the Yes2SDK namespace (Unity), the yes2sdk module (Defold), or window.Yes2SDK (JS) into a project that has not installed the package — it will not compile/resolve.",
+        "",
+        "Typical flow: 1) get_install_instructions(engine) to ensure the SDK is installed, 2) get_quickstart for the target platform, 3) get_api_reference per module, 4) search_docs for specifics, 5) validate_integration against the built WebGL output or a captured Inspector event log.",
         "validate_integration checks both static build output (buildPath) and behavioral compliance (eventLogJson) against real platform rejection rules.",
       ].join("\n"),
     }
   );
 
+  registerInstallTool(server);
   registerDocsTools(server);
   registerValidateTool(server);
   registerRequirementsTool(server);
