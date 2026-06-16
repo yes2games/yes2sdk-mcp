@@ -1,5 +1,7 @@
+import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { API_MODULES } from "../tools/docs.js";
+import { readDocBySlug } from "../lib/docs.js";
 
 /**
  * Register the Yes2SDK module resources: a static `yes2sdk://modules` list and
@@ -25,5 +27,25 @@ export function registerModuleResources(server: McpServer): void {
         },
       ],
     })
+  );
+
+  server.registerResource(
+    "module-docs",
+    new ResourceTemplate("yes2sdk://docs/{module}", { list: undefined }),
+    {
+      title: "Yes2SDK module reference",
+      description: "API reference markdown for a single Yes2SDK module.",
+      mimeType: "text/markdown",
+    },
+    async (uri, { module }) => {
+      const name = Array.isArray(module) ? module[0] : module;
+      const text = name != null ? readDocBySlug(`api/${name}`) : null;
+      if (text == null) {
+        throw new Error(`Unknown module: ${String(module)}`);
+      }
+      return {
+        contents: [{ uri: uri.href, mimeType: "text/markdown", text }],
+      };
+    }
   );
 }

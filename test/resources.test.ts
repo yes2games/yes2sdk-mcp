@@ -28,4 +28,11 @@ describe("resources", () => {
     const text = (res.contents[0] as { text?: string }).text ?? "";
     expect(text.toLowerCase()).toContain("ads");
   });
+
+  it("reads a per-module doc via template", async () => {
+    const res = await client.readResource({ uri: "yes2sdk://docs/ads" });
+    const text = (res.contents[0] as { text?: string }).text ?? "";
+    expect(text.length).toBeGreaterThan(0);
+    expect(text.toLowerCase()).toContain("ad");
+  });
 });
