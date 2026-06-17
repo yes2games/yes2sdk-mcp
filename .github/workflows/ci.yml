@@ -16,3 +16,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
+      # Headline regression for issue #10: a fresh project must be steered to
+      # install the SDK before any namespace code is generated.
+      - name: "CUJ: install-before-codegen"
+        run: npx vitest run test/cuj.test.ts
