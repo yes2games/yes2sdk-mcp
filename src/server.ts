@@ -6,6 +6,7 @@ import { registerInstallTool } from "./tools/install.js";
 import { registerDetectTool } from "./tools/detect.js";
 import { registerCapabilitiesTool } from "./tools/capabilities.js";
 import { registerRuleTool } from "./tools/rule.js";
+import { registerTroubleshootTool } from "./tools/troubleshoot.js";
 import { registerModuleResources } from "./resources/modules.js";
 import { registerIntegratePrompts } from "./prompts/integrate.js";
 
@@ -42,6 +43,7 @@ export function createServer(): McpServer {
   registerRequirementsTool(server);
   registerCapabilitiesTool(server);
   registerRuleTool(server);
+  registerTroubleshootTool(server);
   registerModuleResources(server);
   registerIntegratePrompts(server);
 
