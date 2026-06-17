@@ -59,10 +59,22 @@ const search = await request(3, "tools/call", {
 const firstText = search.result?.content?.[0]?.text ?? "";
 console.log(`\nsearch_docs call -> ${firstText.slice(0, 80).replace(/\n/g, " ")}...`);
 
-const expected = ["search_docs", "get_quickstart", "get_api_reference", "validate_integration"];
+const expected = [
+  "search_docs",
+  "get_quickstart",
+  "get_api_reference",
+  "list_sdk_modules",
+  "get_platform_requirements",
+  "validate_integration",
+  "get_install_instructions",
+  "detect_sdk",
+  "get_platform_capabilities",
+  "get_compliance_rule",
+  "troubleshoot",
+];
 const names = tools.map((t) => t.name).sort();
 const ok = expected.every((e) => names.includes(e)) && names.length === expected.length;
-console.log(`\nRESULT: ${ok ? "PASS" : "FAIL"} (expected 4 tools, got ${names.length})`);
+console.log(`\nRESULT: ${ok ? "PASS" : "FAIL"} (expected ${expected.length} tools, got ${names.length})`);
 
 child.stdin.end();
 child.kill();

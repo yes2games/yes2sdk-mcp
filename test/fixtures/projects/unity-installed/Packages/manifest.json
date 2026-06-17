@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "com.yes2games.yes2sdk": "https://github.com/yes2games/yes2sdk-unity.git#v2.4.3",
+    "com.unity.nuget.newtonsoft-json": "3.2.1"
+  }
+}

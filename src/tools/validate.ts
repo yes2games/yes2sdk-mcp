@@ -97,6 +97,7 @@ export function registerValidateTool(server: McpServer): void {
           .optional()
           .describe("JSON string: an exported Yes2SDK Inspector event log (array of LogEntry) for behavioral compliance checks."),
       },
+      annotations: { readOnlyHint: true, openWorldHint: false, idempotentHint: true },
     },
     async ({ platform, buildPath, eventLogJson }) => {
       const sections: string[] = [];
