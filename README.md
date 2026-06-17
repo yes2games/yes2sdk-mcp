@@ -112,7 +112,7 @@ Or: `claude mcp add yes2sdk -- node /ABSOLUTE/PATH/TO/dist/index.js`
 The docs and the compliance engine are **copied** from the dashboard repo (source of truth):
 
 ```bash
-npm run sync-docs        # copies ../Dashboard/docs/**/*.md -> ./docs
+npm run sync-docs        # copies ../../yes2dashboard/docs/**/*.md -> ./docs
 npm run sync-compliance  # copies compliance-rules.ts + inspector types -> src/lib
 ```
 

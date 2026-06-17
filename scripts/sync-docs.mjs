@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = path.resolve(__dirname, "..");
-const SOURCE = path.resolve(PKG_ROOT, "..", "Dashboard", "docs");
+const SOURCE = path.resolve(PKG_ROOT, "..", "..", "yes2dashboard", "docs");
 const DEST = path.resolve(PKG_ROOT, "docs");
 
 /** @param {string} dir @param {string} base @returns {string[]} */
