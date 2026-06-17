@@ -57,7 +57,7 @@ jobs:
           repository: yes2games/yes2infra
           event-type: deploy-service
           client-payload: >-
-            {"service": "mcp",
+            {"service": "yes2sdk-mcp-main",
              "sha": "${{ github.sha }}",
              "run_id": "${{ github.run_id }}",
              "artifact_name": "mcp-${{ github.sha }}",
