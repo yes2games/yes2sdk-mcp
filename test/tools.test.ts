@@ -33,13 +33,14 @@ afterAll(async () => {
 });
 
 describe("listTools", () => {
-  it("returns exactly the 9 registered tools", async () => {
+  it("returns exactly the 10 registered tools", async () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
       [
         "detect_sdk",
         "get_api_reference",
+        "get_compliance_rule",
         "get_install_instructions",
         "get_platform_capabilities",
         "get_platform_requirements",
