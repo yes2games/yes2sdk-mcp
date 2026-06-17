@@ -33,7 +33,7 @@ afterAll(async () => {
 });
 
 describe("listTools", () => {
-  it("returns exactly the 8 registered tools", async () => {
+  it("returns exactly the 9 registered tools", async () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
@@ -41,6 +41,7 @@ describe("listTools", () => {
         "detect_sdk",
         "get_api_reference",
         "get_install_instructions",
+        "get_platform_capabilities",
         "get_platform_requirements",
         "get_quickstart",
         "list_sdk_modules",

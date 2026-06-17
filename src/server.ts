@@ -4,6 +4,7 @@ import { registerValidateTool } from "./tools/validate.js";
 import { registerRequirementsTool } from "./tools/requirements.js";
 import { registerInstallTool } from "./tools/install.js";
 import { registerDetectTool } from "./tools/detect.js";
+import { registerCapabilitiesTool } from "./tools/capabilities.js";
 import { registerModuleResources } from "./resources/modules.js";
 import { registerIntegratePrompts } from "./prompts/integrate.js";
 
@@ -38,6 +39,7 @@ export function createServer(): McpServer {
   registerDocsTools(server);
   registerValidateTool(server);
   registerRequirementsTool(server);
+  registerCapabilitiesTool(server);
   registerModuleResources(server);
   registerIntegratePrompts(server);
 
