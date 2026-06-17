@@ -53,6 +53,14 @@ describe("listTools", () => {
     );
   });
 
+  it("marks every tool read-only (none mutate the consumer FS or network)", async () => {
+    const { tools } = await client.listTools();
+    for (const t of tools) {
+      expect(t.annotations?.readOnlyHint, `${t.name} should be readOnlyHint:true`).toBe(true);
+      expect(t.annotations?.openWorldHint, `${t.name} should be openWorldHint:false`).toBe(false);
+    }
+  });
+
   it("marks get_install_instructions read-only", async () => {
     const { tools } = await client.listTools();
     const install = tools.find((t) => t.name === "get_install_instructions");
