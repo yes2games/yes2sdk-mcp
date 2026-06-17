@@ -40,8 +40,10 @@ export function registerDocsTools(server: McpServer): void {
       title: "Search Yes2SDK docs",
       description:
         "Search the Yes2SDK documentation (quickstarts, API reference, dashboard guide, integration rules) by keyword. " +
-        "Returns the top matching sections with their doc slug so you can follow up with get_quickstart or get_api_reference. " +
-        "Use this for anything about integrating the Yes2SDK, platform requirements (Poki, CrazyGames, Yandex, GameDistribution, YouTube), or the SDK's API.",
+        "Returns up to the top 5 matching sections with their doc slug so you can follow up with get_quickstart(platform) or get_api_reference(module). " +
+        "Use this for anything about integrating the Yes2SDK, platform requirements, or the SDK's API. " +
+        "For a specific error, troubleshoot(symptom) is more direct; for which modules a platform supports, get_platform_capabilities(). " +
+        "Read-only; searches bundled docs only (no web access).",
       inputSchema: { query: z.string().min(1).describe("Keywords to search for, e.g. 'rewarded ad reward callback' or 'poki gameplayStop'.") },
       annotations: { readOnlyHint: true, openWorldHint: false, idempotentHint: true },
     },
