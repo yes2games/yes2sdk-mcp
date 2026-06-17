@@ -33,26 +33,44 @@ afterAll(async () => {
 });
 
 describe("listTools", () => {
-  it("returns exactly the 7 registered tools", async () => {
+  it("returns exactly the 11 registered tools", async () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
       [
+        "detect_sdk",
         "get_api_reference",
+        "get_compliance_rule",
         "get_install_instructions",
+        "get_platform_capabilities",
         "get_platform_requirements",
         "get_quickstart",
         "list_sdk_modules",
         "search_docs",
+        "troubleshoot",
         "validate_integration",
       ].sort()
     );
+  });
+
+  it("marks every tool read-only (none mutate the consumer FS or network)", async () => {
+    const { tools } = await client.listTools();
+    for (const t of tools) {
+      expect(t.annotations?.readOnlyHint, `${t.name} should be readOnlyHint:true`).toBe(true);
+      expect(t.annotations?.openWorldHint, `${t.name} should be openWorldHint:false`).toBe(false);
+    }
   });
 
   it("marks get_install_instructions read-only", async () => {
     const { tools } = await client.listTools();
     const install = tools.find((t) => t.name === "get_install_instructions");
     expect(install?.annotations?.readOnlyHint).toBe(true);
+  });
+
+  it("marks detect_sdk read-only", async () => {
+    const { tools } = await client.listTools();
+    const detect = tools.find((t) => t.name === "detect_sdk");
+    expect(detect?.annotations?.readOnlyHint).toBe(true);
   });
 });
 
