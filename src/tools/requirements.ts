@@ -20,6 +20,7 @@ export function registerRequirementsTool(server: McpServer): void {
         "(poki, crazygames, yandex, gamedistribution, youtube). " +
         "Each rule is the same check validate_integration runs, so use this to learn what to satisfy up front.",
       inputSchema: { platform: z.enum(PLATFORMS).describe("Target platform.") },
+      annotations: { readOnlyHint: true, openWorldHint: false, idempotentHint: true },
     },
     async ({ platform }) => {
       const rules = getRulesForPlatform(platform);

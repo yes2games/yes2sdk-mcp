@@ -43,6 +43,7 @@ export function registerDocsTools(server: McpServer): void {
         "Returns the top matching sections with their doc slug so you can follow up with get_quickstart or get_api_reference. " +
         "Use this for anything about integrating the Yes2SDK, platform requirements (Poki, CrazyGames, Yandex, GameDistribution, YouTube), or the SDK's API.",
       inputSchema: { query: z.string().min(1).describe("Keywords to search for, e.g. 'rewarded ad reward callback' or 'poki gameplayStop'.") },
+      annotations: { readOnlyHint: true, openWorldHint: false, idempotentHint: true },
     },
     async ({ query }) => {
       const hits = searchDocs(query, 5);
@@ -82,6 +83,7 @@ export function registerDocsTools(server: McpServer): void {
         "These guides include the mandatory call sequence, per-engine examples, critical rules, and common rejection reasons. " +
         "Read the quickstart for the platform you're integrating before writing SDK calls.",
       inputSchema: { platform: z.enum(QUICKSTART_PLATFORMS).describe("Target platform.") },
+      annotations: { readOnlyHint: true, openWorldHint: false, idempotentHint: true },
     },
     async ({ platform }) => {
       const slug = `quickstart-${platform}`;
@@ -104,6 +106,7 @@ export function registerDocsTools(server: McpServer): void {
         "Return the full API reference for one Yes2SDK module. Modules: overview, lifecycle, ads, analytics, auth, banners, data, errors, friends, game, player, score, session, upcoming. " +
         "Use this for precise method signatures and behavior when calling the SDK.",
       inputSchema: { module: z.enum(API_MODULES).describe("API module name.") },
+      annotations: { readOnlyHint: true, openWorldHint: false, idempotentHint: true },
     },
     async ({ module }) => {
       const slug = `api/${module}`;
@@ -126,6 +129,7 @@ export function registerDocsTools(server: McpServer): void {
         "List all Yes2SDK API reference module names available for integration. " +
         "Use the returned names with get_api_reference(module) or the yes2sdk://docs/{module} resource.",
       inputSchema: {},
+      annotations: { readOnlyHint: true, openWorldHint: false, idempotentHint: true },
     },
     async () => ({
       content: [{ type: "text" as const, text: API_MODULES.join("\n") }],
