@@ -12,11 +12,20 @@ The server calls **no LLM** and needs no API key — it is purely a tool provide
 
 ## Tools
 
+All tools are read-only (`readOnlyHint`); none write to the consumer filesystem or call the network.
+
 | Tool | Input | What it does |
 |------|-------|--------------|
+| `get_install_instructions` | `{ engine, platform? }` | Version-pinned install + post-install steps for `unity` \| `defold` \| `js`, plus how to verify the SDK is importable. Call before generating any SDK code. |
+| `detect_sdk` | `{ projectPath }` | Inspect a project (read-only): engine, whether the SDK is installed, the version, and any install steps still required. |
 | `search_docs` | `{ query }` | Keyword search across all bundled docs; returns top sections with their doc slug. |
 | `get_quickstart` | `{ platform }` | Full quickstart guide for `poki` \| `crazygames` \| `yandex` \| `gamedistribution` \| `youtube`. |
 | `get_api_reference` | `{ module }` | Full API reference for one module (`overview`, `lifecycle`, `ads`, `analytics`, `auth`, `banners`, `data`, `errors`, `friends`, `game`, `player`, `score`, `session`, `upcoming`). |
+| `list_sdk_modules` | `{}` | List all API reference module names. |
+| `get_platform_capabilities` | `{ platform?, module? }` | Module × platform support matrix (`Ready` / `Partial` / not offered); optionally filter to one platform column or one module row. |
+| `get_platform_requirements` | `{ platform }` | The compliance rules a build must satisfy for a platform, as `id [severity]: description`. |
+| `get_compliance_rule` | `{ ruleId }` | One compliance rule by id (e.g. `P-002`): severity, platform, what it checks, and the fix. |
+| `troubleshoot` | `{ symptom }` | Map an error string or description to its likely cause and the ordered fix. |
 | `validate_integration` | `{ platform, buildPath?, eventLogJson? }` | Static build checks and/or behavioral compliance checks (see below). |
 
 ### `validate_integration` — two modes
