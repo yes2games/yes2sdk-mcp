@@ -1,5 +1,13 @@
 # Yes2SDK for GameDistribution - Platform Guide
 
+> **Install Yes2SDK first.** None of the API below compiles until the SDK is
+> installed in your project — Unity: UPM git URL
+> `https://github.com/yes2games/yes2sdk-unity.git#<version>` **plus**
+> `Yes2SDK > Build Window > Install Template`; Defold: add the release archive to
+> `game.project` `[project]` dependencies, then Project > Fetch Libraries. If you
+> use the Yes2SDK MCP, call `get_install_instructions` for exact pinned steps and
+> `detect_sdk` to confirm the SDK is installed before generating any code.
+
 ## Requirements
 
 GameDistribution (GD) uses an **event-driven** SDK rather than a promise-based one — instead of awaiting an ad call you listen for `SDK_GAME_START`, `SDK_GAME_PAUSE`, and `SDK_REWARDED_WATCH_COMPLETE` events. Yes2SDK hides this behind the standard `ads.*` callbacks, so you write the same code as on Poki/CG.

@@ -1,5 +1,13 @@
 # Yes2SDK for YouTube Playables - Platform Guide
 
+> **Install Yes2SDK first.** None of the API below compiles until the SDK is
+> installed in your project — Unity: UPM git URL
+> `https://github.com/yes2games/yes2sdk-unity.git#<version>` **plus**
+> `Yes2SDK > Build Window > Install Template`; Defold: add the release archive to
+> `game.project` `[project]` dependencies, then Project > Fetch Libraries. If you
+> use the Yes2SDK MCP, call `get_install_instructions` for exact pinned steps and
+> `detect_sdk` to confirm the SDK is installed before generating any code.
+
 ## Requirements
 
 YouTube Playables runs your game inside a sandboxed iframe on `youtube.com` and applies the strictest certification checks of any Yes2Games platform. Several APIs are **certification-mandatory** — without them YouTube will reject the game even if it runs fine in the Inspector.
