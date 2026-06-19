@@ -1,64 +1,24 @@
 name: build and deploy
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
-concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
-  actions: write
-
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Delete prior mcp artifacts
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh api "/repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
-            --jq '.artifacts[] | select(.name | startswith("mcp-")) | .id' \
-          | xargs -r -I{} gh api -X DELETE "/repos/${GITHUB_REPOSITORY}/actions/artifacts/{}"
-
-      - name: Install podman + skopeo
-        run: sudo apt-get install -y podman skopeo 2>/dev/null || true
-
-      - name: Build image + export to OCI layout
-        run: |
-          podman build -t "localhost/mcp:${GITHUB_SHA}" -f Containerfile .
-          podman push "localhost/mcp:${GITHUB_SHA}" \
-                     "oci:./oci-layout:${GITHUB_SHA}"
-
-      - name: Bundle unit files alongside OCI layout
-        run: |
-          mkdir -p ./bundle
-          cp -r ./oci-layout ./bundle/
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: mcp-${{ github.sha }}
-          path: ./bundle/
-          retention-days: 1
-          compression-level: 0
-
-      - name: Dispatch deploy to yes2infra
-        uses: peter-evans/repository-dispatch@v4
-        with:
-          token: ${{ secrets.Y2G_TOKEN }}
-          repository: yes2games/yes2infra
-          event-type: deploy-service
-          client-payload: >-
-            {"service": "yes2sdk-mcp-main",
-             "sha": "${{ github.sha }}",
-             "run_id": "${{ github.run_id }}",
-             "artifact_name": "mcp-${{ github.sha }}",
-             "server": "bakso"}
+  # Build the image, push it + a request marker to R2, no GitHub creds (ADR-0010).
+  # The butler dispatcher (yes2infra#191) polls the marker, mints a GitHub App
+  # token, and repository_dispatches deploy-service — replacing the legacy
+  # Y2G_TOKEN dispatch this repo used to run.
+  build-push-r2:
+    uses: yes2games/yes2infra/.github/workflows/build-push-r2.yml@master
+    with:
+      service-key: yes2sdk-mcp-main
+      server: bakso
+    secrets:
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
