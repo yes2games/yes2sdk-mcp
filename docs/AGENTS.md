@@ -12,7 +12,8 @@ methods. When unsure, fetch the full corpus.
 - Per-platform guides: `/docs/raw/quickstart-<platform>` (poki, crazygames, yandex,
   gamedistribution, youtube)
 - API reference: `/docs/raw/api/<module>` (overview, lifecycle, ads, game, session,
-  data, score, player, auth, banners, friends, analytics, errors)
+  data, player, auth, banners, friends, score, analytics, errors, leaderboard,
+  stats, iap, config, review)
 
 ## The unified API
 
@@ -90,6 +91,9 @@ platform SDK directly. Only the method-naming convention differs per engine:
 - Cloud data via `data.*` (per-player; persistent saves need auth, otherwise
   device-local). Auth is optional — Yandex supports anonymous play.
 - Optional sticky bottom banner via `ads.showBanner('bottom')`.
+- Yandex also supports `leaderboard`, player `stats`, in-app purchases (`iap`),
+  remote config flags (`config`), and the in-game rating prompt (`review`). Guard
+  each with `isSupported()` and see the API reference for usage.
 
 ### GameDistribution (`/docs/raw/quickstart-gamedistribution`)
 - `gameId` must be set before the SDK loads — the Dashboard injects it; set it in
