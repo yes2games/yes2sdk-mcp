@@ -1,5 +1,13 @@
 # Yes2SDK for Yandex Games - Platform Guide
 
+> **Install Yes2SDK first.** None of the API below compiles until the SDK is
+> installed in your project — Unity: UPM git URL
+> `https://github.com/yes2games/yes2sdk-unity.git#<version>` **plus**
+> `Yes2SDK > Build Window > Install Template`; Defold: add the release archive to
+> `game.project` `[project]` dependencies, then Project > Fetch Libraries. If you
+> use the Yes2SDK MCP, call `get_install_instructions` for exact pinned steps and
+> `detect_sdk` to confirm the SDK is installed before generating any code.
+
 ## Requirements
 
 Yandex Games has specific SDK integration requirements for game approval.
@@ -91,6 +99,18 @@ yes2sdk.data_set_int("highscore", 1000)
 local score = yes2sdk.data_get_int("highscore", 0)
 ```
 
+## Now Available on Yandex
+
+Yandex has the richest feature set of any platform, and these modules are now **live** through Yes2SDK (fully supported on Yandex, safe no-ops elsewhere — guard with `isSupported()`):
+
+- **Leaderboards** — submit scores and read ranked/friend entries. See [api/leaderboard.md](api/leaderboard.md).
+- **Stats** — read, set, and atomically increment numeric player counters. See [api/stats.md](api/stats.md).
+- **IAP** — product catalog, purchases, and consume flow (no subscriptions yet). See [api/iap.md](api/iap.md).
+- **Remote config flags** — `config.getFlagsAsync({ defaults })` returns remote feature flags, falling back to your defaults. See [api/config.md](api/config.md).
+- **Rating prompt** — `review.requestReviewAsync()` shows Yandex's native rating dialog (eligibility checked internally). See [api/review.md](api/review.md).
+
+Player identity extras (`player.getUniqueId()`, `getPayingStatus()`, `getMode()`, `getPhoto(size)`, `getIDsPerGame()`), `game.getServerTimeAsync()` (tamper-proof server clock), and `banners.getBannerStatusAsync()` are also fully wired on Yandex.
+
 ## How to Submit
 
 You don't upload to Yandex Games yourself — the Yes2Games team handles platform submission.
@@ -131,7 +151,7 @@ If reviewers send back changes, upload a new build and request publish again on 
 ## Common Issues
 
 ### "YaGames is not defined"
-The SDK isn't loaded. Yes2SDK automatically loads it from `https://yandex.ru/games/sdk/v2`. Make sure your build doesn't block external script loading.
+The SDK isn't loaded. Yes2SDK automatically loads it from the relative `/sdk.js` path (required for games uploaded to the Yandex console). Make sure your build doesn't block script loading.
 
 ### Game loads slowly on Yandex
 Yandex wraps your game in an iframe with additional SDK overhead. Keep your build size under 15MB for best experience.

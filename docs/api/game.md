@@ -19,6 +19,7 @@ Gameplay lifecycle signals, invite links, platform settings, and clipboard. The 
 | `hideInviteButton(): void` | Hide the platform invite button. |
 | `getSettings(): string` | Platform game settings as a JSON string. |
 | `copyToClipboard(text: string): void` | Copy text to clipboard. |
+| `getServerTimeAsync(): Promise<number>` | Current server time as Unix epoch milliseconds. Falls back to the local `Date.now()` clock where there's no server-time API. |
 
 ---
 
@@ -35,10 +36,11 @@ Gameplay lifecycle signals, invite links, platform settings, and clipboard. The 
 | `hideInviteButton` | — | — | Ready | — | — |
 | `getSettings` | —⁵ | —⁵ | Ready⁶ | —⁵ | Ready⁷ |
 | `copyToClipboard` | Partial⁸ | Partial⁸ | Partial⁸ | Partial⁸ | Partial⁸ |
+| `getServerTimeAsync` | Partial⁹ | Partial⁹ | Partial⁹ | Ready | Partial⁹ |
 
 ¹ Internal state only — GameDistribution has no platform gameplay call.
 ² YouTube sets an internal flag; the real lifecycle uses `firstFrameReady`/`gameReady` (driven by the SDK's `startGame`).
-³ `PokiSDK.shareableURL`.  ⁴ `PokiSDK.getURLParam`.  ⁵ Returns `"{}"`.  ⁶ Reads CrazyGames `disableChat`/`muteAudio`.  ⁷ Reads `system.getLanguage()` + `isAudioEnabled()`.  ⁸ Uses the browser `navigator.clipboard` (and CrazyGames' `copyToClipboard` where present) — not a dedicated platform API.
+³ `PokiSDK.shareableURL`.  ⁴ `PokiSDK.getURLParam`.  ⁵ Returns `"{}"`.  ⁶ Reads CrazyGames `disableChat`/`muteAudio`.  ⁷ Reads `system.getLanguage()` + `isAudioEnabled()`.  ⁸ Uses the browser `navigator.clipboard` (and CrazyGames' `copyToClipboard` where present) — not a dedicated platform API.  ⁹ No server-time API — returns the local (unsynced) device clock via `Date.now()`. Yandex returns tamper-proof `ysdk.serverTime()`.
 
 ---
 

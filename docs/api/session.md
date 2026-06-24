@@ -16,6 +16,7 @@ Information about the current play session: device, locale, country, entry point
 | `getLocale()` | `string` | Locale (e.g. `"en_US"`). |
 | `getOrientation()` | `DeviceOrientation` | `"portrait"` or `"landscape"`. |
 | `getDevice()` | `DeviceType` | `"desktop" \| "mobile" \| "tablet" \| "tv" \| "unknown"`. |
+| `getDeviceInfo()` | `DeviceInfo` | **Synchronous.** Resolved `DeviceType` plus boolean form-factor flags (`isMobile` / `isDesktop` / `isTablet` / `isTV`). |
 | `getEntryPointAsync()` | `Promise<string>` | How the game was launched. |
 | `getEntryPointData()` | `EntryPointData` | Launch data (e.g. share-link params). Empty object if none. |
 | `setSessionData(data)` | `void` | Set session data. |
@@ -26,7 +27,7 @@ Information about the current play session: device, locale, country, entry point
 | `getSDKVersion()` | `string` | SDK version string. |
 | `isAudioEnabled()` | `boolean` | Whether platform audio is enabled. `true` where no native signal. Pair with the `audioEnabledChange` event. |
 
-**Types:** `DeviceOrientation = "portrait" | "landscape"`; `DeviceType = "desktop" | "mobile" | "tablet" | "tv" | "unknown"`; `EntryPointData = Record<string, unknown>`; `TrafficSource = { referrer, utmCampaign, utmSource, utmMedium }` (each `string | null`).
+**Types:** `DeviceOrientation = "portrait" | "landscape"`; `DeviceType = "desktop" | "mobile" | "tablet" | "tv" | "unknown"`; `DeviceInfo = { type: DeviceType; isMobile: boolean; isDesktop: boolean; isTablet: boolean; isTV: boolean }` (at most one flag is `true`; all `false` when `type` is `"unknown"`); `EntryPointData = Record<string, unknown>`; `TrafficSource = { referrer, utmCampaign, utmSource, utmMedium }` (each `string | null`).
 
 ---
 
@@ -38,6 +39,7 @@ Information about the current play session: device, locale, country, entry point
 | `getLocale` | Partial¹ | Partial¹ | Partial¹ | Ready | Ready² |
 | `getOrientation` | Partial³ | Partial³ | Partial³ | Partial³ | Partial³ |
 | `getDevice` | Partial³ | Partial³ | Ready | Partial³ | Partial³ |
+| `getDeviceInfo` | Partial³ | Partial³ | Ready⁷ | Ready⁸ | Partial³ |
 | `getEntryPointAsync` | Ready | Partial | Ready | — | — |
 | `getEntryPointData` | Partial | Partial | Ready | Ready | — |
 | `getTrafficSource` | Ready | Partial | Ready | Partial⁴ | Partial⁴ |
@@ -51,6 +53,8 @@ Information about the current play session: device, locale, country, entry point
 ⁴ Only `document.referrer`; UTM fields are `null`.
 ⁵ Returns a hardcoded version string.
 ⁶ Returns `true` (no native audio signal). On YouTube this is a real call — important for certification.
+⁷ CrazyGames maps to `getSystemInfo().device.type` (desktop/mobile/tablet; no TV class), falling back to user-agent detection.
+⁸ Yandex maps to the native `ysdk.deviceInfo` form-factor flags (more accurate than UA parsing).
 
 ---
 

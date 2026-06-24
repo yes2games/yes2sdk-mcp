@@ -15,6 +15,11 @@ Player identity, cloud-backed player data, and connected players (friends who al
 | Signature | Description |
 |-----------|-------------|
 | `getPlayer(): Promise<Player>` | Current player info. |
+| `getUniqueId(): Promise<string>` | The player's permanent unique id. Resolves with `"anonymous"` where the player can't be identified. |
+| `getIDsPerGame(): Promise<GameIdentity[]>` | The player's identity across the developer's other games on the platform. Empty array where unsupported. |
+| `getPayingStatus(): Promise<PayingStatus>` | The player's monetization status. `"unknown"` where unsupported. |
+| `getMode(): Promise<PlayerMode>` | The player's session mode (`"lite"` anonymous, `"authorized"` logged-in). `"unknown"` where undeterminable. |
+| `getPhoto(size?: PlayerPhotoSize): Promise<string \| null>` | Profile photo URL at the requested size (default `"medium"`); `null` if none. |
 | `getConnectedPlayers(): Promise<ConnectedPlayer[]>` | Friends who also play this game. |
 | `getDataAsync(keys: string[] \| string): Promise<PlayerData>` | Load player data for keys. Accepts a JSON-string of keys (Unity bridge). |
 | `setDataAsync(data: PlayerData \| string): Promise<void>` | Save player data. Accepts a JSON string (Unity bridge). |
@@ -23,7 +28,9 @@ Player identity, cloud-backed player data, and connected players (friends who al
 | `isDataSupported(): boolean` | Whether save/load works. |
 | `isConnectedPlayersSupported(): boolean` | Whether connected players is supported. |
 
-**Types:** `Player = { id: string; name: string | null; photo: string | null }`; `ConnectedPlayer` same shape; `SignedPlayerInfo = { playerId: string; signature: string }`; `PlayerData = Record<string, unknown>`.
+**Types:** `Player = { id: string; name: string | null; photo: string | null }`; `ConnectedPlayer` same shape; `SignedPlayerInfo = { playerId: string; signature: string }`; `PlayerData = Record<string, unknown>`; `PayingStatus = "paying" | "partially_paying" | "not_paying" | "unknown"`; `PlayerMode = "lite" | "authorized" | "unknown"`; `PlayerPhotoSize = "small" | "medium" | "large"`; `GameIdentity = { appId: number; userId: string }`.
+
+> **Identity extras (`getUniqueId`, `getIDsPerGame`, `getPayingStatus`, `getMode`, `getPhoto`)** are richest on **Yandex**. On **CrazyGames** the ones backed by its real player identity (`getUniqueId`, `getMode`, `getPhoto`) return live values. On platforms that can't identify the player they return safe defaults — `"anonymous"`, `[]`, `"unknown"`, `"unknown"`, and `null` respectively — so they're always safe to call.
 
 ---
 
@@ -32,6 +39,11 @@ Player identity, cloud-backed player data, and connected players (friends who al
 | Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
 |--------|:----:|:----------------:|:----------:|:------:|:-------:|
 | `getPlayer` | —¹ | —¹ | Ready | Ready | —¹ |
+| `getUniqueId` | —⁵ | —⁵ | Partial⁷ | Ready | —⁵ |
+| `getIDsPerGame` | —⁶ | —⁶ | —⁶ | Ready | —⁶ |
+| `getPayingStatus` | —⁵ | —⁵ | —⁵ | Ready | —⁵ |
+| `getMode` | —⁵ | —⁵ | Partial⁷ | Ready | —⁵ |
+| `getPhoto` | —⁵ | —⁵ | Partial⁷ | Ready | —⁵ |
 | `getConnectedPlayers` | — | — | — | — | — |
 | `getDataAsync` | Partial⁴ | Partial⁴ | Ready | Ready | Ready |
 | `setDataAsync` | Partial⁴ | Partial⁴ | Ready | Ready | Ready |
@@ -44,6 +56,9 @@ Player identity, cloud-backed player data, and connected players (friends who al
 ² Auto-flush platforms — `flushDataAsync` is a no-op (CrazyGames, YouTube) or relies on `setData(flush=true)` (Yandex).
 ³ Yandex `getPlayer({ signed: true })` returns the player id + signature.
 ⁴ Poki & GameDistribution have no platform storage API, so the **Core API transparently falls back to namespaced `localStorage`**: `getDataAsync`/`setDataAsync` persist locally (device-local, not cloud/cross-device), `flushDataAsync` is a no-op success, and `isDataSupported()` returns `true`. The platform *strategy* reports no support — the fallback lives in `PlayerAPI`. (Note: the Unity SDK does **not** apply this fallback — its `IsDataSupported()` is true only on CrazyGames, see below.)
+⁵ Yandex-only identity extras. Off-platform they resolve to a safe default (`"anonymous"` / `"unknown"` / `null`) — always safe to call.
+⁶ Cross-game identity is Yandex-only; elsewhere it resolves to an empty array.
+⁷ CrazyGames has its own player identity, so `getUniqueId`/`getPhoto` reuse `getPlayer()`'s real id/photo (no photo size variants), and `getMode` reflects logged-in (`"authorized"`) vs anonymous (`"lite"`). `getPayingStatus` is still `"unknown"` and `getIDsPerGame` is empty there.
 
 **Connected players** isn't offered by the live platforms yet. **Player identity** (`getPlayer`) is anonymous on Poki and GameDistribution, though player saved-data still persists locally there.
 
