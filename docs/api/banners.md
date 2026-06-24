@@ -16,7 +16,10 @@ Positioned display banners with explicit container IDs and sizes. **Distinct** f
 | `hideBanner(id: string): void` | Hide a specific banner by ID. |
 | `hideAllBanners(): void` | Hide all displayed banners. |
 | `refreshBanners(): void` | Refresh all displayed banners. |
+| `getBannerStatusAsync(): Promise<BannerStatus>` | Query the current banner display status. Resolves `{ isShowing: false }` where there's no status API. |
 | `isSupported(): boolean` | Whether banners are supported. |
+
+`BannerStatus = { isShowing: boolean; reason?: string }` (`reason` carries the platform-supplied reason a banner is not showing, e.g. Yandex `'ADV_IS_NOT_CONNECTED'`).
 
 Documented sizes: `"300x250" | "728x90" | "320x50" | "468x60" | "160x600"` (the param is typed `string`, so other values are accepted).
 
@@ -30,11 +33,14 @@ Documented sizes: `"300x250" | "728x90" | "320x50" | "468x60" | "160x600"` (the 
 | `hideBanner` | — | — | Ready | Ready¹ | — |
 | `hideAllBanners` | — | — | Ready | Ready | — |
 | `refreshBanners` | — | — | Ready² | Partial³ | — |
+| `getBannerStatusAsync` | — | — | Partial⁴ | Ready⁵ | — |
 | `isSupported` | — | — | Ready | Ready | — |
 
 ¹ Yandex maps to a single sticky banner (`ysdk.adv.showBannerAdv`); `id`/`size` are ignored.
 ² CrazyGames `refreshBanners` if the SDK version exposes it (warns otherwise).
 ³ Yandex has no native refresh — emulated via hide-then-show.
+⁴ CrazyGames has no banner status query — always resolves `{ isShowing: false, reason: "STATUS_QUERY_NOT_SUPPORTED" }`.
+⁵ Yandex maps to `ysdk.adv.getBannerAdvStatus()` (live state, with a platform `reason`).
 
 ---
 

@@ -26,6 +26,11 @@ export const API_MODULES = [
   "player",
   "score",
   "session",
+  "leaderboard",
+  "stats",
+  "iap",
+  "config",
+  "review",
   "upcoming",
 ] as const;
 
@@ -105,7 +110,7 @@ export function registerDocsTools(server: McpServer): void {
     {
       title: "Get a Yes2SDK API reference module",
       description:
-        "Return the full API reference for one Yes2SDK module. Modules: overview, lifecycle, ads, analytics, auth, banners, data, errors, friends, game, player, score, session, upcoming. " +
+        "Return the full API reference for one Yes2SDK module. Modules: overview, lifecycle, ads, analytics, auth, banners, data, errors, friends, game, player, score, session, leaderboard, stats, iap, config, review, upcoming. " +
         "Use this for precise method signatures and behavior when calling the SDK.",
       inputSchema: { module: z.enum(API_MODULES).describe("API module name.") },
       annotations: { readOnlyHint: true, openWorldHint: false, idempotentHint: true },

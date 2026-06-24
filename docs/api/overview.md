@@ -30,7 +30,7 @@ Each function is rated **per platform** so you always know what to expect:
 
 Optional features degrade gracefully: guard them with `isSupported()` / `IsSupported()` and your integration behaves correctly on every platform, with zero special-casing required.
 
-> **Growing fast.** Seven additional modules are already built into Core and on the rollout path — see [Upcoming modules](#upcoming-modules) below.
+> **Growing fast.** A few more modules are already built into Core and on the rollout path — see [Upcoming modules](#upcoming-modules) below.
 
 ---
 
@@ -51,6 +51,11 @@ These modules are available today via `Yes2SDK.<module>` (Core), `Yes2SDK.<Modul
 | Banners | [banners.md](banners.md) | Positioned display banners (distinct from `ads` banner) |
 | Friends | [friends.md](friends.md) | Paginated friends list |
 | Score | [score.md](score.md) | Score submission (incl. encrypted) |
+| Leaderboard | [leaderboard.md](leaderboard.md) | Named leaderboards: submit scores, read ranked entries |
+| Stats | [stats.md](stats.md) | Numeric player statistics (get / set / increment) |
+| IAP | [iap.md](iap.md) | In-app purchases: catalog, purchase, consume, subscriptions |
+| Config | [config.md](config.md) | Remote configuration / feature flags |
+| Review | [review.md](review.md) | In-game rating / feedback prompt |
 | Errors | [errors.md](errors.md) | Error model, `ErrorCode`, exceptions |
 
 ---
@@ -74,6 +79,11 @@ A module-level summary across the five live platforms. Per-method detail is on e
 | Banners | — | — | Ready | Ready⁵ | — |
 | Friends | — | — | Ready | — | — |
 | Score | —⁶ | —⁶ | Ready | —⁶ | Ready |
+| Leaderboard | — | — | — | Ready | — |
+| Stats | — | — | — | Ready | — |
+| IAP | — | — | — | Ready⁷ | — |
+| Config — feature flags | Partial⁸ | Partial⁸ | Partial⁸ | Ready | Partial⁸ |
+| Review — rating prompt | — | — | — | Ready | — |
 
 ¹ Custom analytics events are recorded locally; the gameplay-lifecycle calls (`logLevelStart`/`logLevelEnd`) drive each platform's real `gameplayStart`/`gameplayStop`. On YouTube, error/warning reporting also flows to the platform's `health` channel.
 ² Poki & GameDistribution don't expose a storage API, so Data and Player saved-data persist via namespaced `localStorage` (device-local). Player identity stays anonymous on these platforms.
@@ -81,27 +91,31 @@ A module-level summary across the five live platforms. Per-method detail is on e
 ⁴ GameDistribution and YouTube track gameplay via internal state — YouTube drives the real lifecycle through `firstFrameReady`/`gameReady`.
 ⁵ Yandex presents a single sticky banner; placement and size are managed for you, and refresh re-displays it.
 ⁶ Score submission isn't offered by these platforms; calls are recorded locally and are safe to keep in your code.
+⁷ Yandex IAP covers products and purchases; subscriptions are not offered yet (`isSubscriptionSupported()` is `false` on every platform).
+⁸ Config has no remote-config service on these platforms, so `getFlagsAsync` returns your provided `defaults` unchanged — always safe to call. Only Yandex serves remote overrides (`isSupported()` is `true` there only).
 
 ---
 
 ## Upcoming modules
 
-Seven more modules are already implemented in Core and on the rollout path. You can design against their API surface today and adopt them as platform support lands:
+A few more modules are already implemented in Core and on the rollout path. You can design against their API surface today and adopt them as platform support lands:
 
-**Achievements · Context · IAP · Leaderboard · Notifications · Stats · Tournament**
+**Achievements · Context · Notifications · Tournament**
 
-Full signatures and the rollout picture are in [upcoming.md](upcoming.md). Several map directly to capabilities the live platforms already expose (for example, Yandex's native IAP, leaderboards, and stats), so they're a natural next step.
+Full signatures and the rollout picture are in [upcoming.md](upcoming.md). These map directly to Facebook Instant Games capabilities on the platform roadmap (context, tournaments, notifications), so they're a natural next step.
 
 ### Module availability by surface
 
 | Module | Core | Unity | Defold |
 |--------|:----:|:-----:|:------:|
-| Ads · Analytics · Session · Data · Player · Auth · Game · Banners · Friends · Score | Available | Available | Available |
-| Achievements · Context · IAP · Leaderboard · Notifications · Stats · Tournament | Built in (Core) | Coming soon | Coming soon |
+| Ads · Analytics · Session · Data · Player · Auth · Game · Banners · Friends · Score · Leaderboard · Stats · IAP · Config · Review | Available | Available | Coming soon¹⁰ |
+| Achievements · Context · Notifications · Tournament | Built in (Core) | Coming soon | Coming soon |
 
-- **Core** ships all 17 module implementations; the 10 above are wired to the `Yes2SDK.<module>` API today, with the rest exposed as adapters land.
-- **Unity** exposes all 17 accessors; the upcoming 7 return a clean `FeatureNotSupported` until their bridges ship.
-- **Defold** ships the 10 available modules today ("10 modules, 39 functions"), with the rest on the roadmap.
+- **Core** ships all module implementations; the live set above is wired to the `Yes2SDK.<module>` API today (including `iap`, `leaderboard`, `stats`, `config`, `review`, plus `achievements`, `tournament`, `context`, `notifications` on the surface), with full platform coverage landing as adapters do.
+- **Unity** exposes all accessors; the upcoming modules return a clean `FeatureNotSupported` until their bridges ship.
+- **Defold** ships the original 10 available modules today, with the newer ones on the roadmap.
+
+¹⁰ Leaderboard / Stats / IAP / Config / Review are live in Core (and on Yandex) today; the Unity and Defold surface bindings are arriving with the platform rollout.
 
 ---
 
