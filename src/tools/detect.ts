@@ -16,25 +16,71 @@ interface DetectResult {
   notes: string[];
 }
 
-function readIfExists(p: string): string | null {
-  try {
-    return fs.readFileSync(p, "utf-8");
-  } catch {
-    return null;
-  }
+/**
+ * A read-only view of a project's files. `read` returns the contents of a
+ * repo-relative file or null when it does not exist; `exists` reports whether a
+ * file OR directory is present at a repo-relative path. Two implementations:
+ * disk-backed (from projectPath) and map-backed (from inline `files`).
+ */
+interface FileAccessor {
+  read(relPath: string): string | null;
+  exists(relPath: string): boolean;
 }
 
-function detectEngine(root: string): Engine | "unknown" {
-  if (fs.existsSync(path.join(root, "ProjectSettings")) && fs.existsSync(path.join(root, "Packages", "manifest.json"))) {
+/** Normalize a repo-relative path to forward slashes, no leading "./". */
+function normalizeRel(relPath: string): string {
+  return relPath.replace(/\\/g, "/").replace(/^\.\//, "");
+}
+
+/** Disk-backed accessor rooted at an absolute project directory. */
+function diskAccessor(root: string): FileAccessor {
+  return {
+    read(relPath: string): string | null {
+      try {
+        return fs.readFileSync(path.join(root, relPath), "utf-8");
+      } catch {
+        return null;
+      }
+    },
+    exists(relPath: string): boolean {
+      return fs.existsSync(path.join(root, relPath));
+    },
+  };
+}
+
+/** Map-backed accessor over a record of repo-relative path → contents. */
+function mapAccessor(files: Record<string, string>): FileAccessor {
+  const map = new Map<string, string>();
+  for (const [k, v] of Object.entries(files)) map.set(normalizeRel(k), v);
+  return {
+    read(relPath: string): string | null {
+      const key = normalizeRel(relPath);
+      return map.has(key) ? map.get(key)! : null;
+    },
+    exists(relPath: string): boolean {
+      const key = normalizeRel(relPath);
+      if (map.has(key)) return true;
+      // Treat as a directory if any key sits under it.
+      const prefix = key + "/";
+      for (const k of map.keys()) {
+        if (k.startsWith(prefix)) return true;
+      }
+      return false;
+    },
+  };
+}
+
+function detectEngine(fa: FileAccessor): Engine | "unknown" {
+  if (fa.exists("ProjectSettings") && fa.exists("Packages/manifest.json")) {
     return "unity";
   }
-  if (fs.existsSync(path.join(root, "game.project"))) return "defold";
-  if (fs.existsSync(path.join(root, "package.json"))) return "js";
+  if (fa.exists("game.project")) return "defold";
+  if (fa.exists("package.json")) return "js";
   return "unknown";
 }
 
-function detectUnity(root: string): { installed: boolean; version: string | null } {
-  const manifest = readIfExists(path.join(root, "Packages", "manifest.json"));
+function detectUnity(fa: FileAccessor): { installed: boolean; version: string | null } {
+  const manifest = fa.read("Packages/manifest.json");
   if (!manifest) return { installed: false, version: null };
   try {
     const json = JSON.parse(manifest) as { dependencies?: Record<string, string> };
@@ -48,8 +94,8 @@ function detectUnity(root: string): { installed: boolean; version: string | null
   }
 }
 
-function detectDefold(root: string): { installed: boolean; version: string | null } {
-  const proj = readIfExists(path.join(root, "game.project"));
+function detectDefold(fa: FileAccessor): { installed: boolean; version: string | null } {
+  const proj = fa.read("game.project");
   if (!proj) return { installed: false, version: null };
   const normalized = proj.replace(/\r\n/g, "\n");
   // Any dependencies#N line that points at the yes2sdk-defold release archive.
@@ -59,10 +105,10 @@ function detectDefold(root: string): { installed: boolean; version: string | nul
   return { installed: true, version: tag ? tag[1] : null };
 }
 
-function render(result: DetectResult, root: string): string {
+function render(result: DetectResult, pathLabel: string): string {
   const lines = [
     `# Yes2SDK project check`,
-    `Path: ${root}`,
+    `Path: ${pathLabel}`,
     `Engine: ${result.engine}`,
     `SDK installed: ${result.installed ? "yes" : "no"}`,
   ];
@@ -85,9 +131,55 @@ function render(result: DetectResult, root: string): string {
   return lines.join("\n");
 }
 
+/** Run detection against a file accessor; pathLabel is shown on the "Path:" line. */
+function runDetect(fa: FileAccessor, pathLabel: string): string {
+  const engine = detectEngine(fa);
+  const result: DetectResult = {
+    engine,
+    installed: false,
+    installedVersion: null,
+    expectedVersion: null,
+    missingSteps: [],
+    notes: [],
+  };
+
+  if (engine === "unknown") {
+    result.notes.push(
+      "Could not identify the engine (no Unity ProjectSettings/ + Packages/manifest.json, Defold game.project, or package.json found)."
+    );
+    return render(result, pathLabel);
+  }
+
+  const meta = getEngineMeta(engine);
+  result.expectedVersion = meta?.version || null;
+
+  if (engine === "unity") {
+    const u = detectUnity(fa);
+    result.installed = u.installed;
+    result.installedVersion = u.version;
+  } else if (engine === "defold") {
+    const d = detectDefold(fa);
+    result.installed = d.installed;
+    result.installedVersion = d.version;
+  } else {
+    // js: the web runtime is injected by the dashboard at upload, not installed at dev-time.
+    result.notes.push(
+      "JS/HTML5 projects do not install a dev-time package — the runtime is injected by the dashboard at upload. 'installed: no' is expected here."
+    );
+  }
+
+  if (!result.installed && meta) {
+    result.missingSteps = [...meta.installSteps, ...meta.postInstallSteps];
+  }
+
+  return render(result, pathLabel);
+}
+
 /**
- * Register detect_sdk: inspect a project directory (read-only) and report which
- * engine it is, whether the Yes2SDK is installed, and what install steps remain.
+ * Register detect_sdk: inspect a project (read-only) and report which engine it
+ * is, whether the Yes2SDK is installed, and what install steps remain. Works
+ * either from a local directory (`projectPath`, for stdio) or from inline file
+ * contents (`files`, for the hosted/sandboxed server that cannot read disk).
  * Use this before generating SDK code so you never emit references to a package
  * that has not been installed.
  */
@@ -97,11 +189,24 @@ export function registerDetectTool(server: McpServer): void {
     {
       title: "Detect Yes2SDK in a project",
       description:
-        "Inspect a project directory and report the engine (unity, defold, js), whether the Yes2SDK is installed, the installed version, and any install steps still required. " +
-        "Call this before generating engine code so you never write code referencing an uninstalled SDK. Read-only: it reads project files but never modifies them. " +
+        "Inspect a project and report the engine (unity, defold, js), whether the Yes2SDK is installed, the installed version, and any install steps still required. " +
+        "Call this before generating engine code so you never write code referencing an uninstalled SDK. Read-only: it inspects project files but never modifies them. " +
+        "Two input modes (supply exactly one):\n" +
+        "  - `projectPath`: absolute path to the project root. Only works when the MCP server runs LOCALLY over stdio (it reads your disk).\n" +
+        "  - `files`: inline map of repo-relative path → contents, e.g. { \"game.project\": \"…\", \"Packages/manifest.json\": \"…\", \"package.json\": \"…\" }. Use this with the HOSTED/sandboxed server, which cannot read your local disk.\n" +
         "Pair with get_install_instructions when the SDK is missing.",
       inputSchema: {
-        projectPath: z.string().min(1).describe("Absolute path to the root of the game project to inspect."),
+        projectPath: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("Absolute path to the root of the game project to inspect (local stdio mode only)."),
+        files: z
+          .record(z.string())
+          .optional()
+          .describe(
+            "Inline map of repo-relative path → file contents for hosted/sandboxed use. Include at least the engine-marker files: game.project (Defold), ProjectSettings/* and Packages/manifest.json (Unity), or package.json (JS)."
+          ),
       },
       annotations: {
         readOnlyHint: true,
@@ -109,55 +214,61 @@ export function registerDetectTool(server: McpServer): void {
         idempotentHint: true,
       },
     },
-    async ({ projectPath }) => {
-      const root = path.resolve(projectPath);
-      if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
+    async ({ projectPath, files }) => {
+      if (!projectPath && !files) {
         return {
-          content: [{ type: "text" as const, text: `Project path not found or not a directory: ${root}` }],
+          content: [
+            {
+              type: "text" as const,
+              text:
+                "No input provided. detect_sdk has two modes:\n\n" +
+                "1) LOCAL stdio: pass `projectPath` = absolute path to the project root. Only works when this MCP server runs locally and can read your disk.\n\n" +
+                "2) HOSTED/sandboxed: pass `files` = an inline map of repo-relative path → contents " +
+                "(e.g. { \"game.project\": \"…\", \"Packages/manifest.json\": \"…\", \"package.json\": \"…\" }). " +
+                "The hosted MCP server cannot read your local disk, so supply the engine-marker files inline.\n\n" +
+                "Pass exactly one.",
+            },
+          ],
           isError: true,
         };
       }
 
-      const engine = detectEngine(root);
-      const result: DetectResult = {
-        engine,
-        installed: false,
-        installedVersion: null,
-        expectedVersion: null,
-        missingSteps: [],
-        notes: [],
-      };
+      const notes: string[] = [];
+      let fa: FileAccessor;
+      let pathLabel: string;
 
-      if (engine === "unknown") {
-        result.notes.push(
-          "Could not identify the engine (no Unity ProjectSettings/ + Packages/manifest.json, Defold game.project, or package.json found)."
-        );
-        return { content: [{ type: "text" as const, text: render(result, root) }] };
-      }
-
-      const meta = getEngineMeta(engine);
-      result.expectedVersion = meta?.version || null;
-
-      if (engine === "unity") {
-        const u = detectUnity(root);
-        result.installed = u.installed;
-        result.installedVersion = u.version;
-      } else if (engine === "defold") {
-        const d = detectDefold(root);
-        result.installed = d.installed;
-        result.installedVersion = d.version;
+      if (files) {
+        if (projectPath) {
+          notes.push("Both `projectPath` and `files` were provided — using inline `files` and ignoring `projectPath`.");
+        }
+        fa = mapAccessor(files);
+        pathLabel = "(inline files)";
       } else {
-        // js: the web runtime is injected by the dashboard at upload, not installed at dev-time.
-        result.notes.push(
-          "JS/HTML5 projects do not install a dev-time package — the runtime is injected by the dashboard at upload. 'installed: no' is expected here."
-        );
+        const root = path.resolve(projectPath!);
+        if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text:
+                  `Could not read project path: ${root}. ` +
+                  "If you are using the HOSTED MCP server, it cannot read your local disk — pass `files` " +
+                  "(an inline map of repo-relative path → contents) instead, or run the MCP locally over stdio so `projectPath` can be read.",
+              },
+            ],
+            isError: true,
+          };
+        }
+        fa = diskAccessor(root);
+        pathLabel = root;
       }
 
-      if (!result.installed && meta) {
-        result.missingSteps = [...meta.installSteps, ...meta.postInstallSteps];
-      }
-
-      return { content: [{ type: "text" as const, text: render(result, root) }] };
+      // Prepend any pre-detection notes (e.g. both-inputs preference) to the output.
+      const body = runDetect(fa, pathLabel);
+      if (notes.length === 0) return { content: [{ type: "text" as const, text: body }] };
+      const noteLines = notes.map((n) => `Note: ${n}`).join("\n");
+      // Insert notes right after the header block (after the "SDK installed:" line region).
+      return { content: [{ type: "text" as const, text: `${body}\n${noteLines}` }] };
     }
   );
 }

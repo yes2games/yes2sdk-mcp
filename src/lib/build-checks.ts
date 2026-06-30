@@ -175,47 +175,31 @@ async function findIndexHtml(extractedDir: string): Promise<string | null> {
 }
 
 /**
- * Run static checks against an already-extracted build directory.
+ * Pure core of the static build checks. Operates on already-gathered inputs so
+ * it can run identically against a disk build (`runBuildChecks`) or inline
+ * content (`runBuildChecksInline`).
  *
- *  - SDK bundled?           (scan .js / .js.br / .js.gz for "Yes2SDK")
- *  - External scripts       (<script src="http..."> in index.html -> FAIL)
- *  - Required entry file     (index.html present; Poki also needs index.json)
- *  - Responsive-canvas       (warn if no width/height:100% in index.html)
+ *  - indexHtmlContent null  -> entry-file FAIL (no index.html); otherwise INFO,
+ *                              plus the external-scripts and responsive-canvas checks.
+ *  - fileBasenames          -> Poki index.json WARN.
+ *  - sdkBundled true        -> INFO bundled; false -> FAIL not-bundled;
+ *                              null -> WARN (could not verify from inline input).
  */
-export async function runBuildChecks(
-  extractedDir: string,
+export function evaluateBuild(
+  input: {
+    indexHtmlContent: string | null;
+    fileBasenames: string[];
+    sdkBundled: boolean | null;
+    /** Display path for the entry-file INFO message (defaults to "index.html"). */
+    indexHtmlPath?: string;
+  },
   platform: string
-): Promise<BuildFinding[]> {
+): BuildFinding[] {
   const findings: BuildFinding[] = [];
-
-  // Directory must exist and be readable.
-  let stat: fs.Stats;
-  try {
-    stat = await fs.promises.stat(extractedDir);
-  } catch {
-    return [
-      {
-        severity: "FAIL",
-        check: "build-path",
-        message: `Build path does not exist or is not readable: ${extractedDir}`,
-        fix: "Pass an absolute path to an already-extracted (unzipped) build folder.",
-      },
-    ];
-  }
-  if (!stat.isDirectory()) {
-    return [
-      {
-        severity: "FAIL",
-        check: "build-path",
-        message: `Build path is not a directory: ${extractedDir}`,
-        fix: "Extract the build zip first, then point buildPath at the extracted folder.",
-      },
-    ];
-  }
+  const { indexHtmlContent, fileBasenames, sdkBundled, indexHtmlPath } = input;
 
   // 1) Entry file present.
-  const indexHtml = await findIndexHtml(extractedDir);
-  if (!indexHtml) {
+  if (indexHtmlContent === null) {
     findings.push({
       severity: "FAIL",
       check: "entry-file",
@@ -226,14 +210,13 @@ export async function runBuildChecks(
     findings.push({
       severity: "INFO",
       check: "entry-file",
-      message: `Found entry file: ${path.relative(extractedDir, indexHtml)}`,
+      message: `Found entry file: ${indexHtmlPath ?? "index.html"}`,
     });
   }
 
   // Poki additionally requires index.json kept in sync with index.html.
   if (platform === "poki") {
-    const all = await walkDir(extractedDir);
-    const hasIndexJson = all.some((f) => path.basename(f).toLowerCase() === "index.json");
+    const hasIndexJson = fileBasenames.some((f) => f.toLowerCase() === "index.json");
     if (!hasIndexJson) {
       findings.push({
         severity: "WARN",
@@ -246,14 +229,13 @@ export async function runBuildChecks(
   }
 
   // 2) SDK bundled?
-  const sdkIntegrated = await detectSDKIntegration(extractedDir);
-  if (sdkIntegrated) {
+  if (sdkBundled === true) {
     findings.push({
       severity: "INFO",
       check: "sdk-bundled",
       message: "Yes2SDK reference found in the build's JavaScript — SDK appears bundled.",
     });
-  } else {
+  } else if (sdkBundled === false) {
     findings.push({
       severity: "FAIL",
       check: "sdk-bundled",
@@ -261,16 +243,19 @@ export async function runBuildChecks(
         "No reference to Yes2SDK found in the build's JavaScript. The SDK must be bundled into the game (platforms block external scripts, so it cannot be loaded from a CDN).",
       fix: "Integrate and bundle the Yes2SDK into your game build. See get_quickstart for your platform.",
     });
+  } else {
+    findings.push({
+      severity: "WARN",
+      check: "sdk-bundled",
+      message:
+        "could not verify SDK bundling from inline input — provide jsContents or use buildPath",
+      fix: "Pass `jsContents` (the build's JavaScript file contents) so bundling can be verified, or run with `buildPath` against an extracted build folder.",
+    });
   }
 
   // 3) External scripts + 4) responsive canvas (need index.html contents).
-  if (indexHtml) {
-    let html = "";
-    try {
-      html = await fs.promises.readFile(indexHtml, "utf-8");
-    } catch {
-      html = "";
-    }
+  if (indexHtmlContent !== null) {
+    const html = indexHtmlContent;
 
     // External <script src="http..."> tags. Platforms block these.
     const scriptSrcRe = /<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi;
@@ -336,4 +321,85 @@ export async function runBuildChecks(
   });
 
   return findings;
+}
+
+/**
+ * Run static checks against an already-extracted build directory.
+ *
+ *  - SDK bundled?           (scan .js / .js.br / .js.gz for "Yes2SDK")
+ *  - External scripts       (<script src="http..."> in index.html -> FAIL)
+ *  - Required entry file     (index.html present; Poki also needs index.json)
+ *  - Responsive-canvas       (warn if no width/height:100% in index.html)
+ */
+export async function runBuildChecks(
+  extractedDir: string,
+  platform: string
+): Promise<BuildFinding[]> {
+  // Directory must exist and be readable.
+  let stat: fs.Stats;
+  try {
+    stat = await fs.promises.stat(extractedDir);
+  } catch {
+    return [
+      {
+        severity: "FAIL",
+        check: "build-path",
+        message: `Build path does not exist or is not readable: ${extractedDir}`,
+        fix: "Pass an absolute path to an already-extracted (unzipped) build folder.",
+      },
+    ];
+  }
+  if (!stat.isDirectory()) {
+    return [
+      {
+        severity: "FAIL",
+        check: "build-path",
+        message: `Build path is not a directory: ${extractedDir}`,
+        fix: "Extract the build zip first, then point buildPath at the extracted folder.",
+      },
+    ];
+  }
+
+  // Gather inputs from disk, then evaluate with the shared core.
+  const indexHtml = await findIndexHtml(extractedDir);
+  let indexHtmlContent: string | null = null;
+  let indexHtmlPath: string | undefined;
+  if (indexHtml) {
+    indexHtmlPath = path.relative(extractedDir, indexHtml);
+    try {
+      indexHtmlContent = await fs.promises.readFile(indexHtml, "utf-8");
+    } catch {
+      indexHtmlContent = "";
+    }
+  }
+
+  const allFiles = await walkDir(extractedDir);
+  const fileBasenames = allFiles.map((f) => path.basename(f));
+  const sdkBundled = await detectSDKIntegration(extractedDir);
+
+  return evaluateBuild({ indexHtmlContent, fileBasenames, sdkBundled, indexHtmlPath }, platform);
+}
+
+/**
+ * Run static checks against inline build content (no filesystem access), for
+ * the hosted/sandboxed MCP server. Mirrors `runBuildChecks` but takes the
+ * index.html contents, a flat file list, and the build's JS contents directly.
+ */
+export function runBuildChecksInline(
+  input: { indexHtml?: string; fileList?: string[]; jsContents?: string[] },
+  platform: string
+): BuildFinding[] {
+  const { indexHtml, fileList, jsContents } = input;
+  const indexHtmlContent = indexHtml ?? null;
+
+  const fileBasenames = (fileList ?? []).map((f) => path.basename(f));
+  // Confirm an index.html entry is reflected in the file list when contents are given.
+  if (indexHtmlContent !== null && !fileBasenames.some((f) => f.toLowerCase() === "index.html")) {
+    fileBasenames.push("index.html");
+  }
+
+  const sdkBundled =
+    jsContents && jsContents.length > 0 ? jsContents.some((c) => c.includes("Yes2SDK")) : null;
+
+  return evaluateBuild({ indexHtmlContent, fileBasenames, sdkBundled }, platform);
 }
