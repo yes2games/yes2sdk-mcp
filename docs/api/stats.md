@@ -44,3 +44,16 @@ if (Yes2SDK.stats.isSupported()) {
     console.log(`Games played: ${updated.gamesPlayed}`);
 }
 ```
+
+---
+
+## Defold (Lua)
+
+Map arguments are passed as JSON strings; async results arrive as JSON strings — decode with `json.decode`.
+
+| Signature | Description |
+|-----------|-------------|
+| `yes2sdk.stats_get(keys_json, callback)` | `keys_json` = JSON array string. `callback(self, success, stats_json)`. |
+| `yes2sdk.stats_set(stats_json, callback)` | `stats_json` = JSON object string (name → value). `callback(self, success, err)` — `err` nil on success. |
+| `yes2sdk.stats_increment(increments_json, callback)` | `increments_json` = JSON object string of deltas. `callback(self, success, stats_json)` — updated values. |
+| `yes2sdk.stats_is_supported()` | Returns `true` where stats exist (Yandex today). |

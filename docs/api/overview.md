@@ -124,7 +124,7 @@ Full signatures and the rollout picture are in [upcoming.md](upcoming.md). These
 | SDK | Version | Notes |
 |-----|---------|-------|
 | Core (TS) | see `Experimental/Core/package.json` | UMD bundle, injected by the dashboard build pipeline |
-| Unity | `2.4.1` | Unity 2021.3+; WebGL build target |
-| Defold | `1.4.0` | Defold 1.6+; HTML5 build target |
+| Unity | `2.5.0` | Unity 2021.3+; WebGL build target |
+| Defold | `1.5.1` | Defold 1.6+; HTML5 build target |
 
 Live platforms across all surfaces: **Poki, CrazyGames, Yandex Games, GameDistribution, YouTube Playables**.

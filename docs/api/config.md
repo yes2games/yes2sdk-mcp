@@ -43,3 +43,12 @@ if (flags.newShop === "true") {
 }
 const reward = Number(flags.dailyReward);
 ```
+
+---
+
+## Defold (Lua)
+
+| Signature | Description |
+|-----------|-------------|
+| `yes2sdk.config_get_flags(options_json, callback)` | `options_json` = JSON object string carrying your `defaults`. `callback(self, success, flags_json)` — JSON map; your defaults unchanged where remote config is unavailable. |
+| `yes2sdk.config_is_supported()` | Returns `true` where remote overrides are available (Yandex today). |
