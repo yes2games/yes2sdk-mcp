@@ -19,6 +19,10 @@ function detect(projectPath: string) {
   return client.callTool({ name: "detect_sdk", arguments: { projectPath } });
 }
 
+function detectFiles(files: Record<string, string>) {
+  return client.callTool({ name: "detect_sdk", arguments: { files } });
+}
+
 beforeAll(async () => {
   const [clientT, serverT] = InMemoryTransport.createLinkedPair();
   const server = createServer();
@@ -60,9 +64,61 @@ describe("detect_sdk", () => {
     expect(text).toContain("1.4.0");
   });
 
-  it("errors on a path that does not exist", async () => {
+  it("errors on a path that does not exist with the hosted/inline hint", async () => {
     const res = await detect(path.join(PROJECTS, "does-not-exist"));
     const text = textOf(res);
-    expect(text.toLowerCase()).toContain("not found");
+    expect(text.toLowerCase()).toContain("could not read project path");
+    expect(text).toContain("files");
+  });
+});
+
+describe("detect_sdk — inline files", () => {
+  it("detects a Defold project from inline game.project", async () => {
+    const text = textOf(
+      await detectFiles({
+        "game.project":
+          "[project]\ntitle = MyGame\ndependencies#0 = https://github.com/yes2games/yes2sdk-defold/archive/refs/tags/v1.4.0.zip\n",
+      })
+    );
+    expect(text).toMatch(/Path: \(inline files\)/);
+    expect(text).toMatch(/Engine: defold/);
+    expect(text).toMatch(/SDK installed: yes/);
+    expect(text).toContain("1.4.0");
+  });
+
+  it("detects a Unity project (directory marker via prefix) from inline files", async () => {
+    const text = textOf(
+      await detectFiles({
+        "ProjectSettings/ProjectVersion.txt": "m_EditorVersion: 2022.3.0f1\n",
+        "Packages/manifest.json": JSON.stringify({
+          dependencies: {
+            "com.yes2games.yes2sdk": "https://github.com/yes2games/yes2sdk-unity.git#v2.4.3",
+          },
+        }),
+      })
+    );
+    expect(text).toMatch(/Engine: unity/);
+    expect(text).toMatch(/SDK installed: yes/);
+    expect(text).toContain("2.4.3");
+  });
+
+  it("detects a JS project from inline package.json", async () => {
+    const text = textOf(await detectFiles({ "package.json": '{"name":"mygame"}' }));
+    expect(text).toMatch(/Engine: js/);
+    expect(text).toMatch(/SDK installed: no/);
+  });
+
+  it("reports unknown when no engine markers are present", async () => {
+    const text = textOf(await detectFiles({ "README.md": "# hi" }));
+    expect(text).toMatch(/Engine: unknown/);
+    expect(text.toLowerCase()).toContain("could not identify the engine");
+  });
+
+  it("errors when neither projectPath nor files is provided", async () => {
+    const res = await client.callTool({ name: "detect_sdk", arguments: {} });
+    const text = textOf(res);
+    expect((res as { isError?: boolean }).isError).toBe(true);
+    expect(text).toContain("projectPath");
+    expect(text).toContain("files");
   });
 });

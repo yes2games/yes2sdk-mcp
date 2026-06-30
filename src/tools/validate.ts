@@ -2,7 +2,12 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { runComplianceChecks } from "../lib/compliance.js";
 import type { LogEntry, ComplianceResult, ComplianceSeverity } from "../lib/inspector-types.js";
-import { runBuildChecks, type BuildFinding, type BuildSeverity } from "../lib/build-checks.js";
+import {
+  runBuildChecks,
+  runBuildChecksInline,
+  type BuildFinding,
+  type BuildSeverity,
+} from "../lib/build-checks.js";
 
 const VALIDATE_PLATFORMS = [
   "poki",
@@ -82,16 +87,31 @@ export function registerValidateTool(server: McpServer): void {
     {
       title: "Validate a Yes2SDK integration",
       description:
-        "Self-check a Yes2SDK game integration against the real platform rejection rules before upload. Two modes (you may supply one or both):\n\n" +
-        "1) STATIC build checks — pass `buildPath` (absolute path to an ALREADY-EXTRACTED/unzipped build folder). Checks: Yes2SDK bundled into the JS, no external <script src=\"http...\"> tags (platforms block them), index.html present (Poki also needs index.json), and a responsive full-viewport canvas heuristic.\n\n" +
+        "Self-check a Yes2SDK game integration against the real platform rejection rules before upload. Modes (you may combine static + behavioral):\n\n" +
+        "1) STATIC build checks — two ways to supply the build:\n" +
+        "   a) `buildPath` (absolute path to an ALREADY-EXTRACTED/unzipped build folder). Only works when this MCP server runs LOCALLY over stdio; the HOSTED/sandboxed server cannot read your local disk.\n" +
+        "   b) INLINE content (for the hosted server): `indexHtml` (the index.html text), `fileList` (array of file paths in the build), and/or `jsContents` (array of the build's JS file contents). Bundling can only be verified when `jsContents` is provided.\n" +
+        "   Checks: Yes2SDK bundled into the JS, no external <script src=\"http...\"> tags (platforms block them), index.html present (Poki also needs index.json), and a responsive full-viewport canvas heuristic.\n\n" +
         "2) BEHAVIORAL compliance checks — pass `eventLogJson`: a JSON string of an EXPORTED Yes2SDK Inspector event log (an array of LogEntry objects with fields like type, method, params, success). Runs the platform's compliance rules (e.g. gameplayStop before ads, reward only on adViewed, no ads in the first 30s).\n\n" +
-        "Always pass `platform`. If you only have the source code, use buildPath after building/extracting. The behavioral rules require running the game in the QA Inspector and exporting its event log — they cannot be derived from static files.",
+        "Always pass `platform`. If you only have source code, build/extract first then use buildPath (local) or pass inline content (hosted). The behavioral rules require running the game in the QA Inspector and exporting its event log — they cannot be derived from static files.",
       inputSchema: {
         platform: z.enum(VALIDATE_PLATFORMS).describe("Target platform to validate against."),
         buildPath: z
           .string()
           .optional()
-          .describe("Absolute path to an already-extracted (unzipped) build folder for static checks."),
+          .describe("Absolute path to an already-extracted (unzipped) build folder for static checks (local stdio mode only — the hosted server cannot read disk)."),
+        indexHtml: z
+          .string()
+          .optional()
+          .describe("Inline static mode: the contents of the build's index.html."),
+        fileList: z
+          .array(z.string())
+          .optional()
+          .describe("Inline static mode: a flat list of file paths in the build (used for the Poki index.json check)."),
+        jsContents: z
+          .array(z.string())
+          .optional()
+          .describe("Inline static mode: the contents of the build's JavaScript files. Required to verify Yes2SDK bundling inline."),
         eventLogJson: z
           .string()
           .optional()
@@ -99,19 +119,23 @@ export function registerValidateTool(server: McpServer): void {
       },
       annotations: { readOnlyHint: true, openWorldHint: false, idempotentHint: true },
     },
-    async ({ platform, buildPath, eventLogJson }) => {
+    async ({ platform, buildPath, indexHtml, fileList, jsContents, eventLogJson }) => {
+      const hasInlineStatic =
+        indexHtml !== undefined || fileList !== undefined || jsContents !== undefined;
       const sections: string[] = [];
       let totalFails = 0;
 
-      if (!buildPath && !eventLogJson) {
+      if (!buildPath && !hasInlineStatic && !eventLogJson) {
         return {
           content: [
             {
               type: "text" as const,
               text:
                 "No input provided. validate_integration has two modes:\n\n" +
-                "1) STATIC build checks: pass `buildPath` = absolute path to an already-extracted build folder. " +
-                "Checks SDK bundling, external scripts, entry file, and responsive canvas.\n\n" +
+                "1) STATIC build checks — either:\n" +
+                "   a) `buildPath` = absolute path to an already-extracted build folder (local stdio only; the hosted server cannot read disk), or\n" +
+                "   b) INLINE content for the hosted/sandboxed server: `indexHtml` (index.html text), `fileList` (array of build file paths), and/or `jsContents` (array of JS file contents; required to verify SDK bundling).\n" +
+                "   Checks SDK bundling, external scripts, entry file, and responsive canvas.\n\n" +
                 "2) BEHAVIORAL compliance checks: pass `eventLogJson` = a JSON string of an exported Yes2SDK Inspector event log " +
                 "(array of LogEntry). This runs the platform's API-sequence rules (gameplayStop before ads, reward on adViewed only, " +
                 "no ads in the first 30s, etc.). These rules require running the game in the QA Inspector and exporting its event log — " +
@@ -127,6 +151,19 @@ export function registerValidateTool(server: McpServer): void {
         let buildFindings: Finding[];
         try {
           const raw = await runBuildChecks(buildPath, platform);
+          buildFindings = raw.map(fromBuildFinding);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          buildFindings = [
+            { severity: "FAIL", label: "[static:error]", message: `Static checks failed to run: ${msg}` },
+          ];
+        }
+        totalFails += buildFindings.filter((f) => f.severity === "FAIL").length;
+        sections.push(renderFindings("STATIC BUILD CHECKS", buildFindings));
+      } else if (hasInlineStatic) {
+        let buildFindings: Finding[];
+        try {
+          const raw = runBuildChecksInline({ indexHtml, fileList, jsContents }, platform);
           buildFindings = raw.map(fromBuildFinding);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
