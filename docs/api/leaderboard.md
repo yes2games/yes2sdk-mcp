@@ -51,3 +51,19 @@ if (Yes2SDK.leaderboard.isSupported()) {
     top.forEach((e) => console.log(`${e.rank}. ${e.playerName} — ${e.formattedScore}`));
 }
 ```
+
+---
+
+## Defold (Lua)
+
+Async results arrive as JSON strings — decode with `json.decode`.
+
+| Signature | Description |
+|-----------|-------------|
+| `yes2sdk.leaderboard_get(name, callback)` | `callback(self, success, leaderboard_json)`. |
+| `yes2sdk.leaderboard_set_score(name, score, metadata, callback)` | `metadata` optional (pass `nil` to skip). `callback(self, success, entry_json)`. |
+| `yes2sdk.leaderboard_get_entries(name, count, offset, callback)` | `callback(self, success, entries_json)` — JSON array. |
+| `yes2sdk.leaderboard_get_player_entry(name, callback)` | `callback(self, success, entry_json)` — JSON object, or `"null"` if unranked. |
+| `yes2sdk.leaderboard_is_supported()` | Returns `true` where leaderboards exist (Yandex today). |
+
+> Connected-player entries are not exposed in the Defold SDK.

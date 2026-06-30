@@ -91,5 +91,11 @@ Player identity, cloud-backed player data, and connected players (friends who al
 | `yes2sdk.player_get_id()` | Player id (default `""`). |
 | `yes2sdk.player_get_data(keys_json, callback)` | `keys_json` = JSON array string. `callback(self, success, data_json)`. |
 | `yes2sdk.player_set_data(data_json, callback)` | `data_json` = JSON object string. `callback(self, success, err)`. |
+| `yes2sdk.player_get_unique_id(callback)` | `callback(self, success, id)` — `"anonymous"` where the player can't be identified. |
+| `yes2sdk.player_get_ids_per_game(callback)` | `callback(self, success, ids_json)` — JSON array string, empty where unsupported. |
+| `yes2sdk.player_get_paying_status(callback)` | `callback(self, success, status)` — `"unknown"` where unsupported. |
+| `yes2sdk.player_get_mode(callback)` | `callback(self, success, mode)` — `"lite"`, `"authorized"`, or `"unknown"`. |
+| `yes2sdk.player_get_photo(size, callback)` | `size` = `"small"`/`"medium"`/`"large"`. `callback(self, success, photo_json)` — JSON string URL or `"null"`. |
+| `yes2sdk.player_get_signed_info(payload, callback)` | `payload` optional (pass `nil` to skip). `callback(self, success, signed_json)` — `{"playerId","signature"}`. Verify server-side. |
 
-> Connected players and signed player info are not exposed in the Defold SDK.
+> Connected players are not exposed in the Defold SDK.

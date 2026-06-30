@@ -57,3 +57,20 @@ if (Yes2SDK.iap.isSupported()) {
     await Yes2SDK.iap.consumePurchaseAsync(purchase.purchaseToken); // then consume
 }
 ```
+
+---
+
+## Defold (Lua)
+
+Async results arrive as JSON strings — decode with `json.decode`. A re-entrant `iap_purchase` / `iap_consume_purchase` is rejected while one is already in flight (so the in-flight callback is never dropped).
+
+| Signature | Description |
+|-----------|-------------|
+| `yes2sdk.iap_get_catalog(callback)` | `callback(self, success, catalog_json)` — JSON array of products. |
+| `yes2sdk.iap_get_product(product_id, callback)` | `callback(self, success, product_json)` — JSON object, or `"null"` if unknown. |
+| `yes2sdk.iap_purchase(product_id, developer_payload, callback)` | `developer_payload` optional (pass `nil` to skip). `callback(self, success, purchase_json)`. Verify server-side. |
+| `yes2sdk.iap_get_purchases(callback)` | `callback(self, success, purchases_json)` — JSON array of unconsumed purchases. |
+| `yes2sdk.iap_consume_purchase(purchase_token, callback)` | `callback(self, success, err)` — `err` nil on success. |
+| `yes2sdk.iap_is_supported()` | Returns `true` where IAP is available (Yandex today). |
+
+> Subscriptions are not exposed in the Defold SDK.

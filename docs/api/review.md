@@ -43,3 +43,13 @@ if (Yes2SDK.review.isSupported()) {
     }
 }
 ```
+
+---
+
+## Defold (Lua)
+
+| Signature | Description |
+|-----------|-------------|
+| `yes2sdk.review_can_review(callback)` | `callback(self, success, eligibility_json)` — `{"canReview":bool,"reason":"..."}`. |
+| `yes2sdk.review_request_review(callback)` | `callback(self, success, result_json)` — `{"feedbackSent":bool}` (`false` is normal). |
+| `yes2sdk.review_is_supported()` | Returns `true` where the rating prompt exists (Yandex today). |
