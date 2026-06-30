@@ -81,7 +81,7 @@ void MigrateLegacyData()
 
 Call `MigrateLegacyData()` once per session, before your game reads any save data. On cloud platforms (Yandex, YouTube) the migrated data is then synced to the player's account on the next write cycle.
 
-See [Data API reference](/docs/api/data) for the full method list including async write confirmations (`SetIntAsync`, `SetStringAsync`) useful when you need to await a cloud write.
+See [Data API reference](/docs/api/data) for platform-by-platform storage behavior.
 
 ## Init ordering
 
