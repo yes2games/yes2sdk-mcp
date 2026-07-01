@@ -4,7 +4,7 @@
 
 Track gameplay events. All methods are synchronous, fire-and-forget.
 
-> **Good to know:** Custom events (`logEvent`, `logScore`, `logTutorial`, `logPurchase`) are recorded locally on every platform — bring your own analytics pipeline if you need delivery. The **gameplay lifecycle** is wired to each platform's real engagement signals: `logLevelStart`/`logLevelEnd` drive `gameplayStart`/`gameplayStop`, which platforms use for monetization timing.
+> **Good to know:** Custom events (`logEvent`, `logScore`, `logTutorial`, `logPurchase`) are recorded locally on every platform — bring your own analytics pipeline if you need delivery. **Exception — Yandex:** when a Metrica counter ID is configured for the game (dashboard game settings), these events are additionally delivered to **Yandex Metrica** as `reachGoal` calls (see the [Yandex quickstart](../quickstart-yandex.md)). The **gameplay lifecycle** is wired to each platform's real engagement signals: `logLevelStart`/`logLevelEnd` drive `gameplayStart`/`gameplayStop`, which platforms use for monetization timing.
 
 ---
 
@@ -30,18 +30,19 @@ Track gameplay events. All methods are synchronous, fire-and-forget.
 
 | Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
 |--------|:----:|:----------------:|:----------:|:------:|:-------:|
-| `logEvent` | —¹ | —¹ | —¹ | —¹ | —¹ |
-| `logLevelStart` | Partial² | Partial³ | Partial² | Partial² | —⁴ |
-| `logLevelEnd` | Partial² | Partial³ | Partial² | Partial² | —⁴ |
-| `logScore` | —¹ | —¹ | —¹ | —¹ | —¹ |
-| `logTutorial` | —¹ | —¹ | —¹ | —¹ | —¹ |
-| `logPurchase` | —¹ | —¹ | —¹ | —¹ | —¹ |
+| `logEvent` | —¹ | —¹ | —¹ | Metrica⁵ | —¹ |
+| `logLevelStart` | Partial² | Partial³ | Partial² | Partial²˒⁵ | —⁴ |
+| `logLevelEnd` | Partial² | Partial³ | Partial² | Partial²˒⁵ | —⁴ |
+| `logScore` | —¹ | —¹ | —¹ | Metrica⁵ | —¹ |
+| `logTutorial` | —¹ | —¹ | —¹ | Metrica⁵ | —¹ |
+| `logPurchase` | —¹ | —¹ | —¹ | Metrica⁵ | —¹ |
 | `isSupported` | Ready | Ready | Ready | Ready | Ready |
 
 ¹ Logged locally (`logger.debug`) only — no platform delivery.
 ² Logs locally **and** calls the real `gameplayStart`/`gameplayStop` (`PokiSDK`, CrazyGames `sdk.game`, Yandex `GameplayAPI`).
 ³ GameDistribution drives internal gameplay state only (no platform gameplay call).
 ⁴ YouTube sets an internal gameplay flag only. Note: the YouTube strategy additionally exposes real **`reportError`/`reportWarning`** backed by `ytgame.health.logError`/`logWarning` (not part of the cross-platform analytics surface).
+⁵ **Yandex only, when a Metrica counter ID is configured** for the game: the call also fires `ym('reachGoal', …)`. Goal name is the `eventName` for `logEvent`; `score` / `tutorial` / `purchase` / `level_start` / `level_end` for the typed methods. Without a counter configured it degrades to local logging (¹). Metrica is separate from the YaGames SDK — the dashboard injects the counter tag into Yandex builds. See the [Yandex quickstart](../quickstart-yandex.md).
 
 ---
 

@@ -149,6 +149,23 @@ If reviewers send back changes, upload a new build and request publish again on 
 - Call `Yes2SDK.ads.showBanner("bottom")` to enable
 - Revenue is additional to interstitial/rewarded ads
 
+### Analytics (Yandex Metrica)
+Yandex Metrica is a separate analytics service — it is **not** part of the YaGames SDK. To enable it for your game:
+1. Create a counter at [metrica.yandex.com](https://metrica.yandex.com) and copy its numeric **counter ID**.
+2. Set it in your game's settings → **"Yandex Metrica counter ID"** (leave empty to disable).
+3. On Yandex builds, the dashboard injects the Metrica tag automatically — page views and sessions are tracked with no code.
+
+To send **custom goals**, use the unified analytics API. On Yandex, when a counter is configured, these route to Metrica `reachGoal`:
+```js
+Yes2SDK.analytics.logEvent("level_complete", undefined, { level: 3 });
+Yes2SDK.analytics.logPurchase("coins_100", 0.99, "USD"); // goal: "purchase"
+```
+Goal names are your `logEvent` name, or `score` / `tutorial` / `purchase` / `level_start` / `level_end` for the typed methods. (The same `analytics` module works from Unity and Defold.) You can also call the injected global directly: `ym(counterId, "reachGoal", "my_goal")`.
+
+Notes:
+- Metrica runs only on WebGL/Yandex builds, and is injected only in **published/bundled** builds — **not** the QA Inspector, so test traffic doesn't pollute your stats.
+- Metrica loads from `mc.yandex.ru`; if a target platform whitelists external hosts, allow that host for the counter to work.
+
 ## Common Issues
 
 ### "YaGames is not defined"
