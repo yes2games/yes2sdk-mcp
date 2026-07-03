@@ -53,11 +53,11 @@ export const SDK_META: Record<Engine, EngineMeta> = {
     "engine": "defold",
     "displayName": "Defold",
     "packageName": "Yes2SDK (native extension)",
-    "version": "1.5.1",
+    "version": "1.5.4",
     "repoUrl": "https://github.com/yes2games/yes2sdk-defold",
     "installSteps": [
       "Open game.project (the Defold editor or a text editor).",
-      "Under the [project] section add a dependency:  dependencies#0 = https://github.com/yes2games/yes2sdk-defold/archive/refs/tags/v1.5.1.zip  (use the tagged release archive, not a branch URL — GitHub serves release archives more reliably).",
+      "Under the [project] section add a dependency:  dependencies#0 = https://github.com/yes2games/yes2sdk-defold/archive/refs/tags/v1.5.4.zip  (use the tagged release archive, not a branch URL — GitHub serves release archives more reliably).",
       "In the Defold editor choose Project > Fetch Libraries to download the dependency."
     ],
     "postInstallSteps": [
