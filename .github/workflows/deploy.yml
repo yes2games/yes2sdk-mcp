@@ -1,4 +1,4 @@
-name: build and deploy
+name: Build and Deploy SDK MCP
 
 concurrency:
   group: build-${{ github.ref }}
@@ -15,6 +15,7 @@ jobs:
   # token, and repository_dispatches deploy-service — replacing the legacy
   # Y2G_TOKEN dispatch this repo used to run.
   build-push-r2:
+    name: Build and Push Image to R2
     uses: yes2games/yes2infra/.github/workflows/build-push-r2.yaml@v1.2.0
     with:
       service-key: yes2sdk-mcp-main
