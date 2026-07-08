@@ -47,7 +47,7 @@ The top-level entry point. Every game must initialize the SDK, report loading pr
 
 ## Events
 
-External pauses (ads, tab focus loss, platform overlays) and audio-mute changes are delivered as events. Handle them so your game mutes audio and pauses gameplay.
+External pauses (ads, tab focus loss, platform overlays), audio-mute changes, and the Yandex account-selection dialog are delivered as events. Handle them so your game mutes audio and pauses gameplay.
 
 ### Core (TypeScript)
 
@@ -70,6 +70,8 @@ sub.unsubscribe();
 | `pause` | `void` | Platform requested pause (backgrounded, overlay, ad). Falls back to `document.visibilitychange` where no native signal exists. |
 | `resume` | `void` | Platform allows resume. **Not** guaranteed to follow every `pause`. |
 | `audioEnabledChange` | `{ enabled: boolean }` | Platform mute/unmute (via platform UI). Game **MUST** update its audio state. Emitted only where a native signal exists. |
+| `accountDialogOpen` | `void` | Yandex account-selection dialog opened. **Yandex-only**; pause gameplay/audio while it is open. |
+| `accountDialogClose` | `void` | Yandex account-selection dialog closed. **Yandex-only**; resume gameplay/audio. |
 
 ### Unity (C#)
 
@@ -82,6 +84,8 @@ Static events on `Yes2SDK`. Subscribe **after** `InitializeAsync` succeeds.
 | `static event Action OnPause` | Platform requests pause. |
 | `static event Action OnResume` | Platform allows resume. |
 | `static event Action<bool> OnAudioEnabledChange` | Mute/unmute changed. |
+| `static event Action OnAccountDialogOpen` | Yandex account-selection dialog opened (pause). Yandex-only. |
+| `static event Action OnAccountDialogClose` | Yandex account-selection dialog closed (resume). Yandex-only. |
 | `static event Action<Error> OnError` | An SDK error occurred. |
 
 ### Defold (Lua)
@@ -91,6 +95,8 @@ Static events on `Yes2SDK`. Subscribe **after** `InitializeAsync` succeeds.
 | `yes2sdk.on_pause(callback)` | `callback(self)`. Stop loop/audio/network. |
 | `yes2sdk.on_resume(callback)` | `callback(self)`. |
 | `yes2sdk.on_audio_enabled_change(callback)` | `callback(self, enabled)` (boolean). |
+| `yes2sdk.on_account_dialog_open(callback)` | `callback(self)`. Yandex account switcher opened — pause. Yandex-only. |
+| `yes2sdk.on_account_dialog_close(callback)` | `callback(self)`. Yandex account switcher closed — resume. Yandex-only. |
 
 ---
 

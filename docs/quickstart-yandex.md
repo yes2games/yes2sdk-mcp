@@ -24,6 +24,7 @@ The Yes2SDK methods below cover every Yandex-platform call you need. The middle 
 | `ysdk.features.GameplayAPI.start()` | `game.gameplayStart()` | **Required** (analytics + ad timing) |
 | `ysdk.features.GameplayAPI.stop()` | `game.gameplayStop()` | **Required** (before every ad) |
 | `ysdk.on('game_api_pause', ...)` / `'game_api_resume'` | `Yes2SDK.on('pause', fn)` / `on('resume', fn)` | **Required** (mute audio during ads) |
+| `ysdk.on(EVENTS.ACCOUNT_SELECTION_DIALOG_OPENED, ...)` / `..._CLOSED` | `Yes2SDK.on('accountDialogOpen', fn)` / `on('accountDialogClose', fn)` | Optional (pause while the account switcher is open) |
 | `ysdk.adv.showFullscreenAdv({ callbacks })` | `ads.showInterstitial(placement, cbs)` | Recommended |
 | `ysdk.adv.showRewardedVideo({ callbacks })` | `ads.showRewarded(placement, cbs)` | Recommended |
 | `ysdk.adv.showBannerAdv()` | `ads.showBanner('bottom')` | Optional (sticky banner revenue) |
