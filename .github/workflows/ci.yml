@@ -7,7 +7,7 @@ on:
 jobs:
   build-and-test:
     name: Build and Test
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, tencent, light]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
