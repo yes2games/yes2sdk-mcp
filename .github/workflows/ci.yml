@@ -7,7 +7,7 @@ on:
 jobs:
   build-and-test:
     name: Build and Test
-    runs-on: [self-hosted, tencent, light]
+    runs-on: ${{ fromJson(vars.RUNNER_LABELS || '["ubuntu-latest"]') }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
