@@ -192,3 +192,7 @@ initial deployment.
 
 DNS, TLS termination, NGINX reverse proxy, and rootless Podman Quadlet service on the
 deploy host (`bakso`) are tracked in the **yes2infra** repo, maintained by @atqamz.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
