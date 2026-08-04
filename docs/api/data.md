@@ -1,12 +1,12 @@
-# Data — `Yes2SDK.data`
+# Data: `Yes2SDK.data`
 
 [← Back to overview](overview.md)
 
 PlayerPrefs-style typed key-value storage. Works before init via a `yes2sdk_`-prefixed `localStorage` fallback; on strategy binding any pre-init keys are migrated into the platform store.
 
-> **`data` or `player` — which do I use?** Use **`data`** for almost all saved state: settings, preferences, high scores, and game progress. It's synchronous, typed (`int` / `float` / `string`), and works on every platform — cloud-synced where the platform offers it, local otherwise. Reach for the [`player`](player.md) module only when you need account-tied features: the player's identity, connected players, or server-verifiable signed save data. On CrazyGames, Yandex, and YouTube the two modules share the same underlying store, so keep any given key in **one** module — don't write the same key through both.
+> **`data` or `player`: which do I use?** Use **`data`** for almost all saved state: settings, preferences, high scores, and game progress. It's synchronous, typed (`int` / `float` / `string`), and works on every platform: cloud-synced where the platform offers it, local otherwise. Reach for the [`player`](player.md) module only when you need account-tied features: the player's identity, connected players, or server-verifiable signed save data. On CrazyGames, Yandex, and YouTube the two modules share the same underlying store, so keep any given key in **one** module. Don't write the same key through both.
 
-> **Persistence varies by platform.** On Yandex and YouTube this is **cloud-backed** (synced to the player's account). On Poki and GameDistribution there is no storage API, so Data is emulated with **`localStorage`** — device-local, can be cleared by the browser, not synced across devices. CrazyGames uses its native data module.
+> **Persistence varies by platform.** On Yandex and YouTube this is **cloud-backed** (synced to the player's account). On Poki and GameDistribution there is no storage API, so Data is emulated with **`localStorage`**: device-local, can be cleared by the browser, not synced across devices. CrazyGames uses its native data module.
 
 ---
 
@@ -31,7 +31,7 @@ PlayerPrefs-style typed key-value storage. Works before init via a `yes2sdk_`-pr
 
 ## Platform support
 
-The Data module is functional on every platform — the distinction is **storage backing**.
+The Data module is functional on every platform. The distinction is **storage backing**.
 
 | Capability | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
 |------------|:----:|:----------------:|:----------:|:------:|:-------:|

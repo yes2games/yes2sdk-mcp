@@ -1,8 +1,8 @@
-# IAP — `Yes2SDK.iap`
+# IAP: `Yes2SDK.iap`
 
 [← Back to overview](overview.md)
 
-In-app purchases: read the product catalog, initiate a purchase, restore and consume purchases, and check subscription status. Optional — guard with `isSupported()`.
+In-app purchases: read the product catalog, initiate a purchase, restore and consume purchases, and check subscription status. Optional. Guard with `isSupported()`.
 
 > Available on **Yandex** today (native payments). Other platforms report `isSupported() === false`; the calls stay safe so a single codebase runs everywhere. Subscriptions are not offered on any current platform (`isSubscriptionSupported() === false` everywhere).
 
@@ -31,18 +31,18 @@ In-app purchases: read the product catalog, initiate a purchase, restore and con
 
 | Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
 |--------|:----:|:----------------:|:----------:|:------:|:-------:|
-| `getCatalogAsync` | — | — | — | Ready | — |
-| `getProductAsync` | — | — | — | Ready | — |
-| `purchaseAsync` | — | — | — | Ready | — |
-| `getPurchasesAsync` | — | — | — | Ready | — |
-| `consumePurchaseAsync` | — | — | — | Ready | — |
-| `getSubscriptionStatusAsync` | — | — | — | —¹ | — |
-| `isSupported` | — | — | — | Ready | — |
-| `isSubscriptionSupported` | — | — | — | —¹ | — |
+| `getCatalogAsync` | None | None | None | Ready | None |
+| `getProductAsync` | None | None | None | Ready | None |
+| `purchaseAsync` | None | None | None | Ready | None |
+| `getPurchasesAsync` | None | None | None | Ready | None |
+| `consumePurchaseAsync` | None | None | None | Ready | None |
+| `getSubscriptionStatusAsync` | None | None | None | None¹ | None |
+| `isSupported` | None | None | None | Ready | None |
+| `isSubscriptionSupported` | None | None | None | None¹ | None |
 
-Yandex maps to its native payments API. On every other platform the strategy's `isSupported()` returns `false` — guard your calls with `isSupported()`.
+Yandex maps to its native payments API. On every other platform the strategy's `isSupported()` returns `false`. Guard your calls with `isSupported()`.
 
-¹ Subscriptions are not offered anywhere yet — `isSubscriptionSupported()` returns `false` on every platform, Yandex included.
+¹ Subscriptions are not offered anywhere yet. `isSubscriptionSupported()` returns `false` on every platform, Yandex included.
 
 ---
 
@@ -62,15 +62,15 @@ if (Yes2SDK.iap.isSupported()) {
 
 ## Defold (Lua)
 
-Async results arrive as JSON strings — decode with `json.decode`. A re-entrant `iap_purchase` / `iap_consume_purchase` is rejected while one is already in flight (so the in-flight callback is never dropped).
+Async results arrive as JSON strings. Decode with `json.decode`. A re-entrant `iap_purchase` / `iap_consume_purchase` is rejected while one is already in flight (so the in-flight callback is never dropped).
 
 | Signature | Description |
 |-----------|-------------|
-| `yes2sdk.iap_get_catalog(callback)` | `callback(self, success, catalog_json)` — JSON array of products. |
-| `yes2sdk.iap_get_product(product_id, callback)` | `callback(self, success, product_json)` — JSON object, or `"null"` if unknown. |
+| `yes2sdk.iap_get_catalog(callback)` | `callback(self, success, catalog_json)`: JSON array of products. |
+| `yes2sdk.iap_get_product(product_id, callback)` | `callback(self, success, product_json)`: JSON object, or `"null"` if unknown. |
 | `yes2sdk.iap_purchase(product_id, developer_payload, callback)` | `developer_payload` optional (pass `nil` to skip). `callback(self, success, purchase_json)`. Verify server-side. |
-| `yes2sdk.iap_get_purchases(callback)` | `callback(self, success, purchases_json)` — JSON array of unconsumed purchases. |
-| `yes2sdk.iap_consume_purchase(purchase_token, callback)` | `callback(self, success, err)` — `err` nil on success. |
+| `yes2sdk.iap_get_purchases(callback)` | `callback(self, success, purchases_json)`: JSON array of unconsumed purchases. |
+| `yes2sdk.iap_consume_purchase(purchase_token, callback)` | `callback(self, success, err)`: `err` nil on success. |
 | `yes2sdk.iap_is_supported()` | Returns `true` where IAP is available (Yandex today). |
 
 > Subscriptions are not exposed in the Defold SDK.

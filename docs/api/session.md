@@ -1,4 +1,4 @@
-# Session — `Yes2SDK.session`
+# Session: `Yes2SDK.session`
 
 [← Back to overview](overview.md)
 
@@ -35,24 +35,24 @@ Information about the current play session: device, locale, country, entry point
 
 | Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
 |--------|:----:|:----------------:|:----------:|:------:|:-------:|
-| `getCountry` | — | — | Ready | Ready | — |
+| `getCountry` | None | None | Ready | Ready | None |
 | `getLocale` | Partial¹ | Partial¹ | Partial¹ | Ready | Ready² |
 | `getOrientation` | Partial³ | Partial³ | Partial³ | Partial³ | Partial³ |
 | `getDevice` | Partial³ | Partial³ | Ready | Partial³ | Partial³ |
 | `getDeviceInfo` | Partial³ | Partial³ | Ready⁷ | Ready⁸ | Partial³ |
-| `getEntryPointAsync` | Ready | Partial | Ready | — | — |
-| `getEntryPointData` | Partial | Partial | Ready | Ready | — |
+| `getEntryPointAsync` | Ready | Partial | Ready | None | None |
+| `getEntryPointData` | Partial | Partial | Ready | Ready | None |
 | `getTrafficSource` | Ready | Partial | Ready | Partial⁴ | Partial⁴ |
 | `getPlatform` | Ready | Ready | Ready | Ready | Ready |
-| `getSDKVersion` | —⁵ | —⁵ | —⁵ | —⁵ | —⁵ |
-| `isAudioEnabled` | —⁶ | —⁶ | —⁶ | —⁶ | Ready² |
+| `getSDKVersion` | None⁵ | None⁵ | None⁵ | None⁵ | None⁵ |
+| `isAudioEnabled` | None⁶ | None⁶ | None⁶ | None⁶ | Ready² |
 
 ¹ Locale is derived, not from a dedicated locale API: Poki prefers `PokiSDK.getLanguage()`; CrazyGames uses the system **country code** (`getSystemInfo().countryCode`), not a language; GameDistribution uses the browser. All fall back to `navigator.language`.
 ² From `ytgame.system.getLanguage()` / `ytgame.system.isAudioEnabled()`.
-³ Derived from `window.innerWidth/Height` or user-agent sniffing — not a platform API.
+³ Derived from `window.innerWidth/Height` or user-agent sniffing, not a platform API.
 ⁴ Only `document.referrer`; UTM fields are `null`.
 ⁵ Returns a hardcoded version string.
-⁶ Returns `true` (no native audio signal). On YouTube this is a real call — important for certification.
+⁶ Returns `true` (no native audio signal). On YouTube this is a real call: important for certification.
 ⁷ CrazyGames maps to `getSystemInfo().device.type` (desktop/mobile/tablet; no TV class), falling back to user-agent detection.
 ⁸ Yandex maps to the native `ysdk.deviceInfo` form-factor flags (more accurate than UA parsing).
 

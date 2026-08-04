@@ -11,11 +11,11 @@ If you use the Yes2SDK MCP, call `get_install_instructions` for exact pinned ste
 
 ## Requirements
 
-GameDistribution (GD) uses an **event-driven** SDK rather than a promise-based one — instead of awaiting an ad call you listen for `SDK_GAME_START`, `SDK_GAME_PAUSE`, and `SDK_REWARDED_WATCH_COMPLETE` events. Yes2SDK hides this behind the standard `ads.*` callbacks, so you write the same code as on Poki/CG.
+GameDistribution (GD) uses an **event-driven** SDK rather than a promise-based one. Instead of awaiting an ad call you listen for `SDK_GAME_START`, `SDK_GAME_PAUSE`, and `SDK_REWARDED_WATCH_COMPLETE` events. Yes2SDK hides this behind the standard `ads.*` callbacks, so you write the same code as on Poki/CG.
 
 ### API Requirements
 
-The Yes2SDK methods below cover every GameDistribution call you need. The middle column is what Yes2SDK invokes on `gdsdk` under the hood — you never call those directly. The same Yes2SDK API works in **TypeScript**, **Unity (`Yes2SDK.*`)**, and **Defold (`yes2sdk.*`)** — only the method-naming convention changes (see Integration Example below).
+The Yes2SDK methods below cover every GameDistribution call you need. The middle column is what Yes2SDK invokes on `gdsdk` under the hood. You never call those directly. The same Yes2SDK API works in **TypeScript**, **Unity (`Yes2SDK.*`)**, and **Defold (`yes2sdk.*`)**. Only the method-naming convention changes (see Integration Example below).
 
 | Platform Requirement | Yes2SDK API | Required |
 |---|---|---|
@@ -39,7 +39,7 @@ The Yes2SDK methods below cover every GameDistribution call you need. The middle
 | `gameId` is mandatory | `window.GD_OPTIONS.gameId` must be set **before** the SDK script loads. The Yes2SDK Dashboard injects the correct ID when bundling. |
 | Event-based, not promise-based | GD does not return Promises from `showAd`. Yes2SDK wraps the event flow so `await ads.showInterstitial(...)` still works. |
 | `SDK_GAME_PAUSE` fires on ad start | Mute audio + pause game loop in your `beforeAd` callback. |
-| `SDK_GAME_START` fires after ad ends | Resume in `afterAd`. Note: this event also fires once at initial game start — Yes2SDK distinguishes the two. |
+| `SDK_GAME_START` fires after ad ends | Resume in `afterAd`. Note: this event also fires once at initial game start. Yes2SDK distinguishes the two. |
 | `SDK_REWARDED_WATCH_COMPLETE` is the only reward signal | Reward is granted in the `adViewed` callback. If the player dismisses the rewarded ad early, only `afterAd` + `adDismissed` fire. |
 | No external scripts beyond GD's SDK | All third-party scripts must be bundled. GD will reject builds that load arbitrary scripts at runtime. |
 
@@ -116,9 +116,9 @@ yes2sdk.ads_show_interstitial("level-complete",
 
 - The SDK is loaded from `https://html5.api.gamedistribution.com/main.min.js`. Yes2SDK sets `window.GD_OPTIONS` (with `gameId` injected by the Dashboard) **before** appending the script tag so the SDK picks up the config on init.
 - All ad signalling is event-based via the `onEvent` callback. Yes2SDK registers internal listeners for `SDK_GAME_PAUSE`, `SDK_GAME_START`, and `SDK_REWARDED_WATCH_COMPLETE`, then translates them to the standard `beforeAd` / `afterAd` / `adViewed` / `adDismissed` callbacks.
-- GD has **no native gameplay lifecycle API**. `gameplayStart()` / `gameplayStop()` are kept for cross-platform code consistency — they're tracked locally for analytics but never call GD APIs.
+- GD has **no native gameplay lifecycle API**. `gameplayStart()` / `gameplayStop()` are kept for cross-platform code consistency. They're tracked locally for analytics but never call GD APIs.
 - GD has **no cloud data API**. `data.*` uses `localStorage` with the `yes2sdk_` prefix.
-- GDPR consent events (`SDK_GDPR_TRACKING` / `SDK_GDPR_TARGETING`) are handled by the Dashboard build pipeline — your game doesn't need to react to them.
+- GDPR consent events (`SDK_GDPR_TRACKING` / `SDK_GDPR_TARGETING`) are handled by the Dashboard build pipeline. Your game doesn't need to react to them.
 
 ### Ad Event Flow
 
@@ -135,7 +135,7 @@ ads.showRewarded(placement, cbs):
 
 ## How to Submit
 
-You don't upload to GameDistribution yourself — the Yes2Games team handles platform submission, including the `gameId` registration.
+You don't upload to GameDistribution yourself. The Yes2Games team handles platform submission, including the `gameId` registration.
 
 1. Upload a build on your game page (**Onboarding → Stage 1**)
 2. Test it in the Inspector (**Onboarding → Stage 3**)
@@ -160,10 +160,10 @@ If reviewers send back changes, upload a new build and request publish again on 
 |-------|-----|
 | Missing or wrong `gameId` | Register your game at gamedistribution.com first, then enter the GD `gameId` in the Yes2SDK Dashboard's Platform Keys settings. |
 | Audio plays through ads | Mute in `beforeAd` (fires on `SDK_GAME_PAUSE`), restore in `afterAd` (fires on `SDK_GAME_START`). |
-| Rewarded ads always granting | Only grant reward in the `adViewed` callback — not in `afterAd`. `afterAd` runs even on dismissal. |
+| Rewarded ads always granting | Only grant reward in the `adViewed` callback, not in `afterAd`. `afterAd` runs even on dismissal. |
 | Game freezes after ad | Make sure `afterAd` resumes your game loop. The SDK's `onEvent` handler runs out of your game's animation frame loop. |
 | External script blocked | Bundle all third-party code in your game zip. GameDistribution iframes block arbitrary cross-origin script loads. |
-| `SDK_GAME_START` resumes too early | This event also fires at initial game start — Yes2SDK distinguishes the initial fire from post-ad fires. If you handle the event yourself, gate on `gameplayActive`. |
+| `SDK_GAME_START` resumes too early | This event also fires at initial game start. Yes2SDK distinguishes the initial fire from post-ad fires. If you handle the event yourself, gate on `gameplayActive`. |
 
 ## Platform-Specific Notes
 
@@ -171,4 +171,4 @@ If reviewers send back changes, upload a new build and request publish again on 
 - **Auth / Friends / Banners / IAP**: Not supported. Calls return `FeatureNotSupported`.
 - **Data**: `localStorage` only. Anonymous cross-device sync is not possible.
 - **Locale**: `session.getLocale()` returns `navigator.language` (browser locale).
-- **GDPR**: Handled at the build pipeline level — your game does not need to expose consent UI for GD.
+- **GDPR**: Handled at the build pipeline level. Your game does not need to expose consent UI for GD.

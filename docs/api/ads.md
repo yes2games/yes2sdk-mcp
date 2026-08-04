@@ -1,4 +1,4 @@
-# Ads — `Yes2SDK.ads`
+# Ads: `Yes2SDK.ads`
 
 [← Back to overview](overview.md)
 
@@ -19,17 +19,17 @@ Unified interface for interstitial, rewarded, and banner ads. Interstitials run 
 | `isInterstitialSupported(): boolean` | Whether interstitials are supported. |
 | `isRewardedSupported(): boolean` | Whether rewarded ads are supported. |
 | `isBannerSupported(): boolean` | Whether banner ads are supported. |
-| `isRewardedAdAvailable(): boolean` | Best-effort readiness hint. A coarse "SDK loaded" check on most platforms — `showRewarded` can still no-fill. |
+| `isRewardedAdAvailable(): boolean` | Best-effort readiness hint. A coarse "SDK loaded" check on most platforms; `showRewarded` can still no-fill. |
 | `isAdBlocked(): boolean` | Whether an ad blocker is detected. `false` if unsupported. |
 
 ### `AdCallbacks` (all optional)
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `beforeAd` | `() => void` | Before the ad shows — pause the game. |
-| `afterAd` | `() => void` | After the ad finishes — resume the game. |
+| `beforeAd` | `() => void` | Before the ad shows. Pause the game. |
+| `afterAd` | `() => void` | After the ad finishes. Resume the game. |
 | `adDismissed` | `() => void` | User dismissed early (rewarded). |
-| `adViewed` | `() => void` | User watched the full ad (rewarded) — **grant the reward here**. |
+| `adViewed` | `() => void` | User watched the full ad (rewarded). **Grant the reward here**. |
 | `noFill` | `() => void` | No ad was available to show. |
 
 `BannerPosition = "top" | "bottom"`
@@ -42,13 +42,13 @@ Unified interface for interstitial, rewarded, and banner ads. Interstitials run 
 |--------|:----:|:----------------:|:----------:|:------:|:-------:|
 | `showInterstitial` | Ready | Ready | Ready | Ready | Ready |
 | `showRewarded` | Ready | Ready | Ready | Ready | Ready |
-| `showBanner` | — | — | Ready | Ready | — |
-| `hideBanner` | — | — | Ready | Ready | — |
+| `showBanner` | None | None | Ready | Ready | None |
+| `hideBanner` | None | None | Ready | Ready | None |
 | `isInterstitialSupported` | Ready | Ready | Ready | Ready | Ready |
 | `isRewardedSupported` | Ready | Ready | Ready | Ready | Ready |
-| `isBannerSupported` | — | — | Ready | Ready | — |
+| `isBannerSupported` | None | None | Ready | Ready | None |
 | `isRewardedAdAvailable` | Partial | Partial | Partial | Partial | Partial |
-| `isAdBlocked` | Ready¹ | — | —² | — | — |
+| `isAdBlocked` | Ready¹ | None | None² | None | None |
 
 **Platform mapping:**
 - **Poki:** `PokiSDK.commercialBreak` / `rewardedBreak`. No banner. ¹ `isAdBlocked` calls `PokiSDK.isAdBlocked()` if present.
@@ -57,9 +57,9 @@ Unified interface for interstitial, rewarded, and banner ads. Interstitials run 
 - **Yandex:** `ysdk.adv.showFullscreenAdv` / `showRewardedVideo` / `showBannerAdv`. `!wasShown` maps to `noFill`.
 - **YouTube:** `ytgame.ads.requestInterstitialAd()` / `requestRewardedAd(placement)`. No banner.
 
-`isRewardedAdAvailable` is **Partial** everywhere: it only checks that the platform ad object exists — there is no true readiness signal, so a `true` result can still no-fill.
+`isRewardedAdAvailable` is **Partial** everywhere: it only checks that the platform ad object exists; there is no true readiness signal, so a `true` result can still no-fill.
 
-² CrazyGames detects ad blocking through an **async `hasAdblock()`** on its strategy, not a synchronous `isAdBlocked`. The unified `ads.isAdBlocked()` only delegates to a strategy method literally named `isAdBlocked`, so it returns `false` for CrazyGames — use the platform's own adblock handling instead.
+² CrazyGames detects ad blocking through an **async `hasAdblock()`** on its strategy, not a synchronous `isAdBlocked`. The unified `ads.isAdBlocked()` only delegates to a strategy method literally named `isAdBlocked`, so it returns `false` for CrazyGames. Use the platform's own adblock handling instead.
 
 ---
 
@@ -90,4 +90,4 @@ A Lua-side `_ad_in_flight` flag rejects a second concurrent ad call (logs a warn
 | `yes2sdk.ads_is_ad_showing()` | True while a call is in flight (Lua-side flag). |
 | `yes2sdk.ads_is_rewarded_ad_available()` | Best-effort readiness hint. |
 
-> Defold has no banner functions in the `ads_*` namespace (banners are a separate module — see [banners.md](banners.md)).
+> Defold has no banner functions in the `ads_*` namespace (banners are a separate module; see [banners.md](banners.md)).

@@ -4,9 +4,9 @@
 
 ## The gating model
 
-Games that ship on mobile or PC alongside a web build often include SDKs that have no WebGL counterpart — ByteBrew, Nakama, Firebase Analytics, Unity IAP, and similar. Those packages must not be compiled into the WebGL build. Use `#if !UNITY_WEBGL` to keep them on the native branch and `#else` to route the equivalent call through Yes2SDK.
+Games that ship on mobile or PC alongside a web build often include SDKs that have no WebGL counterpart: ByteBrew, Nakama, Firebase Analytics, Unity IAP, and similar. Those packages must not be compiled into the WebGL build. Use `#if !UNITY_WEBGL` to keep them on the native branch and `#else` to route the equivalent call through Yes2SDK.
 
-**Example — analytics event on level complete:**
+**Example (analytics event on level complete):**
 
 ```csharp
 void OnLevelComplete(string levelId, int score)
@@ -85,7 +85,7 @@ See [Data API reference](/docs/api/data) for platform-by-platform storage behavi
 
 ## Init ordering
 
-Yes2SDK must be initialized before any SDK call fires — including analytics, data reads, and ad requests. Keep all other SDKs' initialization on their own platform branch so neither block blocks the other.
+Yes2SDK must be initialized before any SDK call fires, including analytics, data reads, and ad requests. Keep all other SDKs' initialization on their own platform branch so neither block blocks the other.
 
 ```csharp
 void Start()
@@ -114,8 +114,8 @@ void Start()
 
 The documented bootstrap sequence is:
 
-1. `Yes2SDK.Yes2SDK.InitializeAsync(...)` — connects to the platform SDK
-2. `Yes2SDK.Yes2SDK.SetLoadingProgress(n)` — optional; reports loading progress (0–100) while assets load
-3. `Yes2SDK.Yes2SDK.StartGameAsync(...)` — signals the platform that loading is done and gameplay can begin
+1. `Yes2SDK.Yes2SDK.InitializeAsync(...)`: connects to the platform SDK
+2. `Yes2SDK.Yes2SDK.SetLoadingProgress(n)`: optional; reports loading progress (0-100) while assets load
+3. `Yes2SDK.Yes2SDK.StartGameAsync(...)`: signals the platform that loading is done and gameplay can begin
 
 No SDK module call (analytics event, data read, ad request) should fire before `InitializeAsync` completes. Wiring other SDKs' init inside the `#if !UNITY_WEBGL` branch ensures their callbacks never interfere with Yes2SDK's async init on the WebGL path.

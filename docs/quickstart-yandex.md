@@ -15,7 +15,7 @@ Yandex Games has specific SDK integration requirements for game approval.
 
 ### API Requirements
 
-The Yes2SDK methods below cover every Yandex-platform call you need. The middle column is what Yes2SDK invokes on `YaGames` / `ysdk` under the hood — you never call those directly. The same Yes2SDK API works in **TypeScript**, **Unity (`Yes2SDK.*`)**, and **Defold (`yes2sdk.*`)** — only the method-naming convention changes (see examples below).
+The Yes2SDK methods below cover every Yandex-platform call you need. The middle column is what Yes2SDK invokes on `YaGames` / `ysdk` under the hood. You never call those directly. The same Yes2SDK API works in **TypeScript**, **Unity (`Yes2SDK.*`)**, and **Defold (`yes2sdk.*`)**. Only the method-naming convention changes (see examples below).
 
 | Platform Requirement | Yes2SDK API | Required |
 |---|---|---|
@@ -33,7 +33,7 @@ The Yes2SDK methods below cover every Yandex-platform call you need. The middle 
 | `player.getData()` / `setData()` (cloud) | `data.getInt/setInt`, `data.getString/setString`, ... | Optional (auto-syncs to cloud) |
 | `ysdk.auth.openAuthDialog()` | `auth.signInAsync()` | Optional (cloud data without auth = device-local) |
 
-> Yandex serves multiple countries (Russia, Turkey, Kazakhstan, etc.). Always read `session.getLocale()` and adapt your UI strings — `ru`, `en`, `tr`, `uk`, `be`, `kk` are the common values.
+> Yandex serves multiple countries (Russia, Turkey, Kazakhstan, etc.). Always read `session.getLocale()` and adapt your UI strings. `ru`, `en`, `tr`, `uk`, `be`, `kk` are the common values.
 
 ## Step-by-Step Integration
 
@@ -103,23 +103,23 @@ local score = yes2sdk.data_get_int("highscore", 0)
 
 ## Now Available on Yandex
 
-Yandex has the richest feature set of any platform, and these modules are now **live** through Yes2SDK (fully supported on Yandex, safe no-ops elsewhere — guard with `isSupported()`):
+Yandex has the richest feature set of any platform, and these modules are now **live** through Yes2SDK (fully supported on Yandex, safe no-ops elsewhere; guard with `isSupported()`):
 
-- **Leaderboards** — submit scores and read ranked/friend entries. See [api/leaderboard.md](api/leaderboard.md).
-- **Stats** — read, set, and atomically increment numeric player counters. See [api/stats.md](api/stats.md).
-- **IAP** — product catalog, purchases, and consume flow (no subscriptions yet). See [api/iap.md](api/iap.md).
-- **Remote config flags** — `config.getFlagsAsync({ defaults })` returns remote feature flags, falling back to your defaults. See [api/config.md](api/config.md).
-- **Rating prompt** — `review.requestReviewAsync()` shows Yandex's native rating dialog (eligibility checked internally). See [api/review.md](api/review.md).
+- **Leaderboards**: submit scores and read ranked/friend entries. See [api/leaderboard.md](api/leaderboard.md).
+- **Stats**: read, set, and atomically increment numeric player counters. See [api/stats.md](api/stats.md).
+- **IAP**: product catalog, purchases, and consume flow (no subscriptions yet). See [api/iap.md](api/iap.md).
+- **Remote config flags**: `config.getFlagsAsync({ defaults })` returns remote feature flags, falling back to your defaults. See [api/config.md](api/config.md).
+- **Rating prompt**: `review.requestReviewAsync()` shows Yandex's native rating dialog (eligibility checked internally). See [api/review.md](api/review.md).
 
 Player identity extras (`player.getUniqueId()`, `getPayingStatus()`, `getMode()`, `getPhoto(size)`, `getIDsPerGame()`), `game.getServerTimeAsync()` (tamper-proof server clock), and `banners.getBannerStatusAsync()` are also fully wired on Yandex.
 
 ## How to Submit
 
-You don't upload to Yandex Games yourself — the Yes2Games team handles platform submission.
+You don't upload to Yandex Games yourself. The Yes2Games team handles platform submission.
 
 1. Build your game (Unity WebGL or Defold HTML5) and zip the output
 2. Upload the zip on your game page (**Onboarding → Stage 1**)
-3. Fill in title, description, icon, and screenshots on the **Game Profile** stage (**Onboarding → Stage 2**) — Yandex requires all of these
+3. Fill in title, description, icon, and screenshots on the **Game Profile** stage (**Onboarding → Stage 2**). Yandex requires all of these
 4. Test the build in the Inspector (**Onboarding → Stage 3**)
 5. Click **Request Publish** in **Onboarding → Stage 4** and select Yandex
 6. The Yes2Games team validates the build, registers the game in the Yandex Games Console, uploads it with your metadata, and submits it for Yandex review on your behalf
@@ -136,7 +136,7 @@ If reviewers send back changes, upload a new build and request publish again on 
 - Yes2SDK's Data module handles this transparently
 
 ### Authentication
-- Yandex supports anonymous play — auth is optional
+- Yandex supports anonymous play: auth is optional
 - Prompting auth gives access to persistent cloud data
 - Call `Yes2SDK.auth.signInAsync()` to show the Yandex login dialog
 
@@ -151,10 +151,10 @@ If reviewers send back changes, upload a new build and request publish again on 
 - Revenue is additional to interstitial/rewarded ads
 
 ### Analytics (Yandex Metrica)
-Yandex Metrica is a separate analytics service — it is **not** part of the YaGames SDK. To enable it for your game:
+Yandex Metrica is a separate analytics service. It is **not** part of the YaGames SDK. To enable it for your game:
 1. Create a counter at [metrica.yandex.com](https://metrica.yandex.com) and copy its numeric **counter ID**.
 2. Set it in your game's settings → **"Yandex Metrica counter ID"** (leave empty to disable).
-3. On Yandex builds, the dashboard injects the Metrica tag automatically — page views and sessions are tracked with no code.
+3. On Yandex builds, the dashboard injects the Metrica tag automatically. Page views and sessions are tracked with no code.
 
 To send **custom goals**, use the unified analytics API. On Yandex, when a counter is configured, these route to Metrica `reachGoal`:
 ```js
@@ -164,7 +164,7 @@ Yes2SDK.analytics.logPurchase("coins_100", 0.99, "USD"); // goal: "purchase"
 Goal names are your `logEvent` name, or `score` / `tutorial` / `purchase` / `level_start` / `level_end` for the typed methods. (The same `analytics` module works from Unity and Defold.) You can also call the injected global directly: `ym(counterId, "reachGoal", "my_goal")`.
 
 Notes:
-- Metrica runs only on WebGL/Yandex builds, and is injected only in **published/bundled** builds — **not** the QA Inspector, so test traffic doesn't pollute your stats.
+- Metrica runs only on WebGL/Yandex builds, and is injected only in **published/bundled** builds, **not** the QA Inspector, so test traffic doesn't pollute your stats.
 - Metrica loads from `mc.yandex.ru`; if a target platform whitelists external hosts, allow that host for the counter to work.
 
 ## Common Issues
@@ -179,4 +179,4 @@ Yandex wraps your game in an iframe with additional SDK overhead. Keep your buil
 Anonymous players get device-local storage only. Prompt auth for cloud saves: `Yes2SDK.auth.signInAsync()`.
 
 ### Ads not showing in testing
-Yandex ad fill depends on region and testing environment. Ads may not fill in the developer console preview — test with a real published game URL.
+Yandex ad fill depends on region and testing environment. Ads may not fill in the developer console preview. Test with a real published game URL.

@@ -2,15 +2,15 @@
 
 [← Back to overview](overview.md)
 
-A few more modules are already implemented in Core and on the rollout path. Their full API is built and tested — what's coming is the platform wiring and the surface bindings (Unity, Defold). They're documented here so you can **design against the final API today** and switch them on with no rework once support lands.
+A few more modules are already implemented in Core and on the rollout path. Their full API is built and tested. What's coming is the platform wiring and the surface bindings (Unity, Defold). They're documented here so you can **design against the final API today** and switch them on with no rework once support lands.
 
-> **Already shipped:** IAP, Leaderboard, Stats, Config (remote flags), and Review (rating prompt) are now **live** — fully supported on Yandex, safe everywhere else. See [iap.md](iap.md), [leaderboard.md](leaderboard.md), [stats.md](stats.md), [config.md](config.md), and [review.md](review.md).
+> **Already shipped:** IAP, Leaderboard, Stats, Config (remote flags), and Review (rating prompt) are now **live**: fully supported on Yandex, safe everywhere else. See [iap.md](iap.md), [leaderboard.md](leaderboard.md), [stats.md](stats.md), [config.md](config.md), and [review.md](review.md).
 
 - **Core (TS):** complete, tested API classes. Being wired to the public `Yes2SDK.*` surface as each platform adapter is finished.
-- **Unity (C#):** accessors are already present (`Yes2SDK.Achievements`, …) and return a clean `FeatureNotSupported` until their bridge ships — safe to reference in your code now.
+- **Unity (C#):** accessors are already present (`Yes2SDK.Achievements`, …) and return a clean `FeatureNotSupported` until their bridge ships. Safe to reference in your code now.
 - **Defold (Lua):** arriving alongside the platform rollout.
 
-> **A natural next step.** The modules below map directly to **Facebook Instant Games** — on the platform roadmap — which brings **context**, **tournaments**, and **notifications**. The groundwork is in place.
+> **A natural next step.** The modules below map directly to **Facebook Instant Games**, on the platform roadmap, which brings **context**, **tournaments**, and **notifications**. The groundwork is in place.
 
 Each module below is **Coming soon** across all five live platforms unless noted.
 
@@ -22,7 +22,7 @@ Each module below is **Coming soon** across all five live platforms unless noted
 |-----------|-------------|
 | `getAchievementsAsync(): Promise<Achievement[]>` | All achievements. |
 | `unlockAsync(achievementId: string): Promise<void>` | Unlock an achievement. |
-| `setProgressAsync(achievementId: string, progress: number): Promise<void>` | Set progress (0–100). |
+| `setProgressAsync(achievementId: string, progress: number): Promise<void>` | Set progress (0-100). |
 | `isSupported(): boolean` | |
 
 `Achievement = { id; name; description; iconUrl; status: "locked" | "unlocked" | "in_progress"; progress?; unlockedAt? }`
@@ -91,7 +91,7 @@ Social context (Facebook-style threads/groups).
 
 ## Unity accessors
 
-These accessors are already present in the Unity SDK and return a clean `FeatureNotSupported` until their platform bridges ship — so you can wire your code against them now:
+These accessors are already present in the Unity SDK and return a clean `FeatureNotSupported` until their platform bridges ship, so you can wire your code against them now:
 
 - `Yes2SDK.Achievements`: `GetAchievementsAsync`, `UnlockAsync`, `SetProgressAsync`
 - `Yes2SDK.Context`: `GetContext`, `SwitchAsync`, `ChooseAsync`, `CreateAsync`, `ShareAsync`

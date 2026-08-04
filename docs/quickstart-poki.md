@@ -15,7 +15,7 @@ Poki has strict SDK integration requirements. Your game will be rejected if any 
 
 ### API Requirements
 
-The Yes2SDK methods below cover every Poki-platform call you need. The middle column is what Yes2SDK invokes on `PokiSDK` under the hood — you never call those directly. The same Yes2SDK API works in **TypeScript**, **Unity (`Yes2SDK.*`)**, and **Defold (`yes2sdk.*`)** — only the method-naming convention changes (see Integration Example below).
+The Yes2SDK methods below cover every Poki-platform call you need. The middle column is what Yes2SDK invokes on `PokiSDK` under the hood. You never call those directly. The same Yes2SDK API works in **TypeScript**, **Unity (`Yes2SDK.*`)**, and **Defold (`yes2sdk.*`)**. Only the method-naming convention changes (see Integration Example below).
 
 | Platform Requirement | Yes2SDK API | Required |
 |---|---|---|
@@ -29,7 +29,7 @@ The Yes2SDK methods below cover every Poki-platform call you need. The middle co
 | Loading progress (no-op on Poki) | `Yes2SDK.setLoadingProgress(n)` | Optional |
 | `localStorage` (Poki has no cloud data API) | `data.getInt/setInt`, `data.getString/setString`, ... | Optional |
 
-> Poki **does not** support `auth.*`, `banners.*`, or `player.getDataAsync/setDataAsync`. Calls return `FeatureNotSupported` — guard with `isSupported()` if you share code with other platforms.
+> Poki **does not** support `auth.*`, `banners.*`, or `player.getDataAsync/setDataAsync`. Calls return `FeatureNotSupported`. Guard with `isSupported()` if you share code with other platforms.
 
 ### Mandatory Call Sequence
 
@@ -167,10 +167,10 @@ rewardedBreak():
 
 ## How to Submit
 
-You don't upload to Poki yourself — the Yes2Games team handles platform submission.
+You don't upload to Poki yourself. The Yes2Games team handles platform submission.
 
 1. Upload a build on your game page (**Onboarding → Stage 1**)
-2. Test it in the Inspector (**Onboarding → Stage 3**) — the Debug check covers SDK basics
+2. Test it in the Inspector (**Onboarding → Stage 3**). The Debug check covers SDK basics
 3. Click **Request Publish** in **Onboarding → Stage 4** and select Poki
 4. The Yes2Games team validates the build against Poki's QA criteria, uploads it to inspector.poki.dev, fixes anything they can, and submits to Poki on your behalf
 5. You'll see status updates (`pending_review` → `reviewing` → `approved` / `needs_changes`) and feedback messages on the game page

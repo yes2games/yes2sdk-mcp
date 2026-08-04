@@ -1,8 +1,8 @@
-# Leaderboard — `Yes2SDK.leaderboard`
+# Leaderboard: `Yes2SDK.leaderboard`
 
 [← Back to overview](overview.md)
 
-Named leaderboards: submit scores, read top/ranked entries, and fetch the current player's or friends' standings. Optional — guard with `isSupported()`.
+Named leaderboards: submit scores, read top/ranked entries, and fetch the current player's or friends' standings. Optional. Guard with `isSupported()`.
 
 > Available on **Yandex** today (`ysdk.getLeaderboards()`). Other platforms report `isSupported() === false`; the calls stay safe (no-op / empty results) so a single codebase runs everywhere. For write-only score submission that's available more widely, see the [score](score.md) module.
 
@@ -27,14 +27,14 @@ Named leaderboards: submit scores, read top/ranked entries, and fetch the curren
 
 | Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
 |--------|:----:|:----------------:|:----------:|:------:|:-------:|
-| `getLeaderboardAsync` | — | — | — | Ready | — |
-| `setScoreAsync` | — | — | — | Ready | — |
-| `getEntriesAsync` | — | — | — | Ready | — |
-| `getPlayerEntryAsync` | — | — | — | Ready | — |
-| `getConnectedPlayerEntriesAsync` | — | — | — | Ready | — |
-| `isSupported` | — | — | — | Ready | — |
+| `getLeaderboardAsync` | None | None | None | Ready | None |
+| `setScoreAsync` | None | None | None | Ready | None |
+| `getEntriesAsync` | None | None | None | Ready | None |
+| `getPlayerEntryAsync` | None | None | None | Ready | None |
+| `getConnectedPlayerEntriesAsync` | None | None | None | Ready | None |
+| `isSupported` | None | None | None | Ready | None |
 
-Yandex maps to its native leaderboards API. On every other platform the strategy's `isSupported()` returns `false` — guard your calls with `isSupported()`.
+Yandex maps to its native leaderboards API. On every other platform the strategy's `isSupported()` returns `false`. Guard your calls with `isSupported()`.
 
 ---
 
@@ -56,14 +56,14 @@ if (Yes2SDK.leaderboard.isSupported()) {
 
 ## Defold (Lua)
 
-Async results arrive as JSON strings — decode with `json.decode`.
+Async results arrive as JSON strings. Decode with `json.decode`.
 
 | Signature | Description |
 |-----------|-------------|
 | `yes2sdk.leaderboard_get(name, callback)` | `callback(self, success, leaderboard_json)`. |
 | `yes2sdk.leaderboard_set_score(name, score, metadata, callback)` | `metadata` optional (pass `nil` to skip). `callback(self, success, entry_json)`. |
-| `yes2sdk.leaderboard_get_entries(name, count, offset, callback)` | `callback(self, success, entries_json)` — JSON array. |
-| `yes2sdk.leaderboard_get_player_entry(name, callback)` | `callback(self, success, entry_json)` — JSON object, or `"null"` if unranked. |
+| `yes2sdk.leaderboard_get_entries(name, count, offset, callback)` | `callback(self, success, entries_json)`: JSON array. |
+| `yes2sdk.leaderboard_get_player_entry(name, callback)` | `callback(self, success, entry_json)`: JSON object, or `"null"` if unranked. |
 | `yes2sdk.leaderboard_is_supported()` | Returns `true` where leaderboards exist (Yandex today). |
 
 > Connected-player entries are not exposed in the Defold SDK.

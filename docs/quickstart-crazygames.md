@@ -15,7 +15,7 @@ CrazyGames requires specific SDK initialization and lifecycle management. The pl
 
 ### API Requirements
 
-The Yes2SDK methods below cover every CrazyGames-platform call you need. The middle column is what Yes2SDK invokes on `window.CrazyGames.SDK` under the hood — you never call those directly. The same Yes2SDK API works in **TypeScript**, **Unity (`Yes2SDK.*`)**, and **Defold (`yes2sdk.*`)** — only the method-naming convention changes (see Integration Example below).
+The Yes2SDK methods below cover every CrazyGames-platform call you need. The middle column is what Yes2SDK invokes on `window.CrazyGames.SDK` under the hood. You never call those directly. The same Yes2SDK API works in **TypeScript**, **Unity (`Yes2SDK.*`)**, and **Defold (`yes2sdk.*`)**. Only the method-naming convention changes (see Integration Example below).
 
 | Platform Requirement | Yes2SDK API | Required |
 |---|---|---|
@@ -32,7 +32,7 @@ The Yes2SDK methods below cover every CrazyGames-platform call you need. The mid
 | `sdk.user.getUser()` / `getUserToken()` | `auth.signInAsync()` / `auth.getTokenAsync()` | Optional |
 | `sdk.data.getItem/setItem` (cloud storage) | `data.getInt/setInt`, `data.getString/setString`, ... | Optional |
 
-> CrazyGames replaces your `index.html` on upload — wrapping inline `<script>` calls is lost. The Yes2SDK Dashboard bundles the SDK into `framework.js` (Unity) or alongside your assets (Defold/HTML5) so initialization survives.
+> CrazyGames replaces your `index.html` on upload. Wrapping inline `<script>` calls is lost. The Yes2SDK Dashboard bundles the SDK into `framework.js` (Unity) or alongside your assets (Defold/HTML5) so initialization survives.
 
 ### Mandatory Call Sequence
 
@@ -205,7 +205,7 @@ CrazyGames supports 5 banner sizes:
 
 ## How to Submit
 
-You don't upload to CrazyGames yourself — the Yes2Games team handles platform submission.
+You don't upload to CrazyGames yourself. The Yes2Games team handles platform submission.
 
 1. Upload a build on your game page (**Onboarding → Stage 1**)
 2. Test it in the Inspector (**Onboarding → Stage 3**)

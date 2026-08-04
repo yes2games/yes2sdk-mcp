@@ -1,10 +1,10 @@
-# Review — `Yes2SDK.review`
+# Review: `Yes2SDK.review`
 
 [← Back to overview](overview.md)
 
 In-game rating / feedback prompt. Ask the platform to show its native "rate this game" dialog at a good moment (after a win, a level complete, a long session).
 
-> **Yandex only.** On every other platform `canReviewAsync()` reports `canReview: false` (reason `"FEATURE_NOT_SUPPORTED"`) and `isSupported()` returns `false`, so the calls are safe no-ops. `requestReviewAsync()` checks eligibility internally — the platform decides whether the prompt is actually shown (it won't re-prompt a player who has already rated), so a `feedbackSent: false` result is normal and not an error.
+> **Yandex only.** On every other platform `canReviewAsync()` reports `canReview: false` (reason `"FEATURE_NOT_SUPPORTED"`) and `isSupported()` returns `false`, so the calls are safe no-ops. `requestReviewAsync()` checks eligibility internally. The platform decides whether the prompt is actually shown (it won't re-prompt a player who has already rated), so a `feedbackSent: false` result is normal and not an error.
 
 ---
 
@@ -24,9 +24,9 @@ In-game rating / feedback prompt. Ask the platform to show its native "rate this
 
 | Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
 |--------|:----:|:----------------:|:----------:|:------:|:-------:|
-| `canReviewAsync` | —¹ | —¹ | —¹ | Ready | —¹ |
-| `requestReviewAsync` | —¹ | —¹ | —¹ | Ready | —¹ |
-| `isSupported` | — | — | — | Ready | — |
+| `canReviewAsync` | None¹ | None¹ | None¹ | Ready | None¹ |
+| `requestReviewAsync` | None¹ | None¹ | None¹ | Ready | None¹ |
+| `isSupported` | None | None | None | Ready | None |
 
 ¹ Returns `{ canReview: false, reason: "FEATURE_NOT_SUPPORTED" }` / a no-op result. Only Yandex (`ysdk.feedback`) exposes a rating prompt.
 
@@ -50,6 +50,6 @@ if (Yes2SDK.review.isSupported()) {
 
 | Signature | Description |
 |-----------|-------------|
-| `yes2sdk.review_can_review(callback)` | `callback(self, success, eligibility_json)` — `{"canReview":bool,"reason":"..."}`. |
-| `yes2sdk.review_request_review(callback)` | `callback(self, success, result_json)` — `{"feedbackSent":bool}` (`false` is normal). |
+| `yes2sdk.review_can_review(callback)` | `callback(self, success, eligibility_json)`: `{"canReview":bool,"reason":"..."}`. |
+| `yes2sdk.review_request_review(callback)` | `callback(self, success, result_json)`: `{"feedbackSent":bool}` (`false` is normal). |
 | `yes2sdk.review_is_supported()` | Returns `true` where the rating prompt exists (Yandex today). |

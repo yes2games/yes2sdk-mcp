@@ -1,8 +1,8 @@
-# Game — `Yes2SDK.game`
+# Game: `Yes2SDK.game`
 
 [← Back to overview](overview.md)
 
-Gameplay lifecycle signals, invite links, platform settings, and clipboard. The gameplay signals are the most important part — platforms use them to time ads and measure engagement.
+Gameplay lifecycle signals, invite links, platform settings, and clipboard. The gameplay signals are the most important part: platforms use them to time ads and measure engagement.
 
 ---
 
@@ -29,18 +29,18 @@ Gameplay lifecycle signals, invite links, platform settings, and clipboard. The 
 |--------|:----:|:----------------:|:----------:|:------:|:-------:|
 | `gameplayStart` | Ready | Partial¹ | Ready | Ready | Partial² |
 | `gameplayStop` | Ready | Partial¹ | Ready | Ready | Partial² |
-| `happyTime` | — | — | Ready | — | — |
-| `inviteLink` | Ready³ | — | Ready | — | — |
-| `getInviteParam` | Ready⁴ | — | Ready | — | — |
-| `showInviteButton` | — | — | Ready | — | — |
-| `hideInviteButton` | — | — | Ready | — | — |
-| `getSettings` | —⁵ | —⁵ | Ready⁶ | —⁵ | Ready⁷ |
+| `happyTime` | None | None | Ready | None | None |
+| `inviteLink` | Ready³ | None | Ready | None | None |
+| `getInviteParam` | Ready⁴ | None | Ready | None | None |
+| `showInviteButton` | None | None | Ready | None | None |
+| `hideInviteButton` | None | None | Ready | None | None |
+| `getSettings` | None⁵ | None⁵ | Ready⁶ | None⁵ | Ready⁷ |
 | `copyToClipboard` | Partial⁸ | Partial⁸ | Partial⁸ | Partial⁸ | Partial⁸ |
 | `getServerTimeAsync` | Partial⁹ | Partial⁹ | Partial⁹ | Ready | Partial⁹ |
 
-¹ Internal state only — GameDistribution has no platform gameplay call.
+¹ Internal state only: GameDistribution has no platform gameplay call.
 ² YouTube sets an internal flag; the real lifecycle uses `firstFrameReady`/`gameReady` (driven by the SDK's `startGame`).
-³ `PokiSDK.shareableURL`.  ⁴ `PokiSDK.getURLParam`.  ⁵ Returns `"{}"`.  ⁶ Reads CrazyGames `disableChat`/`muteAudio`.  ⁷ Reads `system.getLanguage()` + `isAudioEnabled()`.  ⁸ Uses the browser `navigator.clipboard` (and CrazyGames' `copyToClipboard` where present) — not a dedicated platform API.  ⁹ No server-time API — returns the local (unsynced) device clock via `Date.now()`. Yandex returns tamper-proof `ysdk.serverTime()`.
+³ `PokiSDK.shareableURL`.  ⁴ `PokiSDK.getURLParam`.  ⁵ Returns `"{}"`.  ⁶ Reads CrazyGames `disableChat`/`muteAudio`.  ⁷ Reads `system.getLanguage()` + `isAudioEnabled()`.  ⁸ Uses the browser `navigator.clipboard` (and CrazyGames' `copyToClipboard` where present), not a dedicated platform API.  ⁹ No server-time API: returns the local (unsynced) device clock via `Date.now()`. Yandex returns tamper-proof `ysdk.serverTime()`.
 
 ---
 
@@ -64,7 +64,7 @@ Gameplay lifecycle signals, invite links, platform settings, and clipboard. The 
 
 ## Defold (Lua)
 
-> Defold routes the gameplay-lifecycle signals through the `session_*` namespace (`session_gameplay_start` / `session_gameplay_stop` — see [session.md](session.md)). The `game_*` namespace covers the rest.
+> Defold routes the gameplay-lifecycle signals through the `session_*` namespace (`session_gameplay_start` / `session_gameplay_stop`; see [session.md](session.md)). The `game_*` namespace covers the rest.
 
 | Signature | Description |
 |-----------|-------------|

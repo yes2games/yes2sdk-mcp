@@ -1,8 +1,8 @@
-# Stats — `Yes2SDK.stats`
+# Stats: `Yes2SDK.stats`
 
 [← Back to overview](overview.md)
 
-Numeric player statistics: read, set, and atomically increment named counters (matches played, distance travelled, coins earned). Optional — guard with `isSupported()`.
+Numeric player statistics: read, set, and atomically increment named counters (matches played, distance travelled, coins earned). Optional. Guard with `isSupported()`.
 
 > Available on **Yandex** today (`getStats` / `setStats` / `incrementStats`). Other platforms report `isSupported() === false`; the calls stay safe so a single codebase runs everywhere.
 
@@ -23,12 +23,12 @@ Numeric player statistics: read, set, and atomically increment named counters (m
 
 | Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
 |--------|:----:|:----------------:|:----------:|:------:|:-------:|
-| `getStatsAsync` | — | — | — | Ready | — |
-| `setStatsAsync` | — | — | — | Ready | — |
-| `incrementStatsAsync` | — | — | — | Ready | — |
-| `isSupported` | — | — | — | Ready | — |
+| `getStatsAsync` | None | None | None | Ready | None |
+| `setStatsAsync` | None | None | None | Ready | None |
+| `incrementStatsAsync` | None | None | None | Ready | None |
+| `isSupported` | None | None | None | Ready | None |
 
-Yandex maps to its native stats API. On every other platform the strategy's `isSupported()` returns `false` — guard your calls with `isSupported()`.
+Yandex maps to its native stats API. On every other platform the strategy's `isSupported()` returns `false`. Guard your calls with `isSupported()`.
 
 ---
 
@@ -49,11 +49,11 @@ if (Yes2SDK.stats.isSupported()) {
 
 ## Defold (Lua)
 
-Map arguments are passed as JSON strings; async results arrive as JSON strings — decode with `json.decode`.
+Map arguments are passed as JSON strings; async results arrive as JSON strings. Decode with `json.decode`.
 
 | Signature | Description |
 |-----------|-------------|
 | `yes2sdk.stats_get(keys_json, callback)` | `keys_json` = JSON array string. `callback(self, success, stats_json)`. |
-| `yes2sdk.stats_set(stats_json, callback)` | `stats_json` = JSON object string (name → value). `callback(self, success, err)` — `err` nil on success. |
-| `yes2sdk.stats_increment(increments_json, callback)` | `increments_json` = JSON object string of deltas. `callback(self, success, stats_json)` — updated values. |
+| `yes2sdk.stats_set(stats_json, callback)` | `stats_json` = JSON object string (name → value). `callback(self, success, err)`: `err` nil on success. |
+| `yes2sdk.stats_increment(increments_json, callback)` | `increments_json` = JSON object string of deltas. `callback(self, success, stats_json)`: updated values. |
 | `yes2sdk.stats_is_supported()` | Returns `true` where stats exist (Yandex today). |

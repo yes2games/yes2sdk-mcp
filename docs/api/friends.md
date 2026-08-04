@@ -1,4 +1,4 @@
-# Friends — `Yes2SDK.friends`
+# Friends: `Yes2SDK.friends`
 
 [← Back to overview](overview.md)
 
@@ -21,8 +21,8 @@ Paginated list of the player's friends who also play this game. Available on **C
 
 | Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
 |--------|:----:|:----------------:|:----------:|:------:|:-------:|
-| `listFriendsAsync` | — | — | Ready¹ | — | — |
-| `isSupported` | — | — | Ready | — | — |
+| `listFriendsAsync` | None | None | Ready¹ | None | None |
+| `isSupported` | None | None | Ready | None | None |
 
 ¹ CrazyGames `sdk.user.getMyFriends()`, paginated in memory. Throws `FEATURE_NOT_SUPPORTED` only if the SDK version lacks the method.
 

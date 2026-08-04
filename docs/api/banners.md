@@ -1,8 +1,8 @@
-# Banners — `Yes2SDK.banners`
+# Banners: `Yes2SDK.banners`
 
 [← Back to overview](overview.md)
 
-Positioned display banners with explicit container IDs and sizes. **Distinct** from the simple top/bottom banner in the [ads](ads.md) module — this module manages multiple named banners.
+Positioned display banners with explicit container IDs and sizes. **Distinct** from the simple top/bottom banner in the [ads](ads.md) module. This module manages multiple named banners.
 
 > Available on **CrazyGames** and **Yandex**. On Yandex this is a single sticky banner: placement and size are managed for you, and `refreshBanners` re-displays it.
 
@@ -29,17 +29,17 @@ Documented sizes: `"300x250" | "728x90" | "320x50" | "468x60" | "160x600"` (the 
 
 | Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
 |--------|:----:|:----------------:|:----------:|:------:|:-------:|
-| `showBanner` | — | — | Ready | Ready¹ | — |
-| `hideBanner` | — | — | Ready | Ready¹ | — |
-| `hideAllBanners` | — | — | Ready | Ready | — |
-| `refreshBanners` | — | — | Ready² | Partial³ | — |
-| `getBannerStatusAsync` | — | — | Partial⁴ | Ready⁵ | — |
-| `isSupported` | — | — | Ready | Ready | — |
+| `showBanner` | None | None | Ready | Ready¹ | None |
+| `hideBanner` | None | None | Ready | Ready¹ | None |
+| `hideAllBanners` | None | None | Ready | Ready | None |
+| `refreshBanners` | None | None | Ready² | Partial³ | None |
+| `getBannerStatusAsync` | None | None | Partial⁴ | Ready⁵ | None |
+| `isSupported` | None | None | Ready | Ready | None |
 
 ¹ Yandex maps to a single sticky banner (`ysdk.adv.showBannerAdv`); `id`/`size` are ignored.
 ² CrazyGames `refreshBanners` if the SDK version exposes it (warns otherwise).
-³ Yandex has no native refresh — emulated via hide-then-show.
-⁴ CrazyGames has no banner status query — always resolves `{ isShowing: false, reason: "STATUS_QUERY_NOT_SUPPORTED" }`.
+³ Yandex has no native refresh: emulated via hide-then-show.
+⁴ CrazyGames has no banner status query: always resolves `{ isShowing: false, reason: "STATUS_QUERY_NOT_SUPPORTED" }`.
 ⁵ Yandex maps to `ysdk.adv.getBannerAdvStatus()` (live state, with a platform `reason`).
 
 ---
