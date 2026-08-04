@@ -1,71 +1,144 @@
 #!/usr/bin/env node
-// Copies every `.md` under ../Dashboard/docs/ (recursively) into ./docs,
-// preserving the `api/` subdir, so this package is self-contained for npx users
-// who don't have the dashboard repo checked out. Mirrors the repo's existing
-// sync-sdk.sh convention.
+// Copies SDK-integration docs from ../../yes2dashboard/docs into ./docs so this
+// package is self-contained for npx users who don't have the dashboard repo
+// checked out.
 //
-// EXCLUDED docs are skipped: the MCP server serves every doc it ships with no
-// allowlist (src/lib/docs.ts scans the whole docs dir), so an internal-only doc
-// that lives in the dashboard's docs/ would otherwise become searchable by npx
-// users. Keep internal/infra/planning docs out of the package here.
+// This is an ALLOW-list, not a deny-list, and that is load-bearing: the MCP
+// server serves every doc it ships (src/lib/docs.ts scans the whole docs dir
+// with no serve-time filter), and docs/ is shipped through two channels --
+// the npm tarball (package.json "files") and the hosted container
+// (Containerfile COPY docs ./docs). A doc nobody listed here is never copied,
+// so a new internal doc appearing upstream cannot leak by default.
 //
 // Run with: npm run sync-docs
 
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = path.resolve(__dirname, "..");
-const SOURCE = path.resolve(PKG_ROOT, "..", "..", "yes2dashboard", "docs");
-const DEST = path.resolve(PKG_ROOT, "docs");
+const DEFAULT_SOURCE = path.resolve(PKG_ROOT, "..", "..", "yes2dashboard", "docs");
+const DEFAULT_DEST = path.resolve(PKG_ROOT, "docs");
 
-// Docs that live in the dashboard's docs/ but must NOT ship in the public MCP
-// package (internal infra / planning, not SDK integration guidance). Matched on
-// the path relative to the docs dir (posix separators).
-const EXCLUDE = new Set([
-  "R2_MIGRATION_PLAN.md",
+// Docs cleared to ship, matched against the path relative to the source docs
+// dir in posix form. Adding a doc here makes it public -- read it first.
+//
+// AGENTS.md is pinned by test/docs.test.ts (it asserts the "AGENTS" slug).
+const ALLOW_EXACT = new Set([
+  "AGENTS.md",
+  "claude-code-plugin.md",
+  "dashboard-guide.md",
+  "mcp-server.md",
+  "platform-keys.md",
 ]);
 
-/** @param {string} dir @param {string} base @returns {string[]} */
-function collectMarkdown(dir, base) {
+// Path prefixes cleared to ship. `api/` and `generated/` are whole directories
+// of public SDK reference; `quickstart-` and `unity-` are root-level filename
+// prefixes. A prefix admits future upstream additions under it by design --
+// keep prefixes narrow enough that that stays true.
+const ALLOW_PREFIXES = ["api/", "generated/", "quickstart-", "unity-"];
+
+/** @param {string} rel posix-form path relative to the docs dir */
+export function isAllowed(rel) {
+  if (ALLOW_EXACT.has(rel)) return true;
+  return ALLOW_PREFIXES.some((prefix) => rel.startsWith(prefix));
+}
+
+/**
+ * Lists files under `dir` as posix-form paths relative to it. Missing dir = [].
+ *
+ * @param {string} dir
+ * @param {(rel: string) => boolean} [keep] file filter; every file by default
+ * @param {string} [base] internal recursion prefix
+ * @returns {string[]}
+ */
+export function collectFiles(dir, keep = () => true, base = "") {
   /** @type {string[]} */
   const out = [];
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const ent of entries) {
-    const rel = base ? path.join(base, ent.name) : ent.name;
-    const abs = path.join(dir, ent.name);
+  if (!fs.existsSync(dir)) return out;
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    const rel = base ? `${base}/${ent.name}` : ent.name;
     if (ent.isDirectory()) {
-      out.push(...collectMarkdown(abs, rel));
-    } else if (ent.isFile() && ent.name.endsWith(".md")) {
+      out.push(...collectFiles(path.join(dir, ent.name), keep, rel));
+    } else if (ent.isFile() && keep(rel)) {
       out.push(rel);
     }
   }
   return out;
 }
 
-if (!fs.existsSync(SOURCE)) {
-  console.error(`[sync-docs] source docs dir not found: ${SOURCE}`);
-  process.exit(1);
-}
-
-const relPaths = collectMarkdown(SOURCE, "");
-let copied = 0;
-let skipped = 0;
-for (const rel of relPaths) {
-  if (EXCLUDE.has(rel.split(path.sep).join("/"))) {
-    skipped += 1;
-    continue;
+/** Removes now-empty directories under `root`, deepest first. @param {string} root */
+function pruneEmptyDirs(root) {
+  if (!fs.existsSync(root)) return;
+  for (const ent of fs.readdirSync(root, { withFileTypes: true })) {
+    if (!ent.isDirectory()) continue;
+    const abs = path.join(root, ent.name);
+    pruneEmptyDirs(abs);
+    if (fs.readdirSync(abs).length === 0) fs.rmdirSync(abs);
   }
-  const src = path.join(SOURCE, rel);
-  const dst = path.join(DEST, rel);
-  fs.mkdirSync(path.dirname(dst), { recursive: true });
-  fs.copyFileSync(src, dst);
-  copied += 1;
 }
 
-console.log(
-  `[sync-docs] copied ${copied} markdown file(s)` +
-    (skipped ? `, skipped ${skipped} excluded` : "") +
-    ` from ${SOURCE} -> ${DEST}`
-);
+/**
+ * Copies every allow-listed markdown doc from `source` into `dest`, then
+ * deletes anything in `dest` this run did not produce.
+ *
+ * @param {{ source: string, dest: string }} opts
+ * @returns {{ copied: string[], skipped: string[], pruned: string[] }}
+ */
+export function syncDocs({ source, dest }) {
+  const relPaths = collectFiles(source, (rel) => rel.endsWith(".md"));
+  /** @type {string[]} */
+  const copied = [];
+  /** @type {string[]} */
+  const skipped = [];
+
+  for (const rel of relPaths) {
+    if (!isAllowed(rel)) {
+      skipped.push(rel);
+      continue;
+    }
+    const dst = path.join(dest, rel);
+    fs.mkdirSync(path.dirname(dst), { recursive: true });
+    fs.copyFileSync(path.join(source, rel), dst);
+    copied.push(rel);
+  }
+
+  // Prune: anything in dest that this run did not write is stale -- a doc
+  // deleted or renamed upstream, or reclassified as internal. Without this an
+  // allow-list can only stop new leaks, never undo one.
+  const written = new Set(copied);
+  const pruned = collectFiles(dest).filter((rel) => !written.has(rel));
+  for (const rel of pruned) fs.rmSync(path.join(dest, rel));
+  if (pruned.length) pruneEmptyDirs(dest);
+
+  return { copied, skipped, pruned };
+}
+
+function main() {
+  const source = DEFAULT_SOURCE;
+  const dest = DEFAULT_DEST;
+
+  if (!fs.existsSync(source)) {
+    console.error(`[sync-docs] source docs dir not found: ${source}`);
+    process.exit(1);
+  }
+
+  const { copied, skipped, pruned } = syncDocs({ source, dest });
+
+  console.log(`[sync-docs] copied ${copied.length} markdown file(s) from ${source} -> ${dest}`);
+  // Name every skip and prune: a silent count hides both a new internal doc
+  // upstream and a public doc accidentally dropped from the allow-list.
+  if (skipped.length) {
+    console.log(`[sync-docs] skipped ${skipped.length} file(s) not on the allow-list:`);
+    for (const rel of skipped.sort()) console.log(`  - ${rel}`);
+  }
+  if (pruned.length) {
+    console.log(`[sync-docs] pruned ${pruned.length} stale file(s) from ${dest}:`);
+    for (const rel of pruned.sort()) console.log(`  - ${rel}`);
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}
