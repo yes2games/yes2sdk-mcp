@@ -2,6 +2,15 @@
   "name": "@yes2games/yes2sdk-mcp",
   "version": "0.1.0",
   "description": "Model Context Protocol server for the Yes2SDK — exposes SDK docs and a compliance/validation tool to AI coding clients over stdio.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yes2games/yes2sdk-mcp.git"
+  },
+  "homepage": "https://github.com/yes2games/yes2sdk-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/yes2games/yes2sdk-mcp/issues"
+  },
   "type": "module",
   "bin": {
     "yes2sdk-mcp": "dist/index.js"
