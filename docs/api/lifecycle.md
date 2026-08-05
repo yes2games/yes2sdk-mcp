@@ -12,12 +12,12 @@ The top-level entry point. Every game must initialize the SDK, report loading pr
 
 | Signature | Description |
 |-----------|-------------|
-| `initializeAsync(options?: InitializationOptions): Promise<void>` | Initialize the SDK. Must be called before any other SDK function. Detects the platform, loads platform code, initializes the platform SDK, and wires strategies. **Idempotent** — repeat calls return the in-flight/resolved promise. |
+| `initializeAsync(options?: InitializationOptions): Promise<void>` | Initialize the SDK. Must be called before any other SDK function. Detects the platform, loads platform code, initializes the platform SDK, and wires strategies. **Idempotent**: repeat calls return the in-flight/resolved promise. |
 | `startGameAsync(): Promise<void>` | Signal the game is loaded and ready to display. Waits for `initializeAsync` if still running; throws `NOT_INITIALIZED` if init never started. No-ops if already started. Emits `gameStarted`. |
-| `setLoadingProgress(progress: number): void` | Report loading progress, `0`–`100`. Throws `INVALID_PARAM` if out of range. Emits `loadingProgress`. |
+| `setLoadingProgress(progress: number): void` | Report loading progress, `0` to `100`. Throws `INVALID_PARAM` if out of range. Emits `loadingProgress`. |
 | `performHapticFeedback(): void` | Trigger haptic feedback where supported. No-ops (warns) before init. |
 | `getPlatform(): Platform \| null` | The detected platform, or `null` before init. |
-| `isInitialized` *(getter)* | `boolean` — whether init has completed. |
+| `isInitialized` *(getter)* | `boolean`: whether init has completed. |
 
 ### Unity (C#)
 
@@ -27,7 +27,7 @@ The top-level entry point. Every game must initialize the SDK, report loading pr
 | `static Task InitializeAsync(CancellationToken cancellationToken)` | Task form; throws `Yes2SDKException` on failure. |
 | `static void StartGameAsync(Action onSuccess = null, Action<Error> onError = null)` | Notify the platform the game is ready to play. |
 | `static Task StartGameAsync(CancellationToken cancellationToken)` | Task form. |
-| `static void SetLoadingProgress(int progress)` | Update loading progress (clamped 0–100). |
+| `static void SetLoadingProgress(int progress)` | Update loading progress (clamped 0-100). |
 | `static void PerformHapticFeedback()` | Haptic feedback where supported. |
 | `static Platform GetPlatform()` | Detected platform; `Platform.Debug` in Editor. |
 | `static bool IsInitialized { get; }` | Whether init completed. |
@@ -40,7 +40,7 @@ The top-level entry point. Every game must initialize the SDK, report loading pr
 |-----------|-------------|
 | `yes2sdk.initialize(callback)` | Initialize. `callback(self, success, err)` fires when init resolves. Register lifecycle subscriptions inside the success path. |
 | `yes2sdk.start_game(callback)` | Signal the game is playable (drives the platform loading bar). Call inside the `initialize` success callback. |
-| `yes2sdk.set_loading_progress(progress)` | Report post-engine loading progress (`0`–`1`). The engine template auto-reports the initial download. |
+| `yes2sdk.set_loading_progress(progress)` | Report post-engine loading progress (`0` to `1`). The engine template auto-reports the initial download. |
 | `yes2sdk.get_platform()` | Host platform name string; `"unknown"`/`"editor"` when unavailable. |
 
 ---
@@ -51,7 +51,7 @@ External pauses (ads, tab focus loss, platform overlays), audio-mute changes, an
 
 ### Core (TypeScript)
 
-Subscribe with `on()`, which returns a handle — there is no separate `off()`:
+Subscribe with `on()`, which returns a handle. There is no separate `off()`:
 
 ```ts
 const sub = Yes2SDK.on("pause", () => pauseGame());
@@ -95,8 +95,8 @@ Static events on `Yes2SDK`. Subscribe **after** `InitializeAsync` succeeds.
 | `yes2sdk.on_pause(callback)` | `callback(self)`. Stop loop/audio/network. |
 | `yes2sdk.on_resume(callback)` | `callback(self)`. |
 | `yes2sdk.on_audio_enabled_change(callback)` | `callback(self, enabled)` (boolean). |
-| `yes2sdk.on_account_dialog_open(callback)` | `callback(self)`. Yandex account switcher opened — pause. Yandex-only. |
-| `yes2sdk.on_account_dialog_close(callback)` | `callback(self)`. Yandex account switcher closed — resume. Yandex-only. |
+| `yes2sdk.on_account_dialog_open(callback)` | `callback(self)`. Yandex account switcher opened. Pause. Yandex-only. |
+| `yes2sdk.on_account_dialog_close(callback)` | `callback(self)`. Yandex account switcher closed. Resume. Yandex-only. |
 
 ---
 
@@ -106,9 +106,9 @@ Static events on `Yes2SDK`. Subscribe **after** `InitializeAsync` succeeds.
 |-------|------|---------|-------------|
 | `debug` | `boolean` | `false` | Enable debug-level logging. |
 | `manualInit` | `boolean` | `false` | Skip automatic platform SDK init; also disables auto-preroll. |
-| `gameId` | `string` | — | Game ID override; also namespaces the `localStorage` data fallback. |
+| `gameId` | `string` | None | Game ID override; also namespaces the `localStorage` data fallback. |
 | `skipAdPreload` | `boolean` | `false` | Skip ad preloading during init. |
-| `ads` | `AdsConfig` | — | Ads config; merged over `window.__yes2sdkConfig.ads` (these win). |
+| `ads` | `AdsConfig` | None | Ads config; merged over `window.__yes2sdkConfig.ads` (these win). |
 
 **`AdsConfig`**
 
@@ -139,7 +139,7 @@ A build is accepted when:
 - [ ] `setLoadingProgress` is called as assets load
 - [ ] `startGame` is called when the game becomes playable
 - [ ] `pause` / `resume` are handled (mute audio, pause gameplay)
-- [ ] `audioEnabledChange` (and `isAudioEnabled`) is honored — required for YouTube Playables certification
+- [ ] `audioEnabledChange` (and `isAudioEnabled`) is honored: required for YouTube Playables certification
 - [ ] Interstitials run at natural break points; rewarded grants reward only on the "viewed" callback
 - [ ] `gameplayStop` before every ad, `gameplayStart` after; gameplay resumes in both the after-ad and error paths
 

@@ -62,7 +62,7 @@ Unity's `ErrorCode` enum is a smaller mapped set: `NotInitialized, InvalidParams
 - Parameter validation failures throw `INVALID_PARAM`.
 - Calling an async method before init / without a wired strategy throws `NOT_INITIALIZED`.
 - Unhandled platform-side failures are wrapped as `PLATFORM_ERROR` (`message` from the underlying error; `originalError` set).
-- **`FEATURE_NOT_SUPPORTED` is the normal signal that a platform doesn't implement a feature** — handle it gracefully, don't treat it as a bug.
+- **`FEATURE_NOT_SUPPORTED` is the normal signal that a platform doesn't implement a feature**. Handle it gracefully, don't treat it as a bug.
 - `isXSupported()` returns `false` (never throws) when no strategy is wired.
 
 ---

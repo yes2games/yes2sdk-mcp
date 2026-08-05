@@ -1,6 +1,6 @@
 # Yes2SDK API Reference
 
-Welcome to the Yes2SDK API reference. This is the single source of truth for the SDK surface: **every public function** across the three SDK surfaces — Core (TypeScript/JavaScript), Unity (C#), and Defold (Lua) — with, for each function, a clear view of **how it behaves on every platform**.
+Welcome to the Yes2SDK API reference. This is the single source of truth for the SDK surface: **every public function** across the three SDK surfaces (Core in TypeScript/JavaScript, Unity in C#, and Defold in Lua), with, for each function, a clear view of **how it behaves on every platform**.
 
 Start here for the support matrix and the status legend, then open any module page for full signatures and per-platform detail.
 
@@ -14,7 +14,7 @@ Start here for the support matrix and the status legend, then open any module pa
 | **Unity (C#)** | `using Yes2SDK;` → static class. Modules via static props: `Yes2SDK.Ads`, `Yes2SDK.Player`, … | Callback overloads **and** `Task` + `CancellationToken` overloads (Task surfaces failures as `Yes2SDKException`) |
 | **Defold (Lua)** | `local yes2sdk = require "yes2sdk.yes2sdk"` → flat module. Functions are prefixed: `yes2sdk.ads_show_interstitial(...)`, `yes2sdk.data_get_int(...)` | Last-argument callbacks `(self, success, payload)` |
 
-All three bundle the **same Core SDK** and select the host platform automatically at runtime — each platform adapter loads only that platform's own SDK from its CDN. Write your game once; it runs everywhere Yes2SDK ships.
+All three bundle the **same Core SDK** and select the host platform automatically at runtime. Each platform adapter loads only that platform's own SDK from its CDN. Write your game once; it runs everywhere Yes2SDK ships.
 
 ---
 
@@ -26,11 +26,11 @@ Each function is rated **per platform** so you always know what to expect:
 |--------|---------|
 | **Ready** | Fully integrated with the platform's own SDK. |
 | **Partial** | Works today, with a sensible fallback or platform-specific scope (e.g. local storage, a browser-derived value). |
-| **—** | Not offered by this platform. The call stays safe — it returns a clear `FeatureNotSupported` result or a no-op default — so a single codebase runs cleanly everywhere. |
+| **None** | Not offered by this platform. The call stays safe: it returns a clear `FeatureNotSupported` result or a no-op default, so a single codebase runs cleanly everywhere. |
 
 Optional features degrade gracefully: guard them with `isSupported()` / `IsSupported()` and your integration behaves correctly on every platform, with zero special-casing required.
 
-> **Growing fast.** A few more modules are already built into Core and on the rollout path — see [Upcoming modules](#upcoming-modules) below.
+> **Growing fast.** A few more modules are already built into Core and on the rollout path. See [Upcoming modules](#upcoming-modules) below.
 
 ---
 
@@ -44,7 +44,7 @@ These modules are available today via `Yes2SDK.<module>` (Core), `Yes2SDK.<Modul
 | Ads | [ads.md](ads.md) | Interstitial, rewarded, banner |
 | Analytics | [analytics.md](analytics.md) | Gameplay events, level/score/tutorial/purchase logging |
 | Session | [session.md](session.md) | Locale, country, device, orientation, traffic source |
-| Data | [data.md](data.md) | Typed key-value storage (PlayerPrefs-style) — the default for saved game state |
+| Data | [data.md](data.md) | Typed key-value storage (PlayerPrefs-style): the default for saved game state |
 | Player | [player.md](player.md) | Identity, account-bound saved data, connected players |
 | Auth | [auth.md](auth.md) | Sign-in, tokens, account linking |
 | Game | [game.md](game.md) | Gameplay lifecycle, invite links, settings, clipboard |
@@ -66,33 +66,33 @@ A module-level summary across the five live platforms. Per-method detail is on e
 
 | Module | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
 |--------|:----:|:----------------:|:----------:|:------:|:-------:|
-| Ads — interstitial & rewarded | Ready | Ready | Ready | Ready | Ready |
-| Ads — banner | — | — | Ready | Ready | — |
+| Ads: interstitial & rewarded | Ready | Ready | Ready | Ready | Ready |
+| Ads: banner | None | None | Ready | Ready | None |
 | Analytics | Partial¹ | Partial¹ | Partial¹ | Partial¹ | Partial¹ |
 | Session | Partial | Partial | Ready | Ready | Partial |
 | Data | Partial² | Partial² | Ready | Ready | Ready |
-| Player — identity | — | — | Partial | Ready | — |
-| Player — saved data | Partial² | Partial² | Ready | Ready | Ready |
-| Auth | — | — | Ready³ | Ready³ | — |
-| Game — lifecycle | Ready | Partial⁴ | Ready | Ready | Partial⁴ |
-| Game — invite links | Ready | — | Ready | — | — |
-| Banners | — | — | Ready | Ready⁵ | — |
-| Friends | — | — | Ready | — | — |
-| Score | —⁶ | —⁶ | Ready | —⁶ | Ready |
-| Leaderboard | — | — | — | Ready | — |
-| Stats | — | — | — | Ready | — |
-| IAP | — | — | — | Ready⁷ | — |
-| Config — feature flags | Partial⁸ | Partial⁸ | Partial⁸ | Ready | Partial⁸ |
-| Review — rating prompt | — | — | — | Ready | — |
+| Player: identity | None | None | Partial | Ready | None |
+| Player: saved data | Partial² | Partial² | Ready | Ready | Ready |
+| Auth | None | None | Ready³ | Ready³ | None |
+| Game: lifecycle | Ready | Partial⁴ | Ready | Ready | Partial⁴ |
+| Game: invite links | Ready | None | Ready | None | None |
+| Banners | None | None | Ready | Ready⁵ | None |
+| Friends | None | None | Ready | None | None |
+| Score | None⁶ | None⁶ | Ready | None⁶ | Ready |
+| Leaderboard | None | None | None | Ready | None |
+| Stats | None | None | None | Ready | None |
+| IAP | None | None | None | Ready⁷ | None |
+| Config: feature flags | Partial⁸ | Partial⁸ | Partial⁸ | Ready | Partial⁸ |
+| Review: rating prompt | None | None | None | Ready | None |
 
 ¹ Custom analytics events are recorded locally; the gameplay-lifecycle calls (`logLevelStart`/`logLevelEnd`) drive each platform's real `gameplayStart`/`gameplayStop`. On YouTube, error/warning reporting also flows to the platform's `health` channel.
 ² Poki & GameDistribution don't expose a storage API, so Data and Player saved-data persist via namespaced `localStorage` (device-local). Player identity stays anonymous on these platforms.
 ³ Auth is available; platform sign-out isn't offered, and account-linking is CrazyGames-only.
-⁴ GameDistribution and YouTube track gameplay via internal state — YouTube drives the real lifecycle through `firstFrameReady`/`gameReady`.
+⁴ GameDistribution and YouTube track gameplay via internal state. YouTube drives the real lifecycle through `firstFrameReady`/`gameReady`.
 ⁵ Yandex presents a single sticky banner; placement and size are managed for you, and refresh re-displays it.
 ⁶ Score submission isn't offered by these platforms; calls are recorded locally and are safe to keep in your code.
 ⁷ Yandex IAP covers products and purchases; subscriptions are not offered yet (`isSubscriptionSupported()` is `false` on every platform).
-⁸ Config has no remote-config service on these platforms, so `getFlagsAsync` returns your provided `defaults` unchanged — always safe to call. Only Yandex serves remote overrides (`isSupported()` is `true` there only).
+⁸ Config has no remote-config service on these platforms, so `getFlagsAsync` returns your provided `defaults` unchanged. Always safe to call. Only Yandex serves remote overrides (`isSupported()` is `true` there only).
 
 ---
 

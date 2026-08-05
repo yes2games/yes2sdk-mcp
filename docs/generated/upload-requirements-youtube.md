@@ -1,4 +1,4 @@
-<!-- Generated file — do not edit. Run `npm run sync-platform-reqs` (from api/). Source of truth: api/src/utils/platform-requirements.ts -->
+<!-- Generated file, do not edit. Run `npm run sync-platform-reqs` (from api/). Source of truth: api/src/utils/platform-requirements.ts -->
 
 ## Build & Upload Limits
 
@@ -8,7 +8,7 @@
 - **Max per-file:** 30 MiB (SHOULD be <512 KiB per file)
 - **Entry point:** index.html
 - **Paths:** relative paths only; filenames limited to [A-Za-z0-9_-.]
-- **External requests:** forbidden — no off-platform network
+- **External requests:** forbidden, no off-platform network
 - **Compression:** not documented by Google
 - **Persistence:** SDK saveData only; <3 MiB total, ~64 KiB practical per-save cap
 - **Canvas:** all aspect ratios, lock nothing; peak JS heap <512 MB

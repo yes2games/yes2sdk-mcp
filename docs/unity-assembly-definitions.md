@@ -12,7 +12,7 @@ The package includes three assembly definitions:
 | `Yes2SDK.Editor` | `Editor/Yes2SDK.Editor.asmdef` | Editor only | `Yes2SDK.Runtime`, `Unity.Nuget.Newtonsoft-Json` |
 | `Yes2SDK.Ktx2` | `Runtime/Ktx2/Yes2SDK.Ktx2.asmdef` | Editor, WebGL | `Yes2SDK.Runtime`, `com.unity.cloud.ktx` (GUID) |
 
-`Yes2SDK.Ktx2` is optional — it only compiles when the `com.unity.cloud.ktx` package is installed (gated by the `YES2SDK_KTX` define constraint). You do not need it unless your game loads KTX2 textures.
+`Yes2SDK.Ktx2` is optional. It only compiles when the `com.unity.cloud.ktx` package is installed (gated by the `YES2SDK_KTX` define constraint). You do not need it unless your game loads KTX2 textures.
 
 ## If your game uses assembly definitions
 
@@ -34,7 +34,7 @@ Without this reference, any script in your assembly that calls `Yes2SDK.Yes2SDK.
 
 ## If your game has no assembly definitions
 
-Loose scripts compile into Unity's implicit `Assembly-CSharp` assembly. Because `Yes2SDK.Runtime` has `autoReferenced: true`, it is automatically available to `Assembly-CSharp` — no action needed. Add `using Yes2SDK;` and the API resolves.
+Loose scripts compile into Unity's implicit `Assembly-CSharp` assembly. Because `Yes2SDK.Runtime` has `autoReferenced: true`, it is automatically available to `Assembly-CSharp`. No action needed. Add `using Yes2SDK;` and the API resolves.
 
 ## Why the SDK isolates its editor tools
 

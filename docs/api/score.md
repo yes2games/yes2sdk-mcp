@@ -1,10 +1,10 @@
-# Score — `Yes2SDK.score`
+# Score: `Yes2SDK.score`
 
 [← Back to overview](overview.md)
 
 Score submission, including an encrypted/signed variant for anti-cheat. Supported on **CrazyGames** and **YouTube**.
 
-> On Poki, GameDistribution, and Yandex, score submission isn't offered by the platform — `addScore`/`submitScore` are recorded locally and safe to keep in your code. On YouTube, `submitScore` accepts the encrypted-score string and forwards it as a plain score value.
+> On Poki, GameDistribution, and Yandex, score submission isn't offered by the platform. `addScore`/`submitScore` are recorded locally and safe to keep in your code. On YouTube, `submitScore` accepts the encrypted-score string and forwards it as a plain score value.
 
 ---
 
@@ -22,9 +22,9 @@ Score submission, including an encrypted/signed variant for anti-cheat. Supporte
 
 | Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
 |--------|:----:|:----------------:|:----------:|:------:|:-------:|
-| `addScore` | —¹ | —¹ | Ready² | —¹ | Ready³ |
-| `submitScore` | —¹ | —¹ | Ready² | —¹ | Partial⁴ |
-| `isSupported` | — | — | Ready | — | Ready |
+| `addScore` | None¹ | None¹ | Ready² | None¹ | Ready³ |
+| `submitScore` | None¹ | None¹ | Ready² | None¹ | Partial⁴ |
+| `isSupported` | None | None | Ready | None | Ready |
 
 ¹ Recorded locally; the platform doesn't offer a score API yet.
 ² CrazyGames `sdk.user.addScore`/`submitScore` if the SDK version exposes them (warns otherwise).

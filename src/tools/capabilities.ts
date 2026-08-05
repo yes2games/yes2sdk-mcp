@@ -8,9 +8,9 @@ export type CapabilityPlatform = "poki" | "gamedistribution" | "crazygames" | "y
 const PLATFORMS = ["poki", "crazygames", "yandex", "gamedistribution", "youtube"] as const;
 
 export interface CapabilityRow {
-  /** Module label exactly as the matrix lists it, e.g. "Ads — banner". */
+  /** Module label exactly as the matrix lists it, e.g. "Ads: banner". */
   module: string;
-  /** Status per platform: "Ready" | "Partial" | "—". */
+  /** Status per platform: "Ready" | "Partial" | "None". */
   support: Record<CapabilityPlatform, string>;
 }
 
@@ -30,7 +30,7 @@ function platformKey(header: string): CapabilityPlatform | null {
   return null;
 }
 
-/** Drop footnote superscripts so a status value is just "Ready"/"Partial"/"—". */
+/** Drop footnote superscripts so a status value is just "Ready"/"Partial"/"None". */
 function cleanStatus(cell: string): string {
   return cell.replace(/[¹²³⁰-⁹]/g, "").trim();
 }
@@ -93,9 +93,9 @@ export function parseCapabilityMatrix(md: string): CapabilityMatrix {
 
 const LEGEND = [
   "Status legend:",
-  "  Ready   — fully integrated with the platform's own SDK.",
-  "  Partial — works with a sensible fallback or platform-specific scope (e.g. local storage).",
-  "  —       — not offered; the call stays safe (returns FeatureNotSupported or a no-op default).",
+  "  Ready   - fully integrated with the platform's own SDK.",
+  "  Partial - works with a sensible fallback or platform-specific scope (e.g. local storage).",
+  "  None    - not offered; the call stays safe (returns FeatureNotSupported or a no-op default).",
   "Guard optional features with isSupported() / IsSupported() so one codebase runs everywhere.",
 ].join("\n");
 

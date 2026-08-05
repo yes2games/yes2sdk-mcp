@@ -4,7 +4,7 @@
 
 ## `FEATURE_NOT_SUPPORTED` is normal
 
-When the active portal does not implement a feature, the SDK returns `ErrorCode.FeatureNotSupported` (`Error.cs:63`). This is not a bug — it is the expected signal that the portal simply does not offer that capability.
+When the active portal does not implement a feature, the SDK returns `ErrorCode.FeatureNotSupported` (`Error.cs:63`). This is not a bug. It is the expected signal that the portal simply does not offer that capability.
 
 Do not add noisy error logging or abort your flow on `FeatureNotSupported`. The right response is a silent no-op: hide the feature UI, skip the call, and continue normally.
 
@@ -26,10 +26,10 @@ Yes2SDK.Yes2SDK.Banners.ShowBanner("top", BannerSize.Leaderboard,
 ```
 
 The `Error` struct fields are:
-- `Code` — string identifier (e.g. `"FeatureNotSupported"`)
-- `ErrorCode` — typed `ErrorCode` enum value, parsed from `Code`
-- `Message` — human-readable description
-- `Context` — API call that produced the error (e.g. `"Yes2SDK.Banners.ShowBanner"`)
+- `Code`: string identifier (e.g. `"FeatureNotSupported"`)
+- `ErrorCode`: typed `ErrorCode` enum value, parsed from `Code`
+- `Message`: human-readable description
+- `Context`: API call that produced the error (e.g. `"Yes2SDK.Banners.ShowBanner"`)
 
 ## The `IsSupported()` guard
 

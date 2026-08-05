@@ -35,9 +35,9 @@ describe("parseCapabilityMatrix", () => {
     expect(platforms).toEqual(["poki", "gamedistribution", "crazygames", "yandex", "youtube"]);
     const adsBanner = rows.find((r) => r.module.includes("banner"));
     expect(adsBanner).toBeDefined();
-    // Ads — banner: only CrazyGames and Yandex.
+    // Ads: banner: only CrazyGames and Yandex.
     expect(adsBanner?.support.crazygames).toBe("Ready");
-    expect(adsBanner?.support.poki).toBe("—");
+    expect(adsBanner?.support.poki).toBe("None");
     // Footnote superscripts are stripped from the status value.
     const data = rows.find((r) => r.module === "Data");
     expect(data?.support.poki).toBe("Partial");
@@ -62,7 +62,7 @@ describe("get_platform_capabilities", () => {
     const text = textOf(res);
     expect(text.toLowerCase()).toContain("poki");
     // Friends is not offered on Poki.
-    expect(text).toMatch(/Friends.*—|Friends.*not/i);
+    expect(text).toMatch(/Friends: None/);
     // Single-column view: other platforms are not rendered as matrix columns.
     expect(text).not.toMatch(/Module \|/);
   });
@@ -75,8 +75,8 @@ describe("get_platform_capabilities", () => {
     const text = textOf(res);
     expect(text.toLowerCase()).toContain("auth");
     expect(text.toLowerCase()).toContain("crazygames");
-    // Auth is not on Poki.
-    expect(text).toContain("—");
+    // Auth is not on Poki. Assert the platform's own cell, not the shared legend.
+    expect(text).toMatch(/^ {2}poki: None$/m);
   });
 
   it("reports when a module filter matches nothing", async () => {

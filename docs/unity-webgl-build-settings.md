@@ -1,10 +1,10 @@
 # WebGL Build Settings (Unity)
 
-> Correct Unity WebGL build settings for the Yes2SDK Dashboard pipeline — what to set, why, and how each portal affects the build.
+> Correct Unity WebGL build settings for the Yes2SDK Dashboard pipeline: what to set, why, and how each portal affects the build.
 
 ## Recommended settings
 
-Set these in Unity before building. The fastest way is `Yes2SDK > Build Window > WebGL Settings (expand) > Reset to recommended` — this writes all five settings at once. They are **not** applied automatically at build time; you must expand the WebGL Settings foldout and click the button (or set them manually) before each release build.
+Set these in Unity before building. The fastest way is `Yes2SDK > Build Window > WebGL Settings (expand) > Reset to recommended`. This writes all five settings at once. They are **not** applied automatically at build time; you must expand the WebGL Settings foldout and click the button (or set them manually) before each release build.
 
 | Setting | Recommended value | Why |
 |---|---|---|
@@ -19,7 +19,7 @@ Set these in Unity before building. The fastest way is `Yes2SDK > Build Window >
 ## How to apply
 
 1. Open `Yes2SDK > Build Window`.
-2. Expand the **WebGL Settings** foldout, then click **Reset to recommended** — this calls `BuildConfig.Default.ApplySettings()` and writes all five settings to `PlayerSettings`.
+2. Expand the **WebGL Settings** foldout, then click **Reset to recommended**. This calls `BuildConfig.Default.ApplySettings()` and writes all five settings to `PlayerSettings`.
 3. Verify in `File > Build Settings > Player Settings > Publishing Settings` that the values match the table above.
 4. Build for WebGL as normal.
 
@@ -27,7 +27,7 @@ If you need a diagnostic build (e.g., to test without a template or with a diffe
 
 ## Portal build notes
 
-Each portal enforces its requirements at runtime, not at Unity build time — the Dashboard handles CDN delivery, SDK injection, and platform bundling. There is no per-portal Unity settings matrix to maintain. That said, two build-side rules are worth knowing:
+Each portal enforces its requirements at runtime, not at Unity build time. The Dashboard handles CDN delivery, SDK injection, and platform bundling. There is no per-portal Unity settings matrix to maintain. That said, two build-side rules are worth knowing:
 
 | Rule | Portals | How the SDK handles it |
 |---|---|---|
@@ -35,7 +35,7 @@ Each portal enforces its requirements at runtime, not at Unity build time — th
 | Responsive canvas (100% width/height, no scrollbars) | Poki (hard rejection), CrazyGames (recommended) | `Yes2SDK-SuperSDK` template sets this. Do not override canvas sizing in your HTML. |
 | Compression must be off | All portals | Dashboard CDN handles delivery. Unity-side compression breaks the upload pipeline (see table above). |
 
-All other portal requirements — ad lifecycle callbacks, gameplay start/stop, rewarded ad handling, data storage, auth — are runtime behavior enforced by the QA Inspector after upload, not Unity build settings. See each portal's guide and the [feature matrix](/docs/api) for what each portal supports.
+All other portal requirements (ad lifecycle callbacks, gameplay start/stop, rewarded ad handling, data storage, auth) are runtime behavior enforced by the QA Inspector after upload, not Unity build settings. See each portal's guide and the [feature matrix](/docs/api) for what each portal supports.
 
 ## Common rejections
 

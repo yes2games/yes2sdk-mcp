@@ -1,6 +1,6 @@
 # Yes2SDK Claude Code Plugin
 
-> A Claude Code plugin that auto-registers the hosted Yes2SDK MCP server and adds integrate and verify slash commands — no local server to run.
+> A Claude Code plugin that auto-registers the hosted Yes2SDK MCP server and adds integrate and verify slash commands. No local server to run.
 
 If you use [Claude Code](https://claude.com/claude-code) to build your game, this plugin is the fastest way to integrate the Yes2SDK. Installing it registers the hosted [Yes2SDK MCP server](/docs/mcp-server) for you and adds slash commands that scaffold the integration and check your build against every platform's rules.
 
@@ -38,7 +38,7 @@ You should see the `yes2sdk` server listed (remote HTTP, `https://mcp.yes2games.
 
 ## What else it ships
 
-The plugin includes a `yes2sdk-platform-rules` skill that carries the highest-leverage cross-platform compliance gotchas, so Claude applies them automatically while integrating — and defers to the MCP server for the authoritative rule set.
+The plugin includes a `yes2sdk-platform-rules` skill that carries the highest-leverage cross-platform compliance gotchas, so Claude applies them automatically while integrating, and defers to the MCP server for the authoritative rule set.
 
 ## How it relates to the MCP server
 

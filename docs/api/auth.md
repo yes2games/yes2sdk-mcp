@@ -1,8 +1,8 @@
-# Auth — `Yes2SDK.auth`
+# Auth: `Yes2SDK.auth`
 
 [← Back to overview](overview.md)
 
-Authentication and account linking. Optional — guard with `isSupported()`.
+Authentication and account linking. Optional. Guard with `isSupported()`.
 
 > Available on **CrazyGames** and **Yandex** today. Platform sign-out (`signOutAsync`) isn't offered by either platform, and account-linking (`linkAccountAsync`) is CrazyGames-only.
 
@@ -30,13 +30,13 @@ Authentication and account linking. Optional — guard with `isSupported()`.
 
 | Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
 |--------|:----:|:----------------:|:----------:|:------:|:-------:|
-| `getCurrentUser` | — | — | Ready | Ready | — |
-| `signInAsync` | — | — | Ready¹ | Ready² | — |
-| `signOutAsync` | — | — | —³ | —³ | — |
-| `getTokenAsync` | — | — | Ready⁴ | Ready⁵ | — |
-| `linkAccountAsync` | — | — | Ready⁶ | — | — |
-| `isAuthenticated` | — | — | Ready | Ready | — |
-| `isSupported` | — | — | Ready⁷ | Ready | — |
+| `getCurrentUser` | None | None | Ready | Ready | None |
+| `signInAsync` | None | None | Ready¹ | Ready² | None |
+| `signOutAsync` | None | None | None³ | None³ | None |
+| `getTokenAsync` | None | None | Ready⁴ | Ready⁵ | None |
+| `linkAccountAsync` | None | None | Ready⁶ | None | None |
+| `isAuthenticated` | None | None | Ready | Ready | None |
+| `isSupported` | None | None | Ready⁷ | Ready | None |
 
 ¹ `sdk.user.showAuthPrompt()`.  ² `ysdk.auth.openAuthDialog()` then re-fetches the player.  ³ No platform sign-out API.  ⁴ `sdk.user.getUserToken()` (1h local expiry).  ⁵ Signed player info (`getPlayer({signed:true})` → signature).  ⁶ `sdk.user.showAccountLinkPrompt()`.  ⁷ Delegates to `sdk.user.isUserAccountAvailable()`.
 
