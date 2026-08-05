@@ -11,10 +11,16 @@
  *
  * There is deliberately no bless script — two literal copies do not earn one.
  *
- * There are three in-repo consumers, not four: this module's importer
+ * Three in-repo consumers are wired to this constant: this module's importer
  * (src/server.ts) plus the two literal copies above. A registry server
  * manifest (smithery.yaml / server.json) is a prospective fourth — no such
  * file exists in this repo today, so nothing checks one.
+ *
+ * One more shipped surface is deliberately NOT wired here: docs/mcp-server.md
+ * opens with its own product sentence and ships in both the npm package
+ * (package.json `files`) and the container (Containerfile). It is generated —
+ * `npm run sync-docs` overwrites it — so it is owned upstream in
+ * yes2sdk-www/content/docs/ and must be changed there, then re-synced.
  *
  * The 160-character ceiling is a search-snippet convention, self-imposed. No
  * consumer enforces a cap. It applies to the rendered string (CANONICAL + a

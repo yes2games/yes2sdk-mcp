@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CANONICAL, DESCRIPTION } from "../src/lib/positioning.js";
+import { DESCRIPTION } from "../src/lib/positioning.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..");
@@ -10,7 +10,6 @@ const REPO = path.resolve(HERE, "..");
 describe("canonical positioning line", () => {
   it("stays within the 160-character snippet budget once composed", () => {
     expect(DESCRIPTION.length).toBeLessThanOrEqual(160);
-    expect(CANONICAL.length).toBeLessThanOrEqual(160);
   });
 
   it("package.json description matches the constant", () => {
@@ -30,6 +29,6 @@ describe("canonical positioning line", () => {
     // The paragraph is hard-wrapped across several lines; normalise whitespace
     // so a reflow does not fail the check.
     const normalised = (firstParagraph ?? "").replace(/\s+/g, " ");
-    expect(normalised.startsWith(DESCRIPTION)).toBe(true);
+    expect(normalised.slice(0, DESCRIPTION.length)).toBe(DESCRIPTION);
   });
 });
