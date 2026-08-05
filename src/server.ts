@@ -9,6 +9,7 @@ import { registerRuleTool } from "./tools/rule.js";
 import { registerTroubleshootTool } from "./tools/troubleshoot.js";
 import { registerModuleResources } from "./resources/modules.js";
 import { registerIntegratePrompts } from "./prompts/integrate.js";
+import { DESCRIPTION } from "./lib/positioning.js";
 
 /**
  * Build and configure the Yes2SDK MCP server with all tools registered.
@@ -24,7 +25,8 @@ export function createServer(): McpServer {
     },
     {
       instructions: [
-        "Yes2SDK MCP server. Helps integrate the Yes2SDK (TypeScript/JavaScript, Unity, and Defold — HTML5/WebGL only) into games targeting Poki, CrazyGames, Yandex, GameDistribution, and YouTube.",
+        DESCRIPTION,
+        "Engines: TypeScript/JavaScript, Unity, and Defold — HTML5/WebGL only.",
         "",
         "Modules: ads, analytics, auth, banners, data, errors, friends, game, player, score, session, lifecycle.",
         "",
