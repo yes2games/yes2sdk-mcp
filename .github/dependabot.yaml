@@ -1,0 +1,14 @@
+# The vendored build-push-r2.yaml pins its actions by SHA, so it rots on its own
+# now that upstream's dependabot no longer covers this copy.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    assignees:
+      - khalishzhafran
+    commit-message:
+      prefix: "chore(actions)"

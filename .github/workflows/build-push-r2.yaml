@@ -1,0 +1,142 @@
+# Vendored from yes2games/yes2infra .github/workflows/build-push-r2.yaml @ master ab47d60.
+#
+# Why vendored: this repo is public and yes2infra is private, so a
+# `uses: yes2games/yes2infra/...` call cannot be resolved and the run dies at
+# parse time with zero jobs. Internal visibility is not available (org plan is
+# free), so the callee is copied here and invoked with `uses: ./...`.
+#
+# Drift ledger — intentional deltas from upstream. Everything else is verbatim;
+# re-sync against upstream when it changes.
+#   1. This header.
+#   2. `r2-bucket` and `r2-endpoint` lose their upstream defaults. Upstream's
+#      defaults carry the bucket name and the Cloudflare account id, which must
+#      not be published in a public repo; deploy.yml supplies them from repo
+#      variables instead (variables are not world-readable).
+#   3. Validate Inputs hard-fails on an empty bucket or endpoint. Upstream never
+#      needs this because its defaults are always populated; here a missing repo
+#      variable must abort before anything is built or uploaded.
+name: Build and Push to R2
+on:
+  workflow_call:
+    inputs:
+      service-key:
+        description: inventory/R2 deploy identity (e.g. kebab-master), NOT the repo name
+        required: true
+        type: string
+      server:
+        required: false
+        type: string
+        default: bakso
+      containerfile:
+        required: false
+        type: string
+        default: Containerfile
+      build-args:
+        description: extra `podman build` flags, verbatim (e.g. --build-arg FOO=bar). Word-split on whitespace, so no spaces inside a single value.
+        required: false
+        type: string
+        default: ""
+      r2-bucket:
+        description: R2 bucket name. No default on purpose — pass vars.R2_BUCKET.
+        required: false
+        type: string
+      r2-endpoint:
+        description: R2 S3 endpoint URL. No default on purpose — pass vars.R2_ENDPOINT.
+        required: false
+        type: string
+      r2-region:
+        required: false
+        type: string
+        default: auto
+    secrets:
+      R2_ACCESS_KEY_ID:
+        required: true
+      R2_SECRET_ACCESS_KEY:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+
+      - name: Validate Inputs
+        env:
+          SERVICE: ${{ inputs.service-key }}
+          SERVER: ${{ inputs.server }}
+          BUCKET: ${{ inputs.r2-bucket }}
+          ENDPOINT: ${{ inputs.r2-endpoint }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$SERVICE" =~ ^[a-z0-9-]+$ ]] || { echo "::error::invalid service-key '$SERVICE'"; exit 1; }
+          case "$SERVER" in bakso|rendang) : ;; *) echo "::error::unknown server '$SERVER'"; exit 1 ;; esac
+          # Defaults were stripped (see drift ledger), so an unset repo variable
+          # arrives as an empty string. Fail here rather than upload nowhere.
+          [[ -n "$BUCKET" ]] || { echo "::error::r2-bucket is empty; set the R2_BUCKET repository variable"; exit 1; }
+          [[ -n "$ENDPOINT" ]] || { echo "::error::r2-endpoint is empty; set the R2_ENDPOINT repository variable"; exit 1; }
+
+      - name: Install podman + skopeo + awscli
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get install -y podman skopeo awscli 2>/dev/null || true
+          for tool in podman skopeo aws; do
+            command -v "$tool" >/dev/null || { echo "::error::required tool '$tool' not found after install"; exit 1; }
+          done
+
+      - name: Build Image and Pack OCI-Archive Tar
+        env:
+          SERVICE: ${{ inputs.service-key }}
+          SHA: ${{ github.sha }}
+          CONTAINERFILE: ${{ inputs.containerfile }}
+          BUILD_ARGS: ${{ inputs.build-args }}
+        run: |
+          set -Eeuo pipefail
+          # shellcheck disable=SC2086 # BUILD_ARGS is intentionally word-split into flags.
+          podman build ${BUILD_ARGS} -t "localhost/${SERVICE}:${SHA}" -f "${CONTAINERFILE}" .
+          # podman push has the AppArmor userns profile; skopeo containers-storage: does not.
+          podman push "localhost/${SERVICE}:${SHA}" "oci:./oci-${SERVICE}:${SHA}"
+          # Pack a single-image oci-archive tar, SHA-tagged so the host's
+          # `oci-archive:...:${SHA}` selection matches (mirrors deploy-service.yaml).
+          # Multi-image services (those shipping a service-images.txt) tar the whole
+          # layout instead; add that branch when the first multi-image repo migrates.
+          skopeo copy "oci:./oci-${SERVICE}:${SHA}" "oci-archive:/tmp/${SERVICE}-${SHA}.tar:${SHA}"
+
+      - name: Push Image + Request to R2
+        env:
+          SERVICE: ${{ inputs.service-key }}
+          SHA: ${{ github.sha }}
+          SERVER: ${{ inputs.server }}
+          BUCKET: ${{ inputs.r2-bucket }}
+          ENDPOINT: ${{ inputs.r2-endpoint }}
+          AWS_DEFAULT_REGION: ${{ inputs.r2-region }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          set -Eeuo pipefail
+          # Content-addressed image key. --if-none-match "*" makes a re-push of an
+          # existing sha a no-op (412 PreconditionFailed) instead of a clobber.
+          # Only s3api put-object supports --if-none-match; s3 cp does not.
+          if err=$(aws s3api put-object \
+              --bucket "$BUCKET" \
+              --key "images/${SERVICE}/${SHA}.tar" \
+              --body "/tmp/${SERVICE}-${SHA}.tar" \
+              --endpoint-url "$ENDPOINT" \
+              --if-none-match "*" 2>&1); then
+            echo "uploaded images/${SERVICE}/${SHA}.tar"
+          elif echo "$err" | grep -qE "PreconditionFailed|412"; then
+            echo "image already present for ${SHA}; skipped"
+          else
+            echo "::error::s3api put-object failed: $err"
+            exit 1
+          fi
+          # Write the request marker LAST so the dispatcher never sees a request
+          # whose image is not yet uploaded.
+          printf '{"service":"%s","sha":"%s","server":"%s"}\n' "$SERVICE" "$SHA" "$SERVER" > /tmp/request.json
+          aws s3 cp /tmp/request.json \
+            "s3://${BUCKET}/requests/${SERVICE}/${SHA}.json" \
+            --endpoint-url "$ENDPOINT" --only-show-errors
+          echo "pushed images/${SERVICE}/${SHA}.tar and requests/${SERVICE}/${SHA}.json"
