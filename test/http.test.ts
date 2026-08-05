@@ -82,3 +82,30 @@ describe("MCP over HTTP", () => {
     expect(res.status).toBe(405);
   }, 10_000);
 });
+
+// The server is stateless (sessionIdGenerator: undefined), so it never mints or
+// echoes a session id. Advertising session/DELETE support in CORS invites clients
+// to attempt flows that always 405.
+describe("CORS preflight advertises only what the stateless server serves", () => {
+  it("does not advertise Mcp-Session-Id or DELETE", async () => {
+    const res = await fetch(`${BASE}/mcp`, {
+      method: "OPTIONS",
+      headers: { Origin: "https://example.test" },
+    });
+    expect(res.status).toBe(204);
+    expect(res.headers.get("access-control-allow-headers")).not.toMatch(/mcp-session-id/i);
+    expect(res.headers.get("access-control-allow-methods")).not.toMatch(/delete/i);
+    expect(res.headers.get("access-control-expose-headers")).toBeNull();
+  }, 10_000);
+
+  it("still allows the headers the transport does read", async () => {
+    const res = await fetch(`${BASE}/mcp`, {
+      method: "OPTIONS",
+      headers: { Origin: "https://example.test" },
+    });
+    const allowed = res.headers.get("access-control-allow-headers") ?? "";
+    expect(allowed).toMatch(/content-type/i);
+    expect(allowed).toMatch(/mcp-protocol-version/i);
+    expect(res.headers.get("access-control-allow-methods")).toMatch(/post/i);
+  }, 10_000);
+});

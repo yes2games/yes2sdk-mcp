@@ -28,17 +28,17 @@ const JSONRPC_METHOD_NOT_ALLOWED = JSON.stringify({
 
 function applyCors(req: IncomingMessage, res: ServerResponse): void {
   // Reflect the request origin (credentials are not used; this is permissive by
-  // design for browser-based MCP clients). Header set matches the MCP spec's
-  // session/protocol headers so clients can read Mcp-Session-Id.
+  // design for browser-based MCP clients).
+  //
+  // The advertised methods and headers are exactly what this server serves:
+  // POST /mcp, GET /health, and the OPTIONS preflight. Being stateless it never
+  // mints or echoes a session id, so Mcp-Session-Id and DELETE are omitted
+  // rather than advertised into a guaranteed 405.
   const origin = req.headers.origin;
   res.setHeader("Access-Control-Allow-Origin", origin ?? "*");
   res.setHeader("Vary", "Origin");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Mcp-Session-Id, Mcp-Protocol-Version",
-  );
-  res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Mcp-Protocol-Version");
 }
 
 function readBody(req: IncomingMessage): Promise<unknown> {
