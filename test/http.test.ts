@@ -10,6 +10,8 @@ const REPO = path.resolve(HERE, "..");
 const PORT = 8099;
 const BASE = `http://127.0.0.1:${PORT}`;
 const READY_MSG = `HTTP transport listening on 0.0.0.0:${PORT}`;
+const ALLOWED_ORIGIN = "https://example.test";
+const DENIED_ORIGIN = "https://evil.test";
 
 let child: ChildProcess;
 
@@ -18,7 +20,7 @@ beforeAll(async () => {
   execSync("npm run build", { cwd: REPO, stdio: "inherit", timeout: 120_000 });
 
   child = spawn(process.execPath, ["dist/http.js"], {
-    env: { ...process.env, PORT: String(PORT) },
+    env: { ...process.env, PORT: String(PORT), MCP_ALLOWED_ORIGINS: ALLOWED_ORIGIN },
     cwd: REPO,
   });
 
@@ -90,7 +92,7 @@ describe("CORS preflight advertises only what the stateless server serves", () =
   it("does not advertise Mcp-Session-Id or DELETE", async () => {
     const res = await fetch(`${BASE}/mcp`, {
       method: "OPTIONS",
-      headers: { Origin: "https://example.test" },
+      headers: { Origin: ALLOWED_ORIGIN },
     });
     expect(res.status).toBe(204);
     expect(res.headers.get("access-control-allow-headers")).not.toMatch(/mcp-session-id/i);
@@ -101,11 +103,47 @@ describe("CORS preflight advertises only what the stateless server serves", () =
   it("still allows the headers the transport does read", async () => {
     const res = await fetch(`${BASE}/mcp`, {
       method: "OPTIONS",
-      headers: { Origin: "https://example.test" },
+      headers: { Origin: ALLOWED_ORIGIN },
     });
     const allowed = res.headers.get("access-control-allow-headers") ?? "";
     expect(allowed).toMatch(/content-type/i);
     expect(allowed).toMatch(/mcp-protocol-version/i);
     expect(res.headers.get("access-control-allow-methods")).toMatch(/post/i);
+  }, 10_000);
+
+  it("echoes an allow-listed origin", async () => {
+    const res = await fetch(`${BASE}/mcp`, {
+      method: "OPTIONS",
+      headers: { Origin: ALLOWED_ORIGIN },
+    });
+    expect(res.headers.get("access-control-allow-origin")).toBe(ALLOWED_ORIGIN);
+  }, 10_000);
+});
+
+// The MCP spec requires servers to validate Origin so a page the user happens to
+// visit cannot drive the server (DNS rebinding / CSRF). Clients that are not
+// browsers send no Origin at all and must keep working — that is every current
+// consumer, covered by the listTools test above.
+describe("Origin validation", () => {
+  it("rejects a POST carrying a non-allow-listed origin", async () => {
+    const res = await fetch(`${BASE}/mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: DENIED_ORIGIN },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+    });
+    expect(res.status).toBe(403);
+  }, 10_000);
+
+  it("does not grant CORS to a non-allow-listed origin", async () => {
+    const res = await fetch(`${BASE}/mcp`, {
+      method: "OPTIONS",
+      headers: { Origin: DENIED_ORIGIN },
+    });
+    expect(res.headers.get("access-control-allow-origin")).toBeNull();
+  }, 10_000);
+
+  it("rejects a non-allow-listed origin on /health too", async () => {
+    const res = await fetch(`${BASE}/health`, { headers: { Origin: DENIED_ORIGIN } });
+    expect(res.status).toBe(403);
   }, 10_000);
 });

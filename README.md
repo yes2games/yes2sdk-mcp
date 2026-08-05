@@ -157,6 +157,7 @@ npm run http       # node dist/http.js
 | Env var | Default | Description |
 |---------|---------|-------------|
 | `PORT` | `8091` | TCP port the server binds on `0.0.0.0`. |
+| `MCP_ALLOWED_ORIGINS` | *(empty)* | Comma-separated browser origins allowed to call the server, e.g. `https://a.example,https://b.example`. Empty means no browser page is trusted. See Origin validation below. |
 
 There is no `HOST` variable — the server always binds `0.0.0.0`.
 
@@ -181,6 +182,21 @@ Host-header validation is enabled. Only the following `Host` values are accepted
 container probes on `127.0.0.1` work without needing to be in the allowlist.
 
 Clients connecting from any other host must be added to `ALLOWED_HOSTS` in `src/http.ts`.
+
+### Origin validation
+
+The MCP spec requires servers to validate the `Origin` header so a web page the user
+happens to visit cannot drive the server (DNS rebinding / CSRF). Any request carrying
+an `Origin` that is not in `MCP_ALLOWED_ORIGINS` gets `403` on every route, and no
+`Access-Control-Allow-Origin` header.
+
+Requests with **no** `Origin` header are unaffected. That covers every current
+consumer: CLI MCP hosts and server-side `fetch` do not send one. Only browser-based
+clients need an entry in `MCP_ALLOWED_ORIGINS`.
+
+CORS advertises only what is served — `GET,POST,OPTIONS` and
+`Content-Type, Mcp-Protocol-Version`. The server is stateless, so it never mints or
+echoes `Mcp-Session-Id`.
 
 ### Security note
 

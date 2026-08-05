@@ -20,22 +20,50 @@ const PORT = Number(process.env.PORT ?? 8091);
 // transport so a Host: 127.0.0.1 probe is never rejected by host validation.
 const ALLOWED_HOSTS = ["mcp.yes2games.com", `127.0.0.1:${PORT}`];
 
+// Browser origins allowed to reach this server. Empty by default: no browser
+// page is trusted, which is what every current consumer needs — CLI hosts and
+// server-side fetch send no Origin header at all and are unaffected. The MCP
+// spec requires Origin validation so a page the user happens to visit cannot
+// drive the server (DNS rebinding / CSRF). Set
+// MCP_ALLOWED_ORIGINS=https://a.example,https://b.example to admit a browser
+// client.
+const ALLOWED_ORIGINS = (process.env.MCP_ALLOWED_ORIGINS ?? "")
+  .split(",")
+  .map((entry) => entry.trim())
+  .filter(Boolean);
+
 const JSONRPC_METHOD_NOT_ALLOWED = JSON.stringify({
   jsonrpc: "2.0",
   error: { code: -32000, message: "Method not allowed (stateless server)" },
   id: null,
 });
 
+// Static message: never reflect the rejected origin back to the caller.
+const JSONRPC_FORBIDDEN_ORIGIN = JSON.stringify({
+  jsonrpc: "2.0",
+  error: { code: -32000, message: "Invalid Origin header" },
+  id: null,
+});
+
+function isAllowedOrigin(req: IncomingMessage): boolean {
+  const origin = req.headers.origin;
+  return origin === undefined || ALLOWED_ORIGINS.includes(origin);
+}
+
 function applyCors(req: IncomingMessage, res: ServerResponse): void {
-  // Reflect the request origin (credentials are not used; this is permissive by
-  // design for browser-based MCP clients).
+  // Credentials are not used, so echoing an allow-listed origin is enough; a
+  // rejected origin gets no Access-Control-Allow-Origin at all.
   //
   // The advertised methods and headers are exactly what this server serves:
   // POST /mcp, GET /health, and the OPTIONS preflight. Being stateless it never
   // mints or echoes a session id, so Mcp-Session-Id and DELETE are omitted
   // rather than advertised into a guaranteed 405.
   const origin = req.headers.origin;
-  res.setHeader("Access-Control-Allow-Origin", origin ?? "*");
+  if (origin === undefined) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  } else if (ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
   res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Mcp-Protocol-Version");
@@ -102,6 +130,14 @@ const httpServer = createHttpServer((req: IncomingMessage, res: ServerResponse) 
   const path = url.split("?", 1)[0];
 
   applyCors(req, res);
+
+  // Reject before routing so the preflight fails too, and /health is not a
+  // cross-origin read either.
+  if (!isAllowedOrigin(req)) {
+    res.writeHead(403, { "Content-Type": "application/json" });
+    res.end(JSONRPC_FORBIDDEN_ORIGIN);
+    return;
+  }
 
   if (method === "OPTIONS") {
     res.writeHead(204);
