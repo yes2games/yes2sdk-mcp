@@ -14,12 +14,19 @@ jobs:
   # The butler dispatcher (yes2infra#191) polls the marker, mints a GitHub App
   # token, and repository_dispatches deploy-service — replacing the legacy
   # Y2G_TOKEN dispatch this repo used to run.
+  #
+  # The callee is vendored (see its header): this repo is public and yes2infra is
+  # private, so `uses: yes2games/yes2infra/...` cannot be resolved. The bucket and
+  # endpoint come from repo variables because the vendored copy must not carry
+  # them in the clear.
   build-push-r2:
     name: Build and Push Image to R2
-    uses: yes2games/yes2infra/.github/workflows/build-push-r2.yaml@v1.2.0
+    uses: ./.github/workflows/build-push-r2.yaml
     with:
       service-key: yes2sdk-mcp-main
       server: bakso
+      r2-bucket: ${{ vars.R2_BUCKET }}
+      r2-endpoint: ${{ vars.R2_ENDPOINT }}
     secrets:
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
