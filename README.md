@@ -129,6 +129,9 @@ Run these (then `npm run build`) whenever the dashboard docs or compliance rules
 `src/lib/compliance.ts` and `src/lib/inspector-types.ts` are generated — do not edit them
 by hand.
 
+The server version is declared twice — `package.json` `version` and the `version` passed to
+`new McpServer()` in `src/server.ts`. Bump both together; clients report the second one.
+
 ## Architecture
 
 - `src/index.ts` — thin stdio entry; builds the server via `createServer()` and connects

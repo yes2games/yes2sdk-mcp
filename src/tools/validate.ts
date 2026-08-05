@@ -87,13 +87,13 @@ export function registerValidateTool(server: McpServer): void {
     {
       title: "Validate a Yes2SDK integration",
       description:
-        "Self-check a Yes2SDK game integration against the real platform rejection rules before upload. Modes (you may combine static + behavioral):\n\n" +
+        "A pre-upload verdict on a Yes2SDK game, checked against the real platform rejection rules and reported as FAIL/WARN/INFO findings. " +
+        "Answers \"would this build be rejected?\" for a target `platform`, using either or both of the two modes below.\n\n" +
         "1) STATIC build checks — two ways to supply the build:\n" +
-        "   a) `buildPath` (absolute path to an ALREADY-EXTRACTED/unzipped build folder). Only works when this MCP server runs LOCALLY over stdio; the HOSTED/sandboxed server cannot read your local disk.\n" +
-        "   b) INLINE content (for the hosted server): `indexHtml` (the index.html text), `fileList` (array of file paths in the build), and/or `jsContents` (array of the build's JS file contents). Bundling can only be verified when `jsContents` is provided.\n" +
-        "   Checks: Yes2SDK bundled into the JS, no external <script src=\"http...\"> tags (platforms block them), index.html present (Poki also needs index.json), and a responsive full-viewport canvas heuristic.\n\n" +
-        "2) BEHAVIORAL compliance checks — pass `eventLogJson`: a JSON string of an EXPORTED Yes2SDK Inspector event log (an array of LogEntry objects with fields like type, method, params, success). Runs the platform's compliance rules (e.g. gameplayStop before ads, reward only on adViewed, no ads in the first 30s).\n\n" +
-        "Always pass `platform`. If you only have source code, build/extract first then use buildPath (local) or pass inline content (hosted). The behavioral rules require running the game in the QA Inspector and exporting its event log — they cannot be derived from static files.",
+        "   a) `buildPath`: absolute path to an ALREADY-EXTRACTED build folder, available when this server runs LOCALLY over stdio; the HOSTED/sandboxed server has no disk access.\n" +
+        "   b) INLINE content for the hosted server: `indexHtml` (the index.html text), `fileList` (file paths in the build) and/or `jsContents` (the build's JS file contents). Bundling is verifiable only when `jsContents` is present.\n" +
+        "   Covered: Yes2SDK bundled into the JS, no external <script src=\"http...\"> tags (platforms block them), index.html present (Poki also needs index.json), and a responsive full-viewport canvas heuristic.\n\n" +
+        "2) BEHAVIORAL compliance checks — `eventLogJson`: a JSON string of an exported Yes2SDK Inspector event log (LogEntry objects with type, method, params, success). Covers the platform's runtime rules such as gameplayStop before ads, reward only on adViewed, and no ads in the first 30s. These rules need a real run in the QA Inspector; static files cannot produce them.",
       inputSchema: {
         platform: z.enum(VALIDATE_PLATFORMS).describe("Target platform to validate against."),
         buildPath: z
@@ -117,7 +117,12 @@ export function registerValidateTool(server: McpServer): void {
           .optional()
           .describe("JSON string: an exported Yes2SDK Inspector event log (array of LogEntry) for behavioral compliance checks."),
       },
-      annotations: { readOnlyHint: true, openWorldHint: false, idempotentHint: true },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     async ({ platform, buildPath, indexHtml, fileList, jsContents, eventLogJson }) => {
       const hasInlineStatic =

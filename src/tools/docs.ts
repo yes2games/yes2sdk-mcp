@@ -44,13 +44,16 @@ export function registerDocsTools(server: McpServer): void {
     {
       title: "Search Yes2SDK docs",
       description:
-        "Search the Yes2SDK documentation (quickstarts, API reference, dashboard guide, integration rules) by keyword. " +
-        "Returns up to the top 5 matching sections with their doc slug so you can follow up with get_quickstart(platform) or get_api_reference(module). " +
-        "Use this for anything about integrating the Yes2SDK, platform requirements, or the SDK's API. " +
-        "For a specific error, troubleshoot(symptom) is more direct; for which modules a platform supports, get_platform_capabilities(). " +
-        "Read-only; searches bundled docs only (no web access).",
+        "Keyword search across the Yes2SDK documentation — quickstarts, API reference, dashboard guide, integration rules — returning up to the top 5 matching sections with the doc slug of each, for follow-up via get_quickstart(platform) or get_api_reference(module). " +
+        "The way in when the question about integration, platform requirements, or the SDK's API is still open-ended: a specific error resolves faster through troubleshoot(symptom), and per-platform module support through get_platform_capabilities(). " +
+        "Searches the bundled docs only, with no web access.",
       inputSchema: { query: z.string().min(1).describe("Keywords to search for, e.g. 'rewarded ad reward callback' or 'poki gameplayStop'.") },
-      annotations: { readOnlyHint: true, openWorldHint: false, idempotentHint: true },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     async ({ query }) => {
       const hits = searchDocs(query, 5);
@@ -86,11 +89,15 @@ export function registerDocsTools(server: McpServer): void {
     {
       title: "Get a Yes2SDK platform quickstart",
       description:
-        "Return the full quickstart integration guide for a target platform (poki, crazygames, yandex, gamedistribution, youtube). " +
-        "These guides include the mandatory call sequence, per-engine examples, critical rules, and common rejection reasons. " +
-        "Read the quickstart for the platform you're integrating before writing SDK calls.",
+        "The full quickstart integration guide for one target platform (poki, crazygames, yandex, gamedistribution, youtube): mandatory call sequence, per-engine examples, critical rules, and the common rejection reasons. " +
+        "The starting point for a new integration, before the first SDK call is written.",
       inputSchema: { platform: z.enum(QUICKSTART_PLATFORMS).describe("Target platform.") },
-      annotations: { readOnlyHint: true, openWorldHint: false, idempotentHint: true },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     async ({ platform }) => {
       const slug = `quickstart-${platform}`;
@@ -110,10 +117,15 @@ export function registerDocsTools(server: McpServer): void {
     {
       title: "Get a Yes2SDK API reference module",
       description:
-        "Return the full API reference for one Yes2SDK module. Modules: overview, lifecycle, ads, analytics, auth, banners, data, errors, friends, game, player, score, session, leaderboard, stats, iap, config, review, upcoming. " +
-        "Use this for precise method signatures and behavior when calling the SDK.",
+        "The full API reference for one Yes2SDK module — exact method signatures, parameters, return values, and per-platform behavior. " +
+        "Modules: overview, lifecycle, ads, analytics, auth, banners, data, errors, friends, game, player, score, session, leaderboard, stats, iap, config, review, upcoming.",
       inputSchema: { module: z.enum(API_MODULES).describe("API module name.") },
-      annotations: { readOnlyHint: true, openWorldHint: false, idempotentHint: true },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     async ({ module }) => {
       const slug = `api/${module}`;
@@ -133,10 +145,15 @@ export function registerDocsTools(server: McpServer): void {
     {
       title: "List SDK modules",
       description:
-        "List all Yes2SDK API reference module names available for integration. " +
-        "Use the returned names with get_api_reference(module) or the yes2sdk://docs/{module} resource.",
+        "The names of every Yes2SDK API reference module. " +
+        "A directory for get_api_reference(module) and the yes2sdk://docs/{module} resource when the right module name is not known yet.",
       inputSchema: {},
-      annotations: { readOnlyHint: true, openWorldHint: false, idempotentHint: true },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     async () => ({
       content: [{ type: "text" as const, text: API_MODULES.join("\n") }],

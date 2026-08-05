@@ -16,12 +16,16 @@ export function registerRequirementsTool(server: McpServer): void {
     {
       title: "Get platform requirements",
       description:
-        "List the compliance rules a build must satisfy for a given platform " +
-        "(poki, crazygames, yandex, gamedistribution, youtube), each as 'id [severity]: description' — the same checks validate_integration runs. " +
-        "Use this to learn what to satisfy up front; for the detail and fix of one rule id pass it to get_compliance_rule(ruleId), and to check an actual build run validate_integration. " +
-        "Read-only. Returns the rule list only; it does not evaluate a build.",
+        "The compliance rules a build must satisfy for one platform (poki, crazygames, yandex, gamedistribution, youtube), each as 'id [severity]: description' — the same checks validate_integration runs. " +
+        "Answers \"what do I have to get right for this platform?\" up front; one rule's detail and fix comes from get_compliance_rule(ruleId), and an actual build is graded by validate_integration. " +
+        "Returns the rule list only; no build is evaluated.",
       inputSchema: { platform: z.enum(PLATFORMS).describe("Target platform.") },
-      annotations: { readOnlyHint: true, openWorldHint: false, idempotentHint: true },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     async ({ platform }) => {
       const rules = getRulesForPlatform(platform);
