@@ -8,6 +8,7 @@ import {
   type BuildFinding,
   type BuildSeverity,
 } from "../lib/build-checks.js";
+import { readOnlyTool } from "../lib/annotations.js";
 
 const VALIDATE_PLATFORMS = [
   "poki",
@@ -85,7 +86,7 @@ export function registerValidateTool(server: McpServer): void {
   server.registerTool(
     "validate_integration",
     {
-      title: "Validate a Yes2SDK integration",
+      ...readOnlyTool("Validate a Yes2SDK integration"),
       description:
         "A pre-upload verdict on a Yes2SDK game, checked against the real platform rejection rules and reported as FAIL/WARN/INFO findings. " +
         "Answers \"would this build be rejected?\" for a target `platform`, using either or both of the two modes below.\n\n" +
@@ -117,12 +118,7 @@ export function registerValidateTool(server: McpServer): void {
           .optional()
           .describe("JSON string: an exported Yes2SDK Inspector event log (array of LogEntry) for behavioral compliance checks."),
       },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
+      
     },
     async ({ platform, buildPath, indexHtml, fileList, jsContents, eventLogJson }) => {
       const hasInlineStatic =

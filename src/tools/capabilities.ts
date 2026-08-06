@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { readDocBySlug } from "../lib/docs.js";
+import { readOnlyTool } from "../lib/annotations.js";
 
 /** Platform column keys, in the order the matrix lists them. */
 export type CapabilityPlatform = "poki" | "gamedistribution" | "crazygames" | "yandex" | "youtube";
@@ -133,7 +134,7 @@ export function registerCapabilitiesTool(server: McpServer): void {
   server.registerTool(
     "get_platform_capabilities",
     {
-      title: "Get the module × platform support matrix",
+      ...readOnlyTool("Get the module × platform support matrix"),
       description:
         "Which Yes2SDK modules are supported on which platforms (poki, crazygames, yandex, gamedistribution, youtube), as a Ready / Partial / not-offered matrix, optionally narrowed to one platform (a column) or one module (a row). " +
         "Answers \"do I need to guard this module behind isSupported()?\" — Friends and Auth are CrazyGames/Yandex-only, banners are not offered on Poki. " +
@@ -148,12 +149,7 @@ export function registerCapabilitiesTool(server: McpServer): void {
           .optional()
           .describe("Optional: restrict to modules whose name contains this text (e.g. 'ads', 'player'). Omit for all modules."),
       },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
+      
     },
     async ({ platform, module }) => {
       const md = readDocBySlug("api/overview");

@@ -101,6 +101,17 @@ describe("listTools", () => {
     }
   });
 
+  // The Claude connector review scanner reads the older annotations.title and
+  // reports "Missing annotations: title" when only the top-level field is set,
+  // so both have to be present and say the same thing.
+  it("carries the same title at the top level and in the annotations", async () => {
+    const { tools } = await client.listTools();
+    for (const t of tools) {
+      expect(t.title, `${t.name} should have a top-level title`).toBeTruthy();
+      expect(t.annotations?.title, `${t.name} should have annotations.title`).toBe(t.title);
+    }
+  });
+
   it("has no sentence that starts by instructing the model", async () => {
     const { tools } = await client.listTools();
     for (const t of tools) {

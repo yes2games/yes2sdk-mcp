@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { readOnlyTool } from "../lib/annotations.js";
 
 interface Symptom {
   /** Short id for the problem. */
@@ -145,7 +146,7 @@ export function registerTroubleshootTool(server: McpServer): void {
   server.registerTool(
     "troubleshoot",
     {
-      title: "Troubleshoot a Yes2SDK symptom",
+      ...readOnlyTool("Troubleshoot a Yes2SDK symptom"),
       description:
         "The likely cause and ordered fix for a reported Yes2SDK integration symptom, given an error string or a plain-language description. " +
         "Covers the common failures: missing namespace or module (SDK not installed), window.Yes2SDK undefined, Unity build-guard and template problems, Defold editor no-ops, rewards not granted, and platform rejections such as ads without gameplayStop or an unbundled SDK. " +
@@ -156,12 +157,7 @@ export function registerTroubleshootTool(server: McpServer): void {
           .min(1)
           .describe("The error message or a short description of what is going wrong, e.g. \"namespace Yes2SDK could not be found\" or \"rewarded ad gave no reward\"."),
       },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
+      
     },
     async ({ symptom }) => {
       const query = symptom.toLowerCase();

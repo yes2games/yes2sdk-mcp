@@ -3,6 +3,7 @@ import path from "node:path";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { getEngineMeta, type Engine } from "../lib/sdk-meta.js";
+import { readOnlyTool } from "../lib/annotations.js";
 
 interface DetectResult {
   engine: Engine | "unknown";
@@ -187,7 +188,7 @@ export function registerDetectTool(server: McpServer): void {
   server.registerTool(
     "detect_sdk",
     {
-      title: "Detect Yes2SDK in a project",
+      ...readOnlyTool("Detect Yes2SDK in a project"),
       description:
         "A readiness report for one game project: the engine it uses (unity, defold, js), whether the Yes2SDK is installed, the installed version, and any install steps still required. " +
         "Answers \"can this project compile Yes2SDK code yet?\", and pairs with get_install_instructions when the SDK is missing. " +
@@ -208,12 +209,7 @@ export function registerDetectTool(server: McpServer): void {
             "Inline map of repo-relative path → file contents for hosted/sandboxed use. Include at least the engine-marker files: game.project (Defold), ProjectSettings/* and Packages/manifest.json (Unity), or package.json (JS)."
           ),
       },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
+      
     },
     async ({ projectPath, files }) => {
       if (!projectPath && !files) {
