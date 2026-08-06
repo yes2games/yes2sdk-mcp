@@ -46,9 +46,9 @@ export function registerRuleTool(server: McpServer): void {
     {
       title: "Get one compliance rule",
       description:
-        "Look up a single Yes2SDK platform-compliance rule by id (e.g. 'P-002', 'U-001', 'CG-003') and return its severity (FAIL/WARN/INFO), the platform it applies to, what it checks, and the concrete fix(es) to satisfy it. " +
-        "Use this when validate_integration or get_platform_requirements surfaces a rule id and you need the detail and fix for that one rule. " +
-        "Read-only. For the full rule set of a platform use get_platform_requirements(platform); to validate a build use validate_integration.",
+        "One Yes2SDK platform-compliance rule by id (e.g. 'P-002', 'U-001', 'CG-003'): its severity (FAIL/WARN/INFO), the platform it applies to, what it checks, and the concrete fix(es). " +
+        "Answers \"what is this rule id and how do I satisfy it?\" when validate_integration or get_platform_requirements surfaces one. " +
+        "A platform's full rule set comes from get_platform_requirements(platform); grading a build is validate_integration.",
       inputSchema: {
         ruleId: z
           .string()
@@ -57,8 +57,9 @@ export function registerRuleTool(server: McpServer): void {
       },
       annotations: {
         readOnlyHint: true,
-        openWorldHint: false,
+        destructiveHint: false,
         idempotentHint: true,
+        openWorldHint: false,
       },
     },
     async ({ ruleId }) => {

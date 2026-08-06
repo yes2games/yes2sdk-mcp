@@ -135,10 +135,9 @@ export function registerCapabilitiesTool(server: McpServer): void {
     {
       title: "Get the module × platform support matrix",
       description:
-        "Return which Yes2SDK modules are supported on which platforms (poki, crazygames, yandex, gamedistribution, youtube), as a Ready / Partial / not-offered matrix. " +
-        "Call this before integrating a module to decide what to guard behind isSupported() — e.g. Friends and Auth are CrazyGames/Yandex-only, banners are not offered on Poki. " +
-        "Optionally filter to one platform (a single column) or one module (a single row across platforms). " +
-        "Read-only: it reads the bundled API docs and never modifies anything. For per-method detail, follow up with get_api_reference(module).",
+        "Which Yes2SDK modules are supported on which platforms (poki, crazygames, yandex, gamedistribution, youtube), as a Ready / Partial / not-offered matrix, optionally narrowed to one platform (a column) or one module (a row). " +
+        "Answers \"do I need to guard this module behind isSupported()?\" — Friends and Auth are CrazyGames/Yandex-only, banners are not offered on Poki. " +
+        "Reads the bundled API docs; per-method detail comes from get_api_reference(module).",
       inputSchema: {
         platform: z
           .enum(PLATFORMS)
@@ -151,8 +150,9 @@ export function registerCapabilitiesTool(server: McpServer): void {
       },
       annotations: {
         readOnlyHint: true,
-        openWorldHint: false,
+        destructiveHint: false,
         idempotentHint: true,
+        openWorldHint: false,
       },
     },
     async ({ platform, module }) => {

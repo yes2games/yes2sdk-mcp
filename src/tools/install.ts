@@ -42,9 +42,9 @@ export function registerInstallTool(server: McpServer): void {
     {
       title: "Get Yes2SDK install instructions",
       description:
-        "Return the exact, version-pinned steps to add the Yes2SDK to a project for a given engine (unity, defold, js), including the post-install steps (e.g. Unity's required WebGL template) and how to verify the SDK is importable. " +
-        "ALWAYS call this before generating any engine code for a project that has not yet installed the SDK — generated code referencing the Yes2SDK namespace/module will not compile until install completes. " +
-        "Returns instructions as text; it does not modify the project. Does not detect what is already installed (use detect_sdk for that).",
+        "Version-pinned steps for adding the Yes2SDK to a Unity, Defold, or JavaScript game, including post-install setup such as Unity's required WebGL template, and a check that confirms the SDK resolves. " +
+        "Answers \"how do I add the Yes2SDK to this project?\" — until these steps complete, code referencing the Yes2SDK namespace (Unity), the yes2sdk module (Defold), or window.Yes2SDK (JS) will not compile. " +
+        "Returns text; the project is never modified, and what is already installed is reported by detect_sdk instead.",
       inputSchema: {
         engine: z
           .enum(ENGINES)
@@ -56,8 +56,9 @@ export function registerInstallTool(server: McpServer): void {
       },
       annotations: {
         readOnlyHint: true,
-        openWorldHint: false,
+        destructiveHint: false,
         idempotentHint: true,
+        openWorldHint: false,
       },
     },
     async ({ engine, platform }) => {

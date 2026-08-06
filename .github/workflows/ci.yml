@@ -21,3 +21,7 @@ jobs:
       # install the SDK before any namespace code is generated.
       - name: "CUJ: Install Before Codegen"
         run: npx vitest run test/cuj.test.ts
+      # Asserts the built dist/ actually starts and advertises all 11 tools over
+      # a real JSON-RPC handshake — the in-process tests never exercise that.
+      - name: Smoke test the built server
+        run: node scripts/smoke-test.mjs

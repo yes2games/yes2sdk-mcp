@@ -20,6 +20,44 @@ function textOf(res: Awaited<ReturnType<Client["callTool"]>>): string {
     .join("\n");
 }
 
+/**
+ * Words that turn a sentence into an order aimed at the model rather than a
+ * description of what the tool returns. Published metadata is read by humans
+ * and by directory scanners, so a sentence may not open with one of these.
+ */
+const DIRECTIVE_OPENERS = new Set([
+  "always",
+  "never",
+  "use",
+  "call",
+  "do",
+  "must",
+  "first",
+  "before",
+  "read",
+  "pass",
+  "run",
+  "see",
+  "ensure",
+  "note",
+]);
+
+/**
+ * Sentences (and list items) of `text` whose first word is a directive.
+ * Splits on sentence boundaries, newlines and bullet markers, so an imperative
+ * in the middle of a description is caught, not just one at the very start.
+ */
+function directiveOpeners(text: string): string[] {
+  return text
+    .split(/(?<=[.!?])\s+|\n+|^\s*[-*]\s*/m)
+    .map((fragment) => fragment.trim().replace(/^[^A-Za-z]+/, ""))
+    .filter((fragment) => {
+      const word = fragment.split(/\s+/)[0]?.replace(/[^A-Za-z-]/g, "").toLowerCase();
+      return word !== undefined && DIRECTIVE_OPENERS.has(word);
+    })
+    .map((fragment) => fragment.slice(0, 60));
+}
+
 beforeAll(async () => {
   const [clientT, serverT] = InMemoryTransport.createLinkedPair();
   const server = createServer();
@@ -58,19 +96,16 @@ describe("listTools", () => {
     for (const t of tools) {
       expect(t.annotations?.readOnlyHint, `${t.name} should be readOnlyHint:true`).toBe(true);
       expect(t.annotations?.openWorldHint, `${t.name} should be openWorldHint:false`).toBe(false);
+      expect(t.annotations?.idempotentHint, `${t.name} should be idempotentHint:true`).toBe(true);
+      expect(t.annotations?.destructiveHint, `${t.name} should be destructiveHint:false`).toBe(false);
     }
   });
 
-  it("marks get_install_instructions read-only", async () => {
+  it("has no sentence that starts by instructing the model", async () => {
     const { tools } = await client.listTools();
-    const install = tools.find((t) => t.name === "get_install_instructions");
-    expect(install?.annotations?.readOnlyHint).toBe(true);
-  });
-
-  it("marks detect_sdk read-only", async () => {
-    const { tools } = await client.listTools();
-    const detect = tools.find((t) => t.name === "detect_sdk");
-    expect(detect?.annotations?.readOnlyHint).toBe(true);
+    for (const t of tools) {
+      expect(directiveOpeners(t.description ?? ""), `${t.name} description`).toEqual([]);
+    }
   });
 });
 
@@ -184,6 +219,10 @@ describe("server instructions", () => {
     expect(instructions ?? "").toMatch(/yes2sdk/i);
     expect(instructions ?? "").toMatch(/validate_integration/);
     expect(instructions ?? "").toMatch(/get_install_instructions/);
+  });
+
+  it("has no line that starts by instructing the model", () => {
+    expect(directiveOpeners(client.getInstructions() ?? "")).toEqual([]);
   });
 });
 

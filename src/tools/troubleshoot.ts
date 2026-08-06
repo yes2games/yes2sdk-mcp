@@ -147,9 +147,9 @@ export function registerTroubleshootTool(server: McpServer): void {
     {
       title: "Troubleshoot a Yes2SDK symptom",
       description:
-        "Map a reported integration symptom — an error string or a plain-language description — to its likely cause and the ordered fix. " +
-        "Covers the common failures: missing namespace/module (SDK not installed), window.Yes2SDK undefined, Unity build-guard/template, Defold editor no-ops, rewards not granted, and platform rejections (ads without gameplayStop, unbundled SDK). " +
-        "Pass the error text you see. Read-only. It points at the tool that resolves each case (detect_sdk, get_install_instructions, get_compliance_rule, validate_integration); when nothing matches it suggests where to look next.",
+        "The likely cause and ordered fix for a reported Yes2SDK integration symptom, given an error string or a plain-language description. " +
+        "Covers the common failures: missing namespace or module (SDK not installed), window.Yes2SDK undefined, Unity build-guard and template problems, Defold editor no-ops, rewards not granted, and platform rejections such as ads without gameplayStop or an unbundled SDK. " +
+        "Each answer points at the tool that resolves it (detect_sdk, get_install_instructions, get_compliance_rule, validate_integration), or at where to look next when nothing matches.",
       inputSchema: {
         symptom: z
           .string()
@@ -158,8 +158,9 @@ export function registerTroubleshootTool(server: McpServer): void {
       },
       annotations: {
         readOnlyHint: true,
-        openWorldHint: false,
+        destructiveHint: false,
         idempotentHint: true,
+        openWorldHint: false,
       },
     },
     async ({ symptom }) => {

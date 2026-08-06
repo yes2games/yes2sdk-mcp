@@ -189,12 +189,12 @@ export function registerDetectTool(server: McpServer): void {
     {
       title: "Detect Yes2SDK in a project",
       description:
-        "Inspect a project and report the engine (unity, defold, js), whether the Yes2SDK is installed, the installed version, and any install steps still required. " +
-        "Call this before generating engine code so you never write code referencing an uninstalled SDK. Read-only: it inspects project files but never modifies them. " +
-        "Two input modes (supply exactly one):\n" +
-        "  - `projectPath`: absolute path to the project root. Only works when the MCP server runs LOCALLY over stdio (it reads your disk).\n" +
-        "  - `files`: inline map of repo-relative path → contents, e.g. { \"game.project\": \"…\", \"Packages/manifest.json\": \"…\", \"package.json\": \"…\" }. Use this with the HOSTED/sandboxed server, which cannot read your local disk.\n" +
-        "Pair with get_install_instructions when the SDK is missing.",
+        "A readiness report for one game project: the engine it uses (unity, defold, js), whether the Yes2SDK is installed, the installed version, and any install steps still required. " +
+        "Answers \"can this project compile Yes2SDK code yet?\", and pairs with get_install_instructions when the SDK is missing. " +
+        "Two input modes, exactly one per request:\n" +
+        "  - `projectPath`: absolute path to the project root, available when this server runs LOCALLY over stdio and can read the disk.\n" +
+        "  - `files`: inline map of repo-relative path → contents, keyed on \"game.project\", \"Packages/manifest.json\" or \"package.json\" — the mode for the HOSTED/sandboxed server, which has no disk access.\n" +
+        "Project files are inspected, never modified.",
       inputSchema: {
         projectPath: z
           .string()
@@ -210,8 +210,9 @@ export function registerDetectTool(server: McpServer): void {
       },
       annotations: {
         readOnlyHint: true,
-        openWorldHint: false,
+        destructiveHint: false,
         idempotentHint: true,
+        openWorldHint: false,
       },
     },
     async ({ projectPath, files }) => {

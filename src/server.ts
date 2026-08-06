@@ -20,7 +20,7 @@ export function createServer(): McpServer {
   const server = new McpServer(
     {
       name: "yes2sdk",
-      version: "0.1.0",
+      version: "0.2.0",
     },
     {
       instructions: [
@@ -28,7 +28,7 @@ export function createServer(): McpServer {
         "",
         "Modules: ads, analytics, auth, banners, data, errors, friends, game, player, score, session, lifecycle.",
         "",
-        "IMPORTANT — install before code: a project must install the SDK before any code can reference it. Before generating engine code, call detect_sdk(projectPath) to check the project, and get_install_instructions(engine) for the steps. Never emit code referencing the Yes2SDK namespace (Unity), the yes2sdk module (Defold), or window.Yes2SDK (JS) into a project that has not installed the package — it will not compile/resolve.",
+        "Install before code: this server reports whether a project can compile SDK references at all. detect_sdk(projectPath) returns the engine, install state and remaining steps; get_install_instructions(engine) returns the version-pinned steps. Code referencing the Yes2SDK namespace (Unity), the yes2sdk module (Defold) or window.Yes2SDK (JS) will not compile or resolve until the package is installed.",
         "",
         "Typical flow: 1) detect_sdk(projectPath) / get_install_instructions(engine) to ensure the SDK is installed, 2) get_quickstart for the target platform, 3) get_api_reference per module, 4) search_docs for specifics, 5) validate_integration against the built WebGL output or a captured Inspector event log.",
         "validate_integration checks both static build output (buildPath) and behavioral compliance (eventLogJson) against real platform rejection rules.",
