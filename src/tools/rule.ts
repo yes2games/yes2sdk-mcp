@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { getAllRules, getRuleById, getRuleFixes } from "../lib/compliance.js";
+import { readOnlyTool } from "../lib/annotations.js";
 
 function render(id: string): { text: string; isError: boolean } {
   const rule = getRuleById(id);
@@ -44,7 +45,7 @@ export function registerRuleTool(server: McpServer): void {
   server.registerTool(
     "get_compliance_rule",
     {
-      title: "Get one compliance rule",
+      ...readOnlyTool("Get one compliance rule"),
       description:
         "One Yes2SDK platform-compliance rule by id (e.g. 'P-002', 'U-001', 'CG-003'): its severity (FAIL/WARN/INFO), the platform it applies to, what it checks, and the concrete fix(es). " +
         "Answers \"what is this rule id and how do I satisfy it?\" when validate_integration or get_platform_requirements surfaces one. " +
@@ -55,12 +56,7 @@ export function registerRuleTool(server: McpServer): void {
           .min(1)
           .describe("Rule id, e.g. 'P-002' (Poki), 'U-001' (universal), 'CG-003' (CrazyGames), 'Y-010' (Yandex), 'GD-002' (GameDistribution), 'YT-001' (YouTube). Case-insensitive."),
       },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
+      
     },
     async ({ ruleId }) => {
       const { text, isError } = render(ruleId.trim().toUpperCase());

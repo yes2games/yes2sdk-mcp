@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { getEngineMeta, type EngineMeta } from "../lib/sdk-meta.js";
+import { readOnlyTool } from "../lib/annotations.js";
 
 const ENGINES = ["unity", "defold", "js"] as const;
 
@@ -40,7 +41,7 @@ export function registerInstallTool(server: McpServer): void {
   server.registerTool(
     "get_install_instructions",
     {
-      title: "Get Yes2SDK install instructions",
+      ...readOnlyTool("Get Yes2SDK install instructions"),
       description:
         "Version-pinned steps for adding the Yes2SDK to a Unity, Defold, or JavaScript game, including post-install setup such as Unity's required WebGL template, and a check that confirms the SDK resolves. " +
         "Answers \"how do I add the Yes2SDK to this project?\" — until these steps complete, code referencing the Yes2SDK namespace (Unity), the yes2sdk module (Defold), or window.Yes2SDK (JS) will not compile. " +
@@ -54,12 +55,7 @@ export function registerInstallTool(server: McpServer): void {
           .optional()
           .describe("Optional target platform. Install is the same across platforms; this only adds a context note."),
       },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
+      
     },
     async ({ engine, platform }) => {
       const meta = getEngineMeta(engine);
