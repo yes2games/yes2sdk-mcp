@@ -1,8 +1,8 @@
 # @yes2games/yes2sdk-mcp
 
-A [Model Context Protocol](https://modelcontextprotocol.io) server for the **Yes2SDK**.
-It exposes the SDK documentation and a compliance/validation tool to any AI coding
-client (Cursor, Claude Code, Windsurf, VS Code Copilot, Cline, Zed, …) over **stdio**.
+One integration ships your HTML5 game to Poki, CrazyGames, Yandex, GameDistribution, and YouTube Playables. Docs and compliance checks for AI coding assistants.
+
+A [Model Context Protocol](https://modelcontextprotocol.io) server for the **Yes2SDK**, speaking to any AI coding client (Cursor, Claude Code, Windsurf, VS Code Copilot, Cline, Zed, …) over **stdio**.
 
 This is **Tier 1** of the AI-assisted integration plan: it gives the AI *tools it can run*,
 not just text it can read — most importantly `validate_integration`, which lets the AI
