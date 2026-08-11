@@ -118,14 +118,16 @@ Or: `claude mcp add yes2sdk -- node /ABSOLUTE/PATH/TO/dist/index.js`
 
 ## Keeping it in sync
 
-The docs and the compliance engine are **copied** from the dashboard repo (source of truth):
+The docs and the compliance engine are **copied** in from the repos that own them:
 
 ```bash
-npm run sync-docs        # copies ../../yes2dashboard/docs/**/*.md -> ./docs
+npm run sync-docs        # copies ../../yes2sdk-www/content/docs/**/*.md -> ./docs
 npm run sync-compliance  # copies compliance-rules.ts + inspector types -> src/lib
 ```
 
-Run these (then `npm run build`) whenever the dashboard docs or compliance rules change.
+The docs corpus is owned by the documentation site, so what ships here is what a
+reader sees published. The compliance rules are application code and stay owned by
+the dashboard. Run these (then `npm run build`) whenever either source changes.
 `src/lib/compliance.ts` and `src/lib/inspector-types.ts` are generated — do not edit them
 by hand.
 

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// Copies SDK-integration docs from ../../yes2dashboard/docs into ./docs so this
-// package is self-contained for npx users who don't have the dashboard repo
-// checked out.
+// Copies SDK-integration docs from ../../yes2sdk-www/content/docs into ./docs so
+// this package is self-contained for npx users who don't have the site repo
+// checked out. That corpus is the published one, so what ships here is what a
+// reader sees at the documentation site.
 //
 // This is an ALLOW-list, not a deny-list, and that is load-bearing: the MCP
 // server serves every doc it ships (src/lib/docs.ts scans the whole docs dir
@@ -18,13 +19,15 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = path.resolve(__dirname, "..");
-const DEFAULT_SOURCE = path.resolve(PKG_ROOT, "..", "..", "yes2dashboard", "docs");
+const DEFAULT_SOURCE = path.resolve(PKG_ROOT, "..", "..", "yes2sdk-www", "content", "docs");
 const DEFAULT_DEST = path.resolve(PKG_ROOT, "docs");
 
 // Docs cleared to ship, matched against the path relative to the source docs
 // dir in posix form. Adding a doc here makes it public -- read it first.
 //
-// AGENTS.md is pinned by test/docs.test.ts (it asserts the "AGENTS" slug).
+// AGENTS.md is pinned by test/docs.test.ts (it asserts the "AGENTS" slug). It is
+// not published as a page on the site, but it is carried in the corpus for this
+// server, which is the surface it addresses.
 const ALLOW_EXACT = new Set([
   "AGENTS.md",
   "claude-code-plugin.md",
