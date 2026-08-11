@@ -1,4 +1,4 @@
-<!-- Generated file, do not edit. Run `npm run sync-platform-reqs` (from api/). Source of truth: api/src/utils/platform-requirements.ts -->
+<!-- Generated file, do not edit by hand. -->
 
 ## Build & Upload Limits
 
