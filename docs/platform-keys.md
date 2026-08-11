@@ -11,8 +11,8 @@ The Dashboard's build pipeline injects the SDK and any required platform configu
 | **Poki** | None (no per-game credential required) | Dashboard + Yes2Games team | No `platformGameId` set; platform enablement only (`team_platform_permissions`) |
 | **CrazyGames** | None (no per-game credential required) | Dashboard + Yes2Games team | No `platformGameId` set; platform enablement only |
 | **Yandex** | None (no per-game credential required) | Yes2Games team registers game in Yandex Games Console on your behalf | No `platformGameId` set; build uses LZMA-rezip (`useLzma`) |
-| **GameDistribution** | `gameId`: your GD game UUID from the [GameDistribution Developer Portal](https://developer.gamedistribution.com) | You register the game; Yes2Games injects the ID at bundle time via `platformGameId` in `sdk-injector.ts` | `api/src/utils/sdk-injector.ts` line 10, `docs/quickstart-gamedistribution.md` |
-| **YouTube Playables** | None (no integrator-supplied credential) | Dashboard injects the CDN script `https://www.youtube.com/game_api/v1` at the top of `<head>` automatically | `api/src/utils/sdk-injector.ts` `PLATFORM_CDN_SCRIPTS` (line 204-206) |
+| **GameDistribution** | `gameId`: your GD game UUID from the [GameDistribution Developer Portal](https://developer.gamedistribution.com) | You register the game; Yes2Games injects the ID at bundle time as the build's `platformGameId` | `docs/quickstart-gamedistribution.md` |
+| **YouTube Playables** | None (no integrator-supplied credential) | Dashboard injects the CDN script `https://www.youtube.com/game_api/v1` at the top of `<head>` automatically | Injected by the bundler for every YouTube build |
 
 ### GameDistribution `gameId` in detail
 
