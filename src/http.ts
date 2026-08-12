@@ -32,6 +32,14 @@ const ALLOWED_ORIGINS = (process.env.MCP_ALLOWED_ORIGINS ?? "")
   .map((entry) => entry.trim())
   .filter(Boolean);
 
+// Nothing on this host is meant for a search index: it serves a JSON-RPC
+// endpoint and a healthcheck, not pages. Disallow everything, and name /mcp and
+// /.well-known/ explicitly so the OAuth metadata and authorisation-server
+// documents an MCP host may expose stay out of crawler results even if a future
+// route or an upstream proxy starts answering them. robots.txt is advisory —
+// this is hygiene, not access control.
+const ROBOTS_TXT = ["User-agent: *", "Disallow: /", "Disallow: /mcp", "Disallow: /.well-known/", ""].join("\n");
+
 const JSONRPC_METHOD_NOT_ALLOWED = JSON.stringify({
   jsonrpc: "2.0",
   error: { code: -32000, message: "Method not allowed (stateless server)" },
@@ -150,6 +158,12 @@ const httpServer = createHttpServer((req: IncomingMessage, res: ServerResponse) 
   if (path === "/health" && method === "GET") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ status: "ok" }));
+    return;
+  }
+
+  if (path === "/robots.txt" && method === "GET") {
+    res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end(ROBOTS_TXT);
     return;
   }
 

@@ -13,8 +13,15 @@ COPY src ./src
 RUN npm run build
 
 FROM node:24-alpine AS runtime
+# MCP_ALLOWED_ORIGINS admits browser-based MCP clients through the Origin check
+# in src/http.ts. CLI hosts and server-side fetch send no Origin and never
+# needed it; a claude.ai / claude.com connector running in the page does. Both
+# are Anthropic's own origins and the server is public and read-only, so
+# admitting them grants no capability a plain curl did not already have.
+# Override at the unit level to change the list.
 ENV NODE_ENV=production \
-    PORT=8091
+    PORT=8091 \
+    MCP_ALLOWED_ORIGINS=https://claude.ai,https://claude.com
 WORKDIR /app
 # curl is used by the Quadlet healthcheck (HealthCmd hits /health).
 RUN apk add --no-cache curl

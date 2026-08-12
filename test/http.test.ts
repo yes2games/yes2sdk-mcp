@@ -68,6 +68,34 @@ describe("GET /health", () => {
   }, 10_000);
 });
 
+// Status alone proves nothing here: a CDN fallback robots.txt also answers 200,
+// with a comment block and zero directives. Every assertion below reads the body.
+describe("GET /robots.txt", () => {
+  const fetchRobots = () => fetch(`${BASE}/robots.txt`);
+
+  it("serves plain text, not JSON", async () => {
+    const res = await fetchRobots();
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toMatch(/^text\/plain/);
+  }, 10_000);
+
+  it("carries real directives rather than a comment-only fallback", async () => {
+    const directives = (await (await fetchRobots()).text())
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith("#"));
+
+    expect(directives).toContain("User-agent: *");
+    expect(directives).toContain("Disallow: /");
+  }, 10_000);
+
+  it("names the JSON-RPC and discovery paths explicitly", async () => {
+    const body = await (await fetchRobots()).text();
+    expect(body).toMatch(/^Disallow: \/mcp$/m);
+    expect(body).toMatch(/^Disallow: \/\.well-known\/$/m);
+  }, 10_000);
+});
+
 describe("MCP over HTTP", () => {
   it("listTools includes validate_integration", async () => {
     const client = new Client({ name: "http-test", version: "0" });
