@@ -131,8 +131,9 @@ the dashboard. Run these (then `npm run build`) whenever either source changes.
 `src/lib/compliance.ts` and `src/lib/inspector-types.ts` are generated — do not edit them
 by hand.
 
-The server version is declared twice — `package.json` `version` and the `version` passed to
-`new McpServer()` in `src/server.ts`. Bump both together; clients report the second one.
+The server version lives only in `package.json`. `src/lib/version.ts` reads it at startup and
+`createServer()` reports it, so bumping the package is the whole job — there is no second copy
+to keep in step.
 
 ## Architecture
 
