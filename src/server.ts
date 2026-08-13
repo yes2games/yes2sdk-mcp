@@ -10,6 +10,7 @@ import { registerTroubleshootTool } from "./tools/troubleshoot.js";
 import { registerModuleResources } from "./resources/modules.js";
 import { registerIntegratePrompts } from "./prompts/integrate.js";
 import { DESCRIPTION } from "./lib/positioning.js";
+import { VERSION } from "./lib/version.js";
 
 /**
  * Build and configure the Yes2SDK MCP server with all tools registered.
@@ -21,7 +22,7 @@ export function createServer(): McpServer {
   const server = new McpServer(
     {
       name: "yes2sdk",
-      version: "0.3.0",
+      version: VERSION,
     },
     {
       instructions: [
