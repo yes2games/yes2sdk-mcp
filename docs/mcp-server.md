@@ -4,7 +4,7 @@
 
 If you integrate the SDK with help from an AI assistant (Claude Code, Cursor, Windsurf, VS Code Copilot), connect it to the Yes2SDK MCP server. Your assistant can then pull the exact API reference, quickstart, and platform rules on demand, and validate your build against the same rejection rules each platform enforces.
 
-Works for the TypeScript/JavaScript, Unity, and Defold SDKs (HTML5/WebGL), across Poki, CrazyGames, Yandex, GameDistribution, and YouTube.
+Works for every supported engine SDK (HTML5/WebGL) on every supported platform. The API overview carries the current support matrix.
 
 ## Connect (hosted, recommended)
 
