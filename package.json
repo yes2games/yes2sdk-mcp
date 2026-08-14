@@ -1,7 +1,7 @@
 {
   "name": "@yes2games/yes2sdk-mcp",
   "version": "0.3.0",
-  "description": "One integration ships your HTML5 game to Poki, CrazyGames, Yandex, GameDistribution, and YouTube Playables. Docs and compliance checks for AI coding assistants.",
+  "description": "One integration ships your HTML5 game to every supported web game platform. Docs and the checks that catch a rejection before you submit, for AI assistants.",
   "license": "MIT",
   "repository": {
     "type": "git",
