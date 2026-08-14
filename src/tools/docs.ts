@@ -2,15 +2,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { readDocBySlug, searchDocs } from "../lib/docs.js";
 import { readOnlyTool } from "../lib/annotations.js";
-
-/** Platforms with a quickstart guide. */
-const QUICKSTART_PLATFORMS = [
-  "poki",
-  "crazygames",
-  "yandex",
-  "gamedistribution",
-  "youtube",
-] as const;
+import { SUPPORTED_PLATFORMS } from "../lib/platforms.js";
 
 /** API reference modules under docs/api/. */
 export const API_MODULES = [
@@ -85,9 +77,9 @@ export function registerDocsTools(server: McpServer): void {
     {
       ...readOnlyTool("Get a Yes2SDK platform quickstart"),
       description:
-        "The full quickstart integration guide for one target platform (poki, crazygames, yandex, gamedistribution, youtube): mandatory call sequence, per-engine examples, critical rules, and the common rejection reasons. " +
+        `The full quickstart integration guide for one target platform (${SUPPORTED_PLATFORMS.join(", ")}): mandatory call sequence, per-engine examples, critical rules, and the common rejection reasons. ` +
         "The starting point for a new integration, before the first SDK call is written.",
-      inputSchema: { platform: z.enum(QUICKSTART_PLATFORMS).describe("Target platform.") },
+      inputSchema: { platform: z.enum(SUPPORTED_PLATFORMS).describe("Target platform.") },
       
     },
     async ({ platform }) => {

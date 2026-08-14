@@ -9,14 +9,7 @@ import {
   type BuildSeverity,
 } from "../lib/build-checks.js";
 import { readOnlyTool } from "../lib/annotations.js";
-
-const VALIDATE_PLATFORMS = [
-  "poki",
-  "crazygames",
-  "yandex",
-  "gamedistribution",
-  "youtube",
-] as const;
+import { SUPPORTED_PLATFORMS } from "../lib/platforms.js";
 
 const SEVERITY_ORDER: Record<string, number> = { FAIL: 0, WARN: 1, INFO: 2 };
 
@@ -96,7 +89,7 @@ export function registerValidateTool(server: McpServer): void {
         "   Covered: Yes2SDK bundled into the JS, no external <script src=\"http...\"> tags (platforms block them), index.html present (Poki also needs index.json), and a responsive full-viewport canvas heuristic.\n\n" +
         "2) BEHAVIORAL compliance checks — `eventLogJson`: a JSON string of an exported Yes2SDK Inspector event log (LogEntry objects with type, method, params, success). Covers the platform's runtime rules such as gameplayStop before ads, reward only on adViewed, and no ads in the first 30s. These rules need a real run in the QA Inspector; static files cannot produce them.",
       inputSchema: {
-        platform: z.enum(VALIDATE_PLATFORMS).describe("Target platform to validate against."),
+        platform: z.enum(SUPPORTED_PLATFORMS).describe("Target platform to validate against."),
         buildPath: z
           .string()
           .optional()
