@@ -2,11 +2,10 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { readDocBySlug } from "../lib/docs.js";
 import { readOnlyTool } from "../lib/annotations.js";
+import { SUPPORTED_PLATFORMS, isSupportedPlatform, type SupportedPlatform } from "../lib/platforms.js";
 
-/** Platform column keys, in the order the matrix lists them. */
-export type CapabilityPlatform = "poki" | "gamedistribution" | "crazygames" | "yandex" | "youtube";
-
-const PLATFORMS = ["poki", "crazygames", "yandex", "gamedistribution", "youtube"] as const;
+/** Platform column keys. Alias kept so the matrix types read in matrix terms. */
+export type CapabilityPlatform = SupportedPlatform;
 
 export interface CapabilityRow {
   /** Module label exactly as the matrix lists it, e.g. "Ads: banner". */
@@ -25,10 +24,7 @@ export interface CapabilityMatrix {
 /** Normalize a header cell ("GameDistribution") to a platform key. */
 function platformKey(header: string): CapabilityPlatform | null {
   const k = header.toLowerCase().replace(/[^a-z]/g, "");
-  if (k === "poki" || k === "gamedistribution" || k === "crazygames" || k === "yandex" || k === "youtube") {
-    return k;
-  }
-  return null;
+  return isSupportedPlatform(k) ? k : null;
 }
 
 /** Drop footnote superscripts so a status value is just "Ready"/"Partial"/"None". */
@@ -136,12 +132,12 @@ export function registerCapabilitiesTool(server: McpServer): void {
     {
       ...readOnlyTool("Get the module × platform support matrix"),
       description:
-        "Which Yes2SDK modules are supported on which platforms (poki, crazygames, yandex, gamedistribution, youtube), as a Ready / Partial / not-offered matrix, optionally narrowed to one platform (a column) or one module (a row). " +
+        `Which Yes2SDK modules are supported on which platforms (${SUPPORTED_PLATFORMS.join(", ")}), as a Ready / Partial / not-offered matrix, optionally narrowed to one platform (a column) or one module (a row). ` +
         "Answers \"do I need to guard this module behind isSupported()?\" — Friends and Auth are CrazyGames/Yandex-only, banners are not offered on Poki. " +
         "Reads the bundled API docs; per-method detail comes from get_api_reference(module).",
       inputSchema: {
         platform: z
-          .enum(PLATFORMS)
+          .enum(SUPPORTED_PLATFORMS)
           .optional()
           .describe("Optional: restrict to one platform's column. Omit for the full matrix."),
         module: z

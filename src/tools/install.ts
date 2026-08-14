@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { getEngineMeta, type EngineMeta } from "../lib/sdk-meta.js";
 import { readOnlyTool } from "../lib/annotations.js";
+import { SUPPORTED_PLATFORMS } from "../lib/platforms.js";
 
 const ENGINES = ["unity", "defold", "js"] as const;
 
@@ -51,7 +52,7 @@ export function registerInstallTool(server: McpServer): void {
           .enum(ENGINES)
           .describe("Target engine: 'unity' (UPM package), 'defold' (native extension), or 'js' (HTML5 runtime injected by the dashboard)."),
         platform: z
-          .enum(["poki", "crazygames", "yandex", "gamedistribution", "youtube"])
+          .enum(SUPPORTED_PLATFORMS)
           .optional()
           .describe("Optional target platform. Install is the same across platforms; this only adds a context note."),
       },
