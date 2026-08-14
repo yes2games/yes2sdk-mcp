@@ -1,6 +1,6 @@
 # @yes2games/yes2sdk-mcp
 
-One integration ships your HTML5 game to Poki, CrazyGames, Yandex, GameDistribution, and YouTube Playables. Docs and compliance checks for AI coding assistants.
+One integration ships your HTML5 game to every supported web game platform. Docs and the checks that catch a rejection before you submit, for AI assistants.
 
 A [Model Context Protocol](https://modelcontextprotocol.io) server for the **Yes2SDK**, reachable
 over **Streamable HTTP** (hosted, nothing to install) or **stdio** (local). It speaks to any MCP

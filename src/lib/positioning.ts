@@ -24,13 +24,18 @@
  *
  * The 160-character ceiling is a search-snippet convention, self-imposed. No
  * consumer enforces a cap. It applies to the rendered string (CANONICAL + a
- * role clause), which is why this repo's composition sits exactly on it.
+ * role clause), which is what test/positioning.test.ts measures.
+ *
+ * CANONICAL names no platform. The supported set grows, and a sentence that
+ * lists it goes stale on the next addition with nothing failing loudly. Say
+ * what the integration does instead, and let the support matrix carry the set.
  */
 export const CANONICAL =
-  "One integration ships your HTML5 game to Poki, CrazyGames, Yandex, GameDistribution, and YouTube Playables.";
+  "One integration ships your HTML5 game to every supported web game platform.";
 
 /** This repo's role clause. Leading space is intentional — it joins to CANONICAL. */
-export const ROLE = " Docs and compliance checks for AI coding assistants.";
+export const ROLE =
+  " Docs and the checks that catch a rejection before you submit, for AI assistants.";
 
-/** What every surface in THIS repo carries verbatim. 160 chars. */
+/** What every surface in THIS repo carries verbatim. 156 chars. */
 export const DESCRIPTION = CANONICAL + ROLE;
