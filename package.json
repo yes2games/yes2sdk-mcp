@@ -23,6 +23,9 @@
   "engines": {
     "node": ">=20"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "prepare": "tsc",
     "build": "tsc",
