@@ -49,7 +49,7 @@ You may pass one or both. Always pass `platform`.
 
 ## Connecting
 
-Three ways in. The first two need nothing installed.
+Three ways in. None of them need a checkout.
 
 ### 1. Claude connector (no setup)
 
@@ -84,20 +84,15 @@ content instead of a path — see the `validate_integration` and `detect_sdk` no
 
 ### 3. Local, over stdio
 
-Build it, then have the client spawn it. Requires Node 20+. The package carries its own copy of
-the docs (`docs/`), so a local run needs no other checkout.
+Published on npm, so the client spawns it directly. Requires Node 20+. The package carries its
+own copy of the docs (`docs/`), so a local run needs no other checkout.
 
 ```bash
-git clone https://github.com/yes2games/yes2sdk-mcp.git
-cd yes2sdk-mcp
-npm install
-npm run build      # tsc -> dist/
+npx -y @yes2games/yes2sdk-mcp
 ```
 
-> Not yet on npm, so there is no `npx` form. Until it publishes, local use means a checkout and
-> an absolute path to `dist/index.js`.
-
-Replace `/ABSOLUTE/PATH/TO` below with the path to your checkout.
+The client blocks below spawn exactly that. To pin a version, use
+`@yes2games/yes2sdk-mcp@<version>`.
 
 ### Cursor — `.cursor/mcp.json` (or Settings → MCP)
 
@@ -105,8 +100,8 @@ Replace `/ABSOLUTE/PATH/TO` below with the path to your checkout.
 {
   "mcpServers": {
     "yes2sdk": {
-      "command": "node",
-      "args": ["/ABSOLUTE/PATH/TO/dist/index.js"]
+      "command": "npx",
+      "args": ["-y", "@yes2games/yes2sdk-mcp"]
     }
   }
 }
@@ -114,20 +109,20 @@ Replace `/ABSOLUTE/PATH/TO` below with the path to your checkout.
 
 ### Claude Code — `.mcp.json` in your project (or `claude mcp add`)
 
-Only needed to run a local build; the plugin or the hosted URL above covers normal use.
+Only needed to run stdio locally; the plugin or the hosted URL above covers normal use.
 
 ```json
 {
   "mcpServers": {
     "yes2sdk": {
-      "command": "node",
-      "args": ["/ABSOLUTE/PATH/TO/dist/index.js"]
+      "command": "npx",
+      "args": ["-y", "@yes2games/yes2sdk-mcp"]
     }
   }
 }
 ```
 
-Or: `claude mcp add yes2sdk -- node /ABSOLUTE/PATH/TO/dist/index.js`
+Or: `claude mcp add yes2sdk -- npx -y @yes2games/yes2sdk-mcp`
 
 ### Windsurf — `~/.codeium/windsurf/mcp_config.json`
 
@@ -135,8 +130,8 @@ Or: `claude mcp add yes2sdk -- node /ABSOLUTE/PATH/TO/dist/index.js`
 {
   "mcpServers": {
     "yes2sdk": {
-      "command": "node",
-      "args": ["/ABSOLUTE/PATH/TO/dist/index.js"]
+      "command": "npx",
+      "args": ["-y", "@yes2games/yes2sdk-mcp"]
     }
   }
 }
@@ -149,15 +144,22 @@ Or: `claude mcp add yes2sdk -- node /ABSOLUTE/PATH/TO/dist/index.js`
   "servers": {
     "yes2sdk": {
       "type": "stdio",
-      "command": "node",
-      "args": ["/ABSOLUTE/PATH/TO/dist/index.js"]
+      "command": "npx",
+      "args": ["-y", "@yes2games/yes2sdk-mcp"]
     }
   }
 }
 ```
 
-Once the package is on npm, every block above collapses to
-`"command": "npx", "args": ["-y", "@yes2games/yes2sdk-mcp"]` with no absolute path.
+To run a checkout instead of the published package, build it and swap the command for
+`node /ABSOLUTE/PATH/TO/dist/index.js`:
+
+```bash
+git clone https://github.com/yes2games/yes2sdk-mcp.git
+cd yes2sdk-mcp
+npm install
+npm run build      # tsc -> dist/
+```
 
 ## Keeping it in sync
 
@@ -180,6 +182,30 @@ a source changes. `src/lib/compliance.ts`, `src/lib/inspector-types.ts` and
 The server version lives only in `package.json`. `src/lib/version.ts` reads it at startup and
 `createServer()` reports it, so bumping the package is the whole job — there is no second copy
 to keep in step.
+
+## Releasing
+
+**Manual, tag-driven.** A human publishes; no workflow does. The hosted container and the
+connector are the primary channels and deploy on merge to `main`, so npm is the slow lane and
+releases are rare enough that automating them would buy less than the credentials it would cost.
+
+```bash
+npm version <major|minor|patch>   # bumps package.json, commits, tags
+git push --follow-tags
+npm publish                       # from a real terminal: 2FA needs a TTY
+gh release create v<version> --generate-notes
+```
+
+Notes:
+
+- `publishConfig.access` is `public`; the scope would otherwise default to restricted and the
+  first publish would fail `402`.
+- `prepare` runs `tsc` on publish, so `dist/` is always built from the committed source.
+- The registry's read path lags its write path by roughly a minute. A `404` from `npm view`
+  straight after a publish is that lag, not a failure. The authoritative signal is `PUT 200`
+  in the npm debug log.
+- Publishing from CI would need either a token in repository secrets or npm Trusted Publishing
+  (OIDC). Neither is set up, and neither is worth it at this cadence.
 
 ## Architecture
 
