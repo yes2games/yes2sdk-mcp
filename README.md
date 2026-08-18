@@ -179,6 +179,20 @@ pinned versions are derived rather than typed. Run these (then `npm run build`) 
 a source changes. `src/lib/compliance.ts`, `src/lib/inspector-types.ts` and
 `src/lib/sdk-meta.ts` are generated — do not edit them by hand.
 
+A pinned version that has gone stale is silent: `get_install_instructions` and
+`detect_sdk` keep handing developers an install URL for an SDK release that is no
+longer current. `npm run check:sdk-meta` catches that — it regenerates the metadata
+from the sibling engine SDK repos and diffs it against the committed file:
+
+```bash
+npm run check:sdk-meta   # exit 0 in sync, 1 on drift, 2 when the sibling repos are absent
+```
+
+Run it after every engine SDK release, and before committing a change to either side.
+It reads `../../yes2sdk-unity` and `../../yes2sdk-defold` and never clones them
+(ADR-0010), so CI cannot run it — an isolated runner has no access to those private
+repos. This is a local gate by design.
+
 The server version lives only in `package.json`. `src/lib/version.ts` reads it at startup and
 `createServer()` reports it, so bumping the package is the whole job — there is no second copy
 to keep in step.

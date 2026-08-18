@@ -13,10 +13,14 @@
 //
 // The generated file is committed, so runtime never needs the sibling repos —
 // only this regen step does (same contract as sync-compliance.mjs).
+//
+// generate() is pure (returns the file text, writes nothing) so
+// check-sdk-meta-sync.mjs can diff it against the committed file. The write
+// only runs under the direct-invocation guard at the bottom.
 
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = path.resolve(__dirname, "..");
@@ -31,15 +35,25 @@ const DEFOLD_PROJECT = path.join(DEFOLD_ROOT, "game.project");
 
 const DST = path.join(PKG_ROOT, "src", "lib", "sdk-meta.ts");
 
+export const SOURCES = [UNITY_PKG, UNITY_ASMDEF, DEFOLD_PROJECT];
+export const SDK_WORKSPACE = SDK_ROOT;
+export const DESTINATION = DST;
+
+/** True when every engine SDK source file this generator reads is present. */
+export function sourcesExist() {
+  return SOURCES.every((f) => fs.existsSync(f));
+}
+
 function fail(msg) {
   console.error(`[sync-sdk-meta] ${msg}`);
   process.exit(1);
 }
 
-for (const f of [UNITY_PKG, UNITY_ASMDEF, DEFOLD_PROJECT]) {
-  if (!fs.existsSync(f)) fail(`source file not found: ${f}`);
-}
-
+/**
+ * Build the generated sdk-meta.ts text from the sibling engine SDK repos.
+ * Pure: reads the sources, writes nothing.
+ */
+export function generate() {
 // ── Unity ────────────────────────────────────────────────────────────
 const unityPkg = JSON.parse(fs.readFileSync(UNITY_PKG, "utf-8"));
 const unityAsmdef = JSON.parse(fs.readFileSync(UNITY_ASMDEF, "utf-8"));
@@ -157,9 +171,20 @@ export function getEngineMeta(engine: string): EngineMeta | undefined {
 }
 `;
 
-fs.mkdirSync(path.dirname(DST), { recursive: true });
-fs.writeFileSync(DST, header + body, "utf-8");
+  return { out: header + body, unityVersion, defoldVersion };
+}
 
-console.log("[sync-sdk-meta] wrote:");
-console.log("  " + DST);
-console.log(`  unity v${unityVersion}, defold v${defoldVersion}`);
+// Direct invocation only: `npm run sync-sdk-meta` writes the file. Importers
+// (check-sdk-meta-sync.mjs) get generate() without the side effect.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  if (!sourcesExist()) {
+    fail(`source file not found under ${SDK_ROOT} — check out the engine SDK repos as siblings.`);
+  }
+  const { out, unityVersion, defoldVersion } = generate();
+  fs.mkdirSync(path.dirname(DST), { recursive: true });
+  fs.writeFileSync(DST, out, "utf-8");
+
+  console.log("[sync-sdk-meta] wrote:");
+  console.log("  " + DST);
+  console.log(`  unity v${unityVersion}, defold v${defoldVersion}`);
+}
