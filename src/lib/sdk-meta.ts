@@ -33,12 +33,12 @@ export const SDK_META: Record<Engine, EngineMeta> = {
     "engine": "unity",
     "displayName": "Unity",
     "packageName": "com.yes2games.yes2sdk",
-    "version": "2.5.1",
+    "version": "2.7.0",
     "repoUrl": "https://github.com/yes2games/yes2sdk-unity",
     "installSteps": [
       "In the Unity menu bar choose Window > Package Manager.",
       "Click the + button (top-left) and choose \"Add package from git URL…\".",
-      "Enter: https://github.com/yes2games/yes2sdk-unity.git#v2.5.1  (the #v2.5.1 tag pins this release; drop the tag only to track main).",
+      "Enter: https://github.com/yes2games/yes2sdk-unity.git#v2.7.0  (the #v2.7.0 tag pins this release; drop the tag only to track main).",
       "Wait for Package Manager to resolve and import com.yes2games.yes2sdk."
     ],
     "postInstallSteps": [
@@ -53,11 +53,11 @@ export const SDK_META: Record<Engine, EngineMeta> = {
     "engine": "defold",
     "displayName": "Defold",
     "packageName": "Yes2SDK (native extension)",
-    "version": "1.5.5",
+    "version": "1.6.0",
     "repoUrl": "https://github.com/yes2games/yes2sdk-defold",
     "installSteps": [
       "Open game.project (the Defold editor or a text editor).",
-      "Under the [project] section add a dependency:  dependencies#0 = https://github.com/yes2games/yes2sdk-defold/archive/refs/tags/v1.5.5.zip  (use the tagged release archive, not a branch URL — GitHub serves release archives more reliably).",
+      "Under the [project] section add a dependency:  dependencies#0 = https://github.com/yes2games/yes2sdk-defold/archive/refs/tags/v1.6.0.zip  (use the tagged release archive, not a branch URL — GitHub serves release archives more reliably).",
       "In the Defold editor choose Project > Fetch Libraries to download the dependency."
     ],
     "postInstallSteps": [
