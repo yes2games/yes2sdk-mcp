@@ -30,6 +30,7 @@ const DEFAULT_DEST = path.resolve(PKG_ROOT, "docs");
 // server, which is the surface it addresses.
 const ALLOW_EXACT = new Set([
   "AGENTS.md",
+  "build-upload-api.md",
   "claude-code-plugin.md",
   "dashboard-guide.md",
   "mcp-server.md",
