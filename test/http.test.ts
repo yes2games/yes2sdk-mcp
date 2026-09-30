@@ -12,6 +12,8 @@ const BASE = `http://127.0.0.1:${PORT}`;
 const READY_MSG = `HTTP transport listening on 0.0.0.0:${PORT}`;
 const ALLOWED_ORIGIN = "https://example.test";
 const DENIED_ORIGIN = "https://evil.test";
+const CHALLENGE_TOKEN = "test-openai-apps-challenge-token";
+const CHALLENGE_PATH = "/.well-known/openai-apps-challenge";
 
 let child: ChildProcess;
 
@@ -20,7 +22,7 @@ beforeAll(async () => {
   execSync("npm run build", { cwd: REPO, stdio: "inherit", timeout: 120_000 });
 
   child = spawn(process.execPath, ["dist/http.js"], {
-    env: { ...process.env, PORT: String(PORT), MCP_ALLOWED_ORIGINS: ALLOWED_ORIGIN },
+    env: { ...process.env, PORT: String(PORT), MCP_ALLOWED_ORIGINS: ALLOWED_ORIGIN, OPENAI_APPS_CHALLENGE: `  ${CHALLENGE_TOKEN}\n` },
     cwd: REPO,
   });
 
@@ -94,6 +96,48 @@ describe("GET /robots.txt", () => {
     expect(body).toMatch(/^Disallow: \/mcp$/m);
     expect(body).toMatch(/^Disallow: \/\.well-known\/$/m);
   }, 10_000);
+});
+
+// The OpenAI submission portal compares the body to the token it issued, so the
+// body must be the token and nothing else: no JSON, no surrounding whitespace.
+describe("GET /.well-known/openai-apps-challenge", () => {
+  it("serves exactly the configured token as plain text", async () => {
+    const res = await fetch(`${BASE}${CHALLENGE_PATH}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toMatch(/^text\/plain/);
+    expect(await res.text()).toBe(CHALLENGE_TOKEN);
+  }, 10_000);
+
+  it("is the one path robots.txt allows", async () => {
+    const body = await (await fetch(`${BASE}/robots.txt`)).text();
+    expect(body).toMatch(new RegExp(`^Allow: ${CHALLENGE_PATH.replace(/\./g, "\\.")}$`, "m"));
+  }, 10_000);
+
+  it("404s when no token is configured", async () => {
+    const port = PORT - 1;
+    const bare = spawn(process.execPath, ["dist/http.js"], {
+      env: { ...process.env, PORT: String(port), OPENAI_APPS_CHALLENGE: "" },
+      cwd: REPO,
+    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("bare server did not start")), 15_000);
+        let buf = "";
+        bare.stderr?.on("data", (chunk: Buffer) => {
+          buf += chunk.toString();
+          if (buf.includes(`listening on 0.0.0.0:${port}`)) {
+            clearTimeout(timer);
+            resolve();
+          }
+        });
+      });
+      const res = await fetch(`http://127.0.0.1:${port}${CHALLENGE_PATH}`);
+      expect(res.status).toBe(404);
+    } finally {
+      bare.kill();
+      await new Promise<void>((resolve) => bare.on("exit", resolve));
+    }
+  }, 30_000);
 });
 
 describe("MCP over HTTP", () => {

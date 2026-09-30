@@ -32,13 +32,29 @@ const ALLOWED_ORIGINS = (process.env.MCP_ALLOWED_ORIGINS ?? "")
   .map((entry) => entry.trim())
   .filter(Boolean);
 
+// OpenAI plugin directory domain verification. The submission portal issues a
+// token and fetches it from this fixed path on the MCP host; the body must be
+// the token alone (no JSON, no newline). Kept in the environment rather than the
+// source so a re-verification is a config change, not a release. Unset or blank
+// means the route 404s like any unknown path.
+const OPENAI_APPS_CHALLENGE_PATH = "/.well-known/openai-apps-challenge";
+const OPENAI_APPS_CHALLENGE = (process.env.OPENAI_APPS_CHALLENGE ?? "").trim();
+
 // Nothing on this host is meant for a search index: it serves a JSON-RPC
 // endpoint and a healthcheck, not pages. Disallow everything, and name /mcp and
 // /.well-known/ explicitly so the OAuth metadata and authorisation-server
 // documents an MCP host may expose stay out of crawler results even if a future
 // route or an upstream proxy starts answering them. robots.txt is advisory —
-// this is hygiene, not access control.
-const ROBOTS_TXT = ["User-agent: *", "Disallow: /", "Disallow: /mcp", "Disallow: /.well-known/", ""].join("\n");
+// this is hygiene, not access control. The one Allow is the OpenAI domain
+// verification token, which a well-behaved verifier must still be able to read.
+const ROBOTS_TXT = [
+  "User-agent: *",
+  `Allow: ${OPENAI_APPS_CHALLENGE_PATH}`,
+  "Disallow: /",
+  "Disallow: /mcp",
+  "Disallow: /.well-known/",
+  "",
+].join("\n");
 
 const JSONRPC_METHOD_NOT_ALLOWED = JSON.stringify({
   jsonrpc: "2.0",
@@ -164,6 +180,12 @@ const httpServer = createHttpServer((req: IncomingMessage, res: ServerResponse) 
   if (path === "/robots.txt" && method === "GET") {
     res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
     res.end(ROBOTS_TXT);
+    return;
+  }
+
+  if (path === OPENAI_APPS_CHALLENGE_PATH && method === "GET" && OPENAI_APPS_CHALLENGE) {
+    res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" });
+    res.end(OPENAI_APPS_CHALLENGE);
     return;
   }
 
