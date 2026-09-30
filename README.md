@@ -258,6 +258,7 @@ npm run http       # node dist/http.js
 |---------|---------|-------------|
 | `PORT` | `8091` | TCP port the server binds on `0.0.0.0`. |
 | `MCP_ALLOWED_ORIGINS` | *(empty)* | Comma-separated browser origins allowed to call the server, e.g. `https://a.example,https://b.example`. Empty means no browser page is trusted. See Origin validation below. |
+| `OPENAI_APPS_CHALLENGE` | *(empty)* | Domain verification token from the OpenAI plugin submission portal, served at `/.well-known/openai-apps-challenge`. Empty means that path 404s. |
 
 There is no `HOST` variable — the server always binds `0.0.0.0`.
 
@@ -267,6 +268,8 @@ There is no `HOST` variable — the server always binds `0.0.0.0`.
 |--------|------|-------------|
 | `POST` | `/mcp` | Stateless Streamable HTTP MCP endpoint. A fresh server + transport is created per request. |
 | `GET` | `/health` | Returns `{"status":"ok"}`. Used for container healthchecks; exempt from host validation. |
+| `GET` | `/robots.txt` | Disallows crawling everything except the verification token. |
+| `GET` | `/.well-known/openai-apps-challenge` | The `OPENAI_APPS_CHALLENGE` token as plain text, nothing else. 404 when unset. Keep it set after verification; later scans may re-check it. |
 | Other | `/mcp` | Returns 405. |
 | Any | anything else | Returns 404. |
 
