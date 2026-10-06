@@ -65,7 +65,14 @@ Social context (Facebook-style threads/groups).
 | `subscribeBotAsync(): Promise<void>` | Subscribe to the bot. |
 | `isSupported(): boolean` | |
 
-`ScheduleNotificationOptions = { title; body; iconUrl?; delaySeconds; data? }`
+`ScheduleNotificationOptions = { id?; title; body; iconUrl?; imageAssetId?; imageDataUrl?; delaySeconds?; scheduledInDays?; ctaText?; priority?; data? }`
+
+- `id`: stable id. Scheduling again with the same id replaces the earlier notification where the platform supports it; generated when omitted.
+- `delaySeconds` / `scheduledInDays`: provide **exactly one**. `delaySeconds` is a positive number of seconds (a platform may cap it, for example at 7 days, and rejects longer delays with `INVALID_PARAM`). `scheduledInDays` is a whole number from 0 to 7 and lets the platform pick the delivery time within that day. Existing calls that pass only `delaySeconds` keep working.
+- `ctaText`: call-to-action label, 1 to 50 characters. A platform default is used when omitted.
+- `priority`: `"low" | "medium" | "high" | "critical"`, default `"medium"`. Weights delivery where the platform rations notifications.
+- `imageAssetId` / `imageDataUrl`: at most one. `imageAssetId` is the id of a pre-approved image on the platform. `imageDataUrl` is a base64 data URL (PNG, JPEG or WebP, lowercase `data:image/...;base64,` prefix as `canvas.toDataURL` produces, at most 2 MiB encoded). Images are ignored where the platform has no notification images.
+- Rule violations reject with `INVALID_PARAM`; where the platform requires a registered player, guests are rejected with `PLAYER_NOT_AUTHENTICATED`.
 
 **Status:** Coming soon.
 

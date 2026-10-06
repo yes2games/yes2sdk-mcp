@@ -19,10 +19,15 @@ Authentication and account linking. Optional. Guard with `isSupported()`.
 | `getTokenAsync(): Promise<AuthToken>` | Get a server-verifiable token. |
 | `linkAccountAsync(provider: AuthProvider): Promise<void>` | Link an account provider. |
 | `showAccountLinkPromptAsync(): Promise<void>` | Alias → `linkAccountAsync("platform")`. |
+| `showRegistrationPrompt(options?: RegistrationPromptOptions): RegistrationPromptHandle` | Show the platform's registration prompt to a guest and get `login` / `close` handlers for your own buttons. **Synchronous**. Throws `FEATURE_NOT_SUPPORTED` where the platform has no such prompt, `INVALID_OPERATION` for an already registered player, and `INVALID_PARAM` for a `message` that breaks the rules below. |
 | `isAuthenticated(): boolean` | Whether the user is authenticated. |
 | `isSupported(): boolean` | Whether auth is supported. |
 
-**Types:** `AuthProvider = "facebook" | "google" | "apple" | "platform" | "anonymous"`; `AuthUser = { id; name; email; photo; provider; isAuthenticated }`; `AuthToken = { accessToken; expiresAt; refreshToken? }`.
+**Types:** `AuthProvider = "facebook" | "google" | "apple" | "platform" | "anonymous"`; `AuthUser = { id; name; email; photo; provider; isAuthenticated }`; `AuthToken = { accessToken; expiresAt; refreshToken? }`; `RegistrationPromptOptions = { theme?: "light" | "dark"; data?: Record<string, unknown>; message?: string; onClose?: () => void }`; `RegistrationPromptHandle = { login: () => void; close: () => void }`.
+
+**Registration prompt options.** `data` is delivered through `session.getEntryPointData()` after the player registers. `message` is optional. Where the platform checks it, it must be 1 to 140 characters (not blank; length counted in UTF-16 code units, placeholder included, so an emoji counts as 2), must contain `{{registrationCode}}` exactly once, must not contain any other `{{...}}` placeholder, and the code must be separated from neighbouring letters, digits or underscores by a space or punctuation (combining marks count as letters). `onClose` runs when the prompt is dismissed.
+
+**Before you show it:** the prompt is for guests only, so save the guest's progress first. Registration can reload the game, and the saved data is what carries over.
 
 ---
 
@@ -35,10 +40,13 @@ Authentication and account linking. Optional. Guard with `isSupported()`.
 | `signOutAsync` | None | None | None³ | None³ | None |
 | `getTokenAsync` | None | None | Ready⁴ | Ready⁵ | None |
 | `linkAccountAsync` | None | None | Ready⁶ | None | None |
+| `showRegistrationPrompt` | None | None | None | None | None |
 | `isAuthenticated` | None | None | Ready | Ready | None |
 | `isSupported` | None | None | Ready⁷ | Ready | None |
 
 ¹ `sdk.user.showAuthPrompt()`.  ² `ysdk.auth.openAuthDialog()` then re-fetches the player.  ³ No platform sign-out API.  ⁴ `sdk.user.getUserToken()` (1h local expiry).  ⁵ Signed player info (`getPlayer({signed:true})` → signature).  ⁶ `sdk.user.showAccountLinkPrompt()`.  ⁷ Delegates to `sdk.user.isUserAccountAvailable()`.
+
+`showRegistrationPrompt` is not offered on any current platform, so it throws `FEATURE_NOT_SUPPORTED` there.
 
 ---
 

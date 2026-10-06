@@ -49,7 +49,7 @@ Core uses a const object whose values form `ErrorCodeType`:
 | Ads | `ADS_NOT_LOADED`, `ADS_NO_FILL`, `ADS_BLOCKED`, `ADS_FREQUENCY_LIMITED` |
 | Player | `PLAYER_NOT_AUTHENTICATED`, `PLAYER_DATA_CORRUPTED` |
 | Storage | `STORAGE_ERROR`, `STORAGE_QUOTA_EXCEEDED` |
-| IAP | `IAP_NOT_AVAILABLE`, `IAP_PURCHASE_FAILED`, `IAP_ALREADY_PURCHASED` |
+| IAP | `IAP_NOT_AVAILABLE`, `IAP_PURCHASE_FAILED`, `IAP_PURCHASE_CANCELLED`, `IAP_ALREADY_PURCHASED` |
 | Leaderboard | `LEADERBOARD_NOT_FOUND` |
 | Unknown | `UNKNOWN_ERROR` |
 
@@ -62,6 +62,7 @@ Unity's `ErrorCode` enum is a smaller mapped set: `NotInitialized, InvalidParams
 - Parameter validation failures throw `INVALID_PARAM`.
 - Calling an async method before init / without a wired strategy throws `NOT_INITIALIZED`.
 - Unhandled platform-side failures are wrapped as `PLATFORM_ERROR` (`message` from the underlying error; `originalError` set).
+- `IAP_PURCHASE_CANCELLED` means the player closed the platform checkout without paying, where the platform reports it; on Yandex a closed checkout surfaces as `PLATFORM_ERROR`. Do not retry or show an error; return to the game.
 - **`FEATURE_NOT_SUPPORTED` is the normal signal that a platform doesn't implement a feature**. Handle it gracefully, don't treat it as a bug.
 - `isXSupported()` returns `false` (never throws) when no strategy is wired.
 

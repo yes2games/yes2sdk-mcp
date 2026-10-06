@@ -14,7 +14,7 @@ The top-level entry point. Every game must initialize the SDK, report loading pr
 |-----------|-------------|
 | `initializeAsync(options?: InitializationOptions): Promise<void>` | Initialize the SDK. Must be called before any other SDK function. Detects the platform, loads platform code, initializes the platform SDK, and wires strategies. **Idempotent**: repeat calls return the in-flight/resolved promise. |
 | `startGameAsync(): Promise<void>` | Signal the game is loaded and ready to display. Waits for `initializeAsync` if still running; throws `NOT_INITIALIZED` if init never started. No-ops if already started. Emits `gameStarted`. |
-| `setLoadingProgress(progress: number): void` | Report loading progress, `0` to `100`. Throws `INVALID_PARAM` if out of range. Emits `loadingProgress`. |
+| `setLoadingProgress(progress: number): void` | Report loading progress, `0` to `100`. Throws `INVALID_PARAM` if out of range. Emits `loadingProgress`. Progress reported before `initializeAsync` completes is not lost: the latest value is applied once the platform initializes, where the platform has a loading-progress API. |
 | `performHapticFeedback(): void` | Trigger haptic feedback where supported. No-ops (warns) before init. |
 | `getPlatform(): Platform \| null` | The detected platform, or `null` before init. |
 | `isInitialized` *(getter)* | `boolean`: whether init has completed. |
@@ -72,6 +72,16 @@ sub.unsubscribe();
 | `audioEnabledChange` | `{ enabled: boolean }` | Platform mute/unmute (via platform UI). Game **MUST** update its audio state. Emitted only where a native signal exists. |
 | `accountDialogOpen` | `void` | Yandex account-selection dialog opened. **Yandex-only**; pause gameplay/audio while it is open. |
 | `accountDialogClose` | `void` | Yandex account-selection dialog closed. **Yandex-only**; resume gameplay/audio. |
+| `exitRequested` | `void` | The platform started its exit flow (back navigation or a platform close control). The player has not confirmed yet, so do not tear the game down. Save recent progress **synchronously** inside the handler; Yes2SDK flushes player data right after the handler returns. Async work started in the handler is not awaited. Not emitted on the current platforms. |
+
+Saving on `exitRequested`:
+
+```ts
+Yes2SDK.on("exitRequested", () => {
+  // Synchronous writes only; the flush happens after this handler returns.
+  Yes2SDK.data.setString("checkpoint", JSON.stringify(game.snapshot()));
+});
+```
 
 ### Unity (C#)
 

@@ -54,6 +54,7 @@ These modules are available today via `Yes2SDK.<module>` (Core), `Yes2SDK.<Modul
 | Leaderboard | [leaderboard.md](leaderboard.md) | Named leaderboards: submit scores, read ranked entries |
 | Stats | [stats.md](stats.md) | Numeric player statistics (get / set / increment) |
 | IAP | [iap.md](iap.md) | In-app purchases: catalog, purchase, consume, subscriptions |
+| Referrals | [referrals.md](referrals.md) | Share an invite link and list players who joined through it (Core only) |
 | Config | [config.md](config.md) | Remote configuration / feature flags |
 | Review | [review.md](review.md) | In-game rating / feedback prompt |
 | Errors | [errors.md](errors.md) | Error model, `ErrorCode`, exceptions |
@@ -82,6 +83,7 @@ A module-level summary across the five live platforms. Per-method detail is on e
 | Leaderboard | None | None | None | Ready | None |
 | Stats | None | None | None | Ready | None |
 | IAP | None | None | None | Ready⁷ | None |
+| Referrals | None | None | None | None | None |
 | Config: feature flags | Partial⁸ | Partial⁸ | Partial⁸ | Ready | Partial⁸ |
 | Review: rating prompt | None | None | None | Ready | None |
 
@@ -91,7 +93,7 @@ A module-level summary across the five live platforms. Per-method detail is on e
 ⁴ GameDistribution and YouTube track gameplay via internal state. YouTube drives the real lifecycle through `firstFrameReady`/`gameReady`.
 ⁵ Yandex presents a single sticky banner; placement and size are managed for you, and refresh re-displays it.
 ⁶ Score submission isn't offered by these platforms; calls are recorded locally and are safe to keep in your code.
-⁷ Yandex IAP covers products and purchases; subscriptions are not offered yet (`isSubscriptionSupported()` is `false` on every platform).
+⁷ Yandex IAP covers products and purchases; the subscription API is in Core, but no current platform offers it (`isSubscriptionSupported()` is `false` on every platform).
 ⁸ Config has no remote-config service on these platforms, so `getFlagsAsync` returns your provided `defaults` unchanged. Always safe to call. Only Yandex serves remote overrides (`isSupported()` is `true` there only).
 
 ---
@@ -109,10 +111,10 @@ Full signatures and the rollout picture are in [upcoming.md](upcoming.md). These
 | Module | Core | Unity | Defold |
 |--------|:----:|:-----:|:------:|
 | Ads · Analytics · Session · Data · Player · Auth · Game · Banners · Friends · Score · Leaderboard · Stats · IAP · Config · Review | Available | Available | Coming soon¹⁰ |
-| Achievements · Context · Notifications · Tournament | Built in (Core) | Coming soon | Coming soon |
+| Achievements · Context · Notifications · Referrals · Tournament | Built in (Core) | Coming soon | Coming soon |
 
-- **Core** ships all module implementations; the live set above is wired to the `Yes2SDK.<module>` API today (including `iap`, `leaderboard`, `stats`, `config`, `review`, plus `achievements`, `tournament`, `context`, `notifications` on the surface), with full platform coverage landing as adapters do.
-- **Unity** exposes all accessors; the upcoming modules return a clean `FeatureNotSupported` until their bridges ship.
+- **Core** ships all module implementations; the live set above is wired to the `Yes2SDK.<module>` API today (including `iap`, `leaderboard`, `stats`, `config`, `review`, plus `achievements`, `tournament`, `context`, `notifications`, `referrals` on the surface), with full platform coverage landing as adapters do.
+- **Unity** exposes accessors for Achievements, Context, Notifications and Tournament, which return a clean `FeatureNotSupported` until their bridges ship. Referrals is Core only for now.
 - **Defold** ships the original 10 available modules today, with the newer ones on the roadmap.
 
 ¹⁰ Leaderboard / Stats / IAP / Config / Review are live in Core (and on Yandex) today; the Unity and Defold surface bindings are arriving with the platform rollout.
