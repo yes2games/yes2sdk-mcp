@@ -30,6 +30,7 @@ export const SUPPORTED_PLATFORMS = [
   "yandex",
   "gamedistribution",
   "youtube",
+  "jest",
 ] as const;
 
 export type SupportedPlatform = (typeof SUPPORTED_PLATFORMS)[number];

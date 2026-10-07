@@ -154,12 +154,14 @@ export async function detectSDKIntegration(extractedDir: string): Promise<boolea
 
 // ── Static build validation ─────────────────────────────────────────────
 
-const PLATFORM_LABELS: Record<string, string> = {
+/** Display names for the platform ids, used in user-facing text. */
+export const PLATFORM_LABELS: Record<string, string> = {
   poki: "Poki",
   crazygames: "CrazyGames",
   yandex: "Yandex Games",
   gamedistribution: "Game Distribution",
   youtube: "YouTube Playables",
+  jest: "Jest",
 };
 
 /** Locate index.html in the build root (or one level down for nested zips). */

@@ -22,6 +22,7 @@ export const API_MODULES = [
   "leaderboard",
   "stats",
   "iap",
+  "referrals",
   "config",
   "review",
   "upcoming",

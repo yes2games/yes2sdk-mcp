@@ -29,7 +29,7 @@ export function createServer(): McpServer {
         DESCRIPTION,
         "Yes2SDK engines: TypeScript/JavaScript, Unity, and Defold — HTML5/WebGL only.",
         "",
-        "Modules: ads, analytics, auth, banners, data, errors, friends, game, player, score, session, lifecycle.",
+        "Modules: ads, analytics, auth, banners, data, errors, friends, game, player, score, session, lifecycle, iap, notifications, referrals.",
         "",
         "Install before code: this server reports whether a project can compile SDK references at all. detect_sdk(projectPath) returns the engine, install state and remaining steps; get_install_instructions(engine) returns the version-pinned steps. Code referencing the Yes2SDK namespace (Unity), the yes2sdk module (Defold) or window.Yes2SDK (JS) will not compile or resolve until the package is installed.",
         "",

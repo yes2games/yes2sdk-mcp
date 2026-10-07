@@ -32,7 +32,7 @@ describe("parseCapabilityMatrix", () => {
     const md = readDocBySlug("api/overview");
     expect(md).not.toBeNull();
     const { platforms, rows } = parseCapabilityMatrix(md as string);
-    expect(platforms).toEqual(["poki", "gamedistribution", "crazygames", "yandex", "youtube"]);
+    expect(platforms).toEqual(["poki", "gamedistribution", "crazygames", "yandex", "youtube", "jest"]);
     const adsBanner = rows.find((r) => r.module.includes("banner"));
     expect(adsBanner).toBeDefined();
     // Ads: banner: only CrazyGames and Yandex.

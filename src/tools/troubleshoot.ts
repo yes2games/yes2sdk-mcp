@@ -114,6 +114,59 @@ export const SYMPTOMS: Symptom[] = [
       "See get_compliance_rule('U-001').",
     ],
   },
+  {
+    id: "jest-ads-no-fill",
+    title: "Jest: every ad reports noFill / ads never show",
+    keywords: ["nofill", "no fill", "no_fill", "onerror nofill", "nofill error", "ads on jest", "jest ad", "ad never shows", "ads not showing"],
+    cause: "Jest has no in-game ads, so every interstitial and rewarded request ends at once without showing an ad; this is expected, not a bug. JS gets noFill then afterAd, Defold gets no_fill then after_ad, and Unity gets onError with NoFill (Ads.IsInterstitialSupported() and IsRewardedSupported() are false).",
+    fix: [
+      "Resume the game where the ad call ends: afterAd (JS), after_ad (Defold), or onError (Unity, NoFill). Never gate progression on a rewarded ad.",
+      "Hide rewarded-ad buttons where isRewardedSupported() (Unity IsRewardedSupported(), Defold ads_is_rewarded_supported()) is false.",
+      "Monetize Jest through IAP and subscriptions instead: see get_quickstart('jest').",
+    ],
+  },
+  {
+    id: "jest-exit-save",
+    title: "Jest: progress lost when the player leaves the game",
+    keywords: ["progress lost", "save lost", "lost on exit", "exits", "exitrequested", "on exit", "closes the game"],
+    cause: "Jest closes the game through its exit flow. Writes that are not in the player store by then, or async saves started too late, are lost.",
+    fix: [
+      "Subscribe to exitRequested (JS Yes2SDK.on('exitRequested'), Unity OnExitRequested, Defold on_exit_requested) and write synchronously inside the handler; Yes2SDK flushes right after it returns.",
+      "Confirm saves (setStringAsync or flushAsync) before any login or registration prompt, which can reload the game.",
+      "See the launch checklist in get_platform_requirements('jest').",
+    ],
+  },
+  {
+    id: "jest-loading-timeout",
+    title: "Jest: loading screen stuck, or the player is sent home during loading",
+    keywords: ["loading screen", "stuck", "15 s", "15 seconds", "sent home", "home screen", "loading timeout", "markgameloaded"],
+    cause: "In Jest's Manual loading-screen mode Jest exits the player after 15 s without loading progress, and the overlay stays until the game reports it is loaded.",
+    fix: [
+      "Use Jest's Automatic loading-screen mode for now.",
+      "Report progress with setLoadingProgress while loading, and call startGameAsync() (Jest's markGameLoaded) once the game is playable.",
+    ],
+  },
+  {
+    id: "jest-url-params",
+    title: "Jest: URL parameters are empty / launch data missing",
+    keywords: ["url param", "query string", "query param", "location.search", "getinviteparam", "entry payload", "launch data"],
+    cause: "Jest passes launch data (referral, notification, registration and share data) through its entry payload, not the page URL.",
+    fix: [
+      "Read launch data with session.getEntryPointData() (Unity Session.GetEntryPointData, Defold session_get_entry_point_data).",
+      "Share links with referrals.shareAsync and its data option rather than game.inviteLink.",
+    ],
+  },
+  {
+    id: "registration-prompt-invalid-operation",
+    title: "showRegistrationPrompt fails with INVALID_OPERATION",
+    keywords: ["showregistrationprompt", "registration prompt", "invalid_operation", "registration overlay"],
+    cause: "The registration prompt is for guests only: a player who is already registered gets INVALID_OPERATION. An invalid custom message gets INVALID_PARAM instead.",
+    fix: [
+      "Check auth.isAuthenticated() first and show the prompt only while it is false.",
+      "A custom message must be non-blank, at most 140 characters, and contain {{registrationCode}} exactly once.",
+      "When the game shows its own prompt, ask the Yes2Games team to turn off automatic login reminders (autoLoginReminders) for it.",
+    ],
+  },
 ];
 
 const FALLBACK = [
@@ -149,7 +202,7 @@ export function registerTroubleshootTool(server: McpServer): void {
       ...readOnlyTool("Troubleshoot a Yes2SDK symptom"),
       description:
         "The likely cause and ordered fix for a reported Yes2SDK integration symptom, given an error string or a plain-language description. " +
-        "Covers the common failures: missing namespace or module (SDK not installed), window.Yes2SDK undefined, Unity build-guard and template problems, Defold editor no-ops, rewards not granted, and platform rejections such as ads without gameplayStop or an unbundled SDK. " +
+        "Covers the common failures: missing namespace or module (SDK not installed), window.Yes2SDK undefined, Unity build-guard and template problems, Defold editor no-ops, rewards not granted, platform rejections such as ads without gameplayStop or an unbundled SDK, and Jest specifics (ads that always report no fill, saving on exit, the loading timeout, launch data, the registration prompt). " +
         "Each answer points at the tool that resolves it (detect_sdk, get_install_instructions, get_compliance_rule, validate_integration), or at where to look next when nothing matches.",
       inputSchema: {
         symptom: z

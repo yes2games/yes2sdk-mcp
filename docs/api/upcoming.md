@@ -74,7 +74,7 @@ Social context (Facebook-style threads/groups).
 - `imageAssetId` / `imageDataUrl`: at most one. `imageAssetId` is the id of a pre-approved image on the platform. `imageDataUrl` is a base64 data URL (PNG, JPEG or WebP, lowercase `data:image/...;base64,` prefix as `canvas.toDataURL` produces, at most 2 MiB encoded). Images are ignored where the platform has no notification images.
 - Rule violations reject with `INVALID_PARAM`; where the platform requires a registered player, guests are rejected with `PLAYER_NOT_AUTHENTICATED`.
 
-**Status:** Coming soon.
+**Status:** Live on Jest (registered players only) in Core, Unity and Defold; see the Jest quickstart. Coming soon elsewhere.
 
 ---
 
@@ -102,7 +102,6 @@ These accessors are already present in the Unity SDK and return a clean `Feature
 
 - `Yes2SDK.Achievements`: `GetAchievementsAsync`, `UnlockAsync`, `SetProgressAsync`
 - `Yes2SDK.Context`: `GetContext`, `SwitchAsync`, `ChooseAsync`, `CreateAsync`, `ShareAsync`
-- `Yes2SDK.Notifications`: `ScheduleAsync`, `CancelAsync`, `CancelAllAsync`
 - `Yes2SDK.Tournament`: `GetCurrentAsync`, `GetAllAsync`, `CreateAsync`, `PostScoreAsync`, `JoinAsync`
 
-`IsSupported()` reports `false` until the bridge is live, so feature-gating with it works seamlessly across the transition.
+`IsSupported()` reports `false` until the bridge is live, so feature-gating with it works seamlessly across the transition. `Yes2SDK.Notifications` (`ScheduleAsync`, `CancelAsync`, `CancelAllAsync`) already has a live bridge and works on Jest.
