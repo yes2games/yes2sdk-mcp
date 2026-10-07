@@ -126,21 +126,21 @@ platform SDK directly. Only the method-naming convention differs per engine:
 - No in-game ads. Ad calls report `noFill` then `afterAd` at once (Unity: `onError`
   with `Code == "NoFill"`, no `afterAd`), so shared ad code stays safe.
 - `startGameAsync()` calls Jest's `markGameLoaded`; call it the moment the game is
-  interactive. Auto loading screen mode (set in the Jest Developer Console) is the
-  simple default. Manual works for bundles built by the dashboard, which load the
-  Jest SDK before the engine; it still exits the player after 15 seconds without
-  progress, so keep calling `setLoadingProgress`.
+  interactive. The Yes2Games team sets the loading screen mode (Auto by default).
+  In Manual mode Jest exits the player after 15 seconds without progress, so keep
+  calling `setLoadingProgress`.
 - Save progress for guests too (`data.*`, Jest player store, 1 MB per player).
 - Save synchronously in `Yes2SDK.on('exitRequested', ...)`.
-- `auth.showRegistrationPrompt(...)` is for guests only and throws; turn the game's
-  "Automatic login reminders" off when you use it.
+- `auth.showRegistrationPrompt(...)` is for guests only and throws. A game that
+  uses it must tell the Yes2Games team, who turn Jest's automatic login reminders
+  off; two prompts at once is a rejection.
 - Notifications reach registered players only: schedule a D1 to D7 sequence with
   `scheduledInDays` and a stable `id`.
 - On launch, recover purchases with `iap.getPurchasesAsync()`, grant, then
   `iap.consumePurchaseAsync(...)`. Check `getSubscriptionsAsync()` before offering
   a plan.
 - Verify signed values on a server before granting value. Unity `GetPlatform()`
-  returns `Platform.Unknown` on Jest.
+  returns `Platform.Jest` on Jest (Unity 2.11.0 and later).
 
 ## Before you ship
 
@@ -150,8 +150,5 @@ platform SDK directly. Only the method-naming convention differs per engine:
   don't upload to platforms yourself; the Yes2Games team validates and submits on
   your behalf, and you'll see status (`pending_review` → `reviewing` →
   `approved` / `needs_changes`) and feedback on the game page.
-- Jest is the exception. After approval the Yes2Games team builds the Jest
-  bundle. If bundle downloads are on for your studio, click **Download** next to
-  the `jest` bundle in the game's **Versions** tab; otherwise the Yes2Games team
-  shares the zip with you. You upload it in the Jest Developer Console under
-  Manage > Versions.
+- Jest works the same way. The Yes2Games team handles all Jest setup, builds the
+  Jest bundle and submits it to Jest.

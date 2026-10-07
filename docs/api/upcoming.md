@@ -95,7 +95,7 @@ if (Yes2SDK.getPlatform() !== "crazygames") {
 | `string GetContext()`, `SwitchAsync`, `ChooseAsync`, `CreateAsync` | Not supported: `GetContext()` returns `null`, the others call `onError` with `FeatureNotSupported`. |
 | `bool IsSupported()` | Always `false`; it reports context switching only. Do not gate sharing on it. |
 
-`ContextShareOptions` (class): `string ImageDataUrl` (a PNG data URL; raw base64 also works), `string Text`, `Dictionary<string, object> Data` (read by the receiving player through `Session.GetEntryPointData()`). Build the image with `Yes2SDKImage.ToPngDataUrl(Texture2D texture)`. Pass an image: without one, a platform screen capture can come out blank for a WebGL canvas. To skip the share on CrazyGames, check `Yes2SDK.Yes2SDK.GetPlatform() != Platform.CrazyGames`. There is no Jest enum value (`GetPlatform()` returns `Platform.Unknown` on Jest), so test for CrazyGames rather than for Jest.
+`ContextShareOptions` (class): `string ImageDataUrl` (a PNG data URL; raw base64 also works), `string Text`, `Dictionary<string, object> Data` (read by the receiving player through `Session.GetEntryPointData()`). Build the image with `Yes2SDKImage.ToPngDataUrl(Texture2D texture)`. Pass an image: without one, a platform screen capture can come out blank for a WebGL canvas. To skip the share on CrazyGames, check `Yes2SDK.Yes2SDK.GetPlatform() != Platform.CrazyGames`.
 
 ```csharp
 using System.Collections.Generic;

@@ -27,7 +27,7 @@ Authentication and account linking. Optional. Guard with `isSupported()`.
 
 **Registration prompt options.** `data` is delivered through `session.getEntryPointData()` after the player registers. `message` is optional. Jest checks it, and it must be 1 to 140 characters (not blank; length counted in UTF-16 code units, placeholder included, so an emoji counts as 2), must contain `{{registrationCode}}` exactly once, must not contain any other `{{...}}` placeholder, and the code must be separated from neighbouring letters, digits or underscores by a space or punctuation (combining marks count as letters). `onClose` runs when the prompt is dismissed. Keep the message short and plain: Jest may drop emoji and accented characters from a long pre-filled text.
 
-**Before you show it:** the prompt is for guests only, so save the guest's progress first. Registration can reload the game, and the saved data is what carries over. On Jest, also turn off Jest's automatic login reminders for a game that shows its own prompt (see the [Jest guide](/docs/jest)).
+**Before you show it:** the prompt is for guests only, so save the guest's progress first. Registration can reload the game, and the saved data is what carries over. On Jest, tell the Yes2Games team that the game shows its own prompt, so Jest's automatic login reminders are turned off (see the [Jest guide](/docs/jest)).
 
 ---
 

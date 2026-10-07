@@ -45,7 +45,7 @@ The top-level entry point. Every game must initialize the SDK, report loading pr
 
 ### Loading on Jest
 
-Jest draws its own loading screen. You choose its mode in Jest's Developer Console. It is not a Yes2Games dashboard setting. Jest has three modes: Auto, Manual and Off. Two of them matter here:
+Jest draws its own loading screen. Its mode is a Jest setting that the Yes2Games team configures for your game; tell the team if you want Manual. Jest has three modes: Auto, Manual and Off. Two of them matter here:
 
 - **Auto (recommended).** Jest runs the loading screen itself. It is the simple default.
 - **Manual.** Jest's overlay follows your loading progress and sends the player back to the Jest home screen if it gets no progress update for 15 seconds. Each `setLoadingProgress` call resets that timer. Once Yes2SDK has initialized, it re-sends your last progress every 10 seconds (capped at 99), so a slow load after init is safe. Manual is supported for bundles built by the dashboard, because they load the Jest SDK before the engine download, so progress reaches Jest from the start. A bundle built some other way should use Auto.
@@ -165,7 +165,7 @@ String union (Core) / enum (Unity).
 
 **Core:** `"facebook" | "yandex" | "poki" | "crazygames" | "gamedistribution" | "youtube" | "jest" | "debug" | "portal"` (also exported as `PLATFORMS` array + `isPlatform()` type guard). On Jest the id is `"jest"`.
 
-**Unity enum:** `Unknown, Poki, CrazyGames, Yandex, GameDistribution, YouTube, Debug`. There is no Jest member, so `GetPlatform()` returns `Platform.Unknown` on Jest.
+**Unity enum:** `Unknown, Poki, CrazyGames, Yandex, GameDistribution, YouTube, Debug, Jest`. `Jest` was added in 2.11.0; on 2.10.0 `GetPlatform()` returns `Platform.Unknown` on Jest.
 
 **Defold:** `yes2sdk.get_platform()` returns the Core id string, so `"jest"` on Jest.
 
