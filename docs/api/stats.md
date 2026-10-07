@@ -4,7 +4,7 @@
 
 Numeric player statistics: read, set, and atomically increment named counters (matches played, distance travelled, coins earned). Optional. Guard with `isSupported()`.
 
-> Available on **Yandex** today (`getStats` / `setStats` / `incrementStats`). Other platforms report `isSupported() === false`; the calls stay safe so a single codebase runs everywhere.
+> Available on **Yandex** today (`getStats` / `setStats` / `incrementStats`). Other platforms report `isSupported() === false` and every call rejects with `FEATURE_NOT_SUPPORTED`, so guard your calls with `isSupported()` to keep one codebase running everywhere.
 
 ---
 
@@ -21,14 +21,16 @@ Numeric player statistics: read, set, and atomically increment named counters (m
 
 ## Platform support
 
-| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
-|--------|:----:|:----------------:|:----------:|:------:|:-------:|
-| `getStatsAsync` | None | None | None | Ready | None |
-| `setStatsAsync` | None | None | None | Ready | None |
-| `incrementStatsAsync` | None | None | None | Ready | None |
-| `isSupported` | None | None | None | Ready | None |
+| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Jest |
+|--------|:----:|:----------------:|:----------:|:------:|:-------:|:----:|
+| `getStatsAsync` | None | None | None | Ready | None | None¹ |
+| `setStatsAsync` | None | None | None | Ready | None | None¹ |
+| `incrementStatsAsync` | None | None | None | Ready | None | None¹ |
+| `isSupported` | None | None | None | Ready | None | None |
 
 Yandex maps to its native stats API. On every other platform the strategy's `isSupported()` returns `false`. Guard your calls with `isSupported()`.
+
+¹ Jest has no stats API: every call rejects with `FEATURE_NOT_SUPPORTED`. Keep counters in the [`data`](data.md) module instead.
 
 ---
 

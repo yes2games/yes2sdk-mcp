@@ -77,7 +77,7 @@ describe("get_platform_capabilities: jest column", () => {
     "Player: saved data": "Ready",
     Auth: "Ready",
     "Game: lifecycle": "Partial",
-    "Game: invite links": "Partial",
+    "Game: invite links": "None",
     Banners: "None",
     Friends: "None",
     Score: "None",
@@ -86,6 +86,7 @@ describe("get_platform_capabilities: jest column", () => {
     IAP: "Ready",
     Referrals: "Ready",
     Notifications: "Ready",
+    "Context: image sharing": "Partial",
     "Config: feature flags": "Partial",
     "Review: rating prompt": "None",
   };
@@ -95,6 +96,14 @@ describe("get_platform_capabilities: jest column", () => {
     expect(matrix.platforms).toContain("jest");
     const actual = Object.fromEntries(matrix.rows.map((r) => [r.module, r.support.jest]));
     expect(actual).toEqual(expected);
+  });
+
+  it("has a Context: image sharing row, Partial on Jest only", () => {
+    const matrix = parseCapabilityMatrix(readDocBySlug("api/overview") as string);
+    const row = matrix.rows.find((r) => r.module === "Context: image sharing");
+    for (const p of SUPPORTED_PLATFORMS) {
+      expect(row?.support[p], p).toBe(p === "jest" ? "Partial" : "None");
+    }
   });
 
   it("offers notifications on Jest only", () => {
@@ -146,7 +155,8 @@ describe("get_platform_requirements: jest", () => {
     expect(text).toContain("exitRequested");
     expect(text).toContain("getEntryPointData");
     expect(text).toContain("getPurchasesAsync");
-    expect(text).toContain("autoLoginReminders");
+    expect(text).toMatch(/Automatic login reminders in your game's Overview settings on the Yes2Games Dashboard/);
+    expect(text).not.toMatch(/ask the Yes2Games team/);
     expect(text).toMatch(/15 s/);
   });
 
@@ -228,7 +238,7 @@ describe("troubleshoot: jest symptoms", () => {
   const cases: Array<[string, RegExp]> = [
     ["rewarded ad always returns noFill on jest", /Jest has no in-game ads/],
     ["player progress lost when the player exits the game on jest", /exitRequested/],
-    ["jest loading screen stuck, game exits to home after 15 seconds", /Automatic loading/],
+    ["jest loading screen stuck, game exits to home after 15 seconds", /Auto loading-screen mode/],
     ["url params are empty on jest, cannot read query string", /getEntryPointData/],
     ["showRegistrationPrompt throws INVALID_OPERATION", /already registered/],
   ];
@@ -339,9 +349,14 @@ describe("round 2 review fixes", () => {
     expect(textOf(res)).toMatch(/^# Referrals/m);
   });
 
-  it("the quickstart asks the Yes2Games team about autoLoginReminders everywhere", () => {
+  it("points the login reminder setting at the game's Overview on the dashboard", async () => {
     const doc = readDocBySlug("quickstart-jest") as string;
-    expect(doc).not.toMatch(/Turn off `autoLoginReminders`/);
+    expect(doc).toMatch(/Overview edit form has a \*\*Jest\*\* box with one setting, \*\*Automatic login reminders\*\*/);
+    const text = textOf(
+      await client.callTool({ name: "troubleshoot", arguments: { symptom: "showRegistrationPrompt throws INVALID_OPERATION" } })
+    );
+    expect(text).toMatch(/Automatic login reminders in your game's Overview settings on the Yes2Games Dashboard/);
+    expect(text).not.toMatch(/ask the Yes2Games team/);
   });
 
   it("the quickstart explains that gameplayStart/gameplayStop are still expected", () => {

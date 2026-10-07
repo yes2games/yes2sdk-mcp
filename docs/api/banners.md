@@ -27,20 +27,22 @@ Documented sizes: `"300x250" | "728x90" | "320x50" | "468x60" | "160x600"` (the 
 
 ## Platform support
 
-| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
-|--------|:----:|:----------------:|:----------:|:------:|:-------:|
-| `showBanner` | None | None | Ready | Ready¹ | None |
-| `hideBanner` | None | None | Ready | Ready¹ | None |
-| `hideAllBanners` | None | None | Ready | Ready | None |
-| `refreshBanners` | None | None | Ready² | Partial³ | None |
-| `getBannerStatusAsync` | None | None | Partial⁴ | Ready⁵ | None |
-| `isSupported` | None | None | Ready | Ready | None |
+| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Jest |
+|--------|:----:|:----------------:|:----------:|:------:|:-------:|:----:|
+| `showBanner` | None | None | Ready | Ready¹ | None | None⁶ |
+| `hideBanner` | None | None | Ready | Ready¹ | None | None |
+| `hideAllBanners` | None | None | Ready | Ready | None | None |
+| `refreshBanners` | None | None | Ready² | Partial³ | None | None |
+| `getBannerStatusAsync` | None | None | Partial⁴ | Ready⁵ | None | None⁷ |
+| `isSupported` | None | None | Ready | Ready | None | None |
 
 ¹ Yandex maps to a single sticky banner (`ysdk.adv.showBannerAdv`); `id`/`size` are ignored.
 ² CrazyGames `refreshBanners` if the SDK version exposes it (warns otherwise).
 ³ Yandex has no native refresh: emulated via hide-then-show.
 ⁴ CrazyGames has no banner status query: always resolves `{ isShowing: false, reason: "STATUS_QUERY_NOT_SUPPORTED" }`.
 ⁵ Yandex maps to `ysdk.adv.getBannerAdvStatus()` (live state, with a platform `reason`).
+⁶ Jest has no banner ads: `showBanner` throws `FEATURE_NOT_SUPPORTED`, and the hide and refresh calls do nothing. Guard with `isSupported()`, which is `false` on Jest.
+⁷ Resolves `{ isShowing: false, reason: "FEATURE_NOT_SUPPORTED" }` on Jest.
 
 ---
 
