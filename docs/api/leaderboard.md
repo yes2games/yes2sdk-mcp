@@ -34,7 +34,7 @@ Named leaderboards: submit scores, read top/ranked entries, and fetch the curren
 | `getConnectedPlayerEntriesAsync` | None | None | None | Ready | None | None¹ |
 | `isSupported` | None | None | None | Ready | None | None |
 
-Yandex maps to its native leaderboards API. On every other platform the strategy's `isSupported()` returns `false`. Guard your calls with `isSupported()`.
+Yandex maps to its native leaderboards API. On every other platform `isSupported()` returns `false`. Guard your calls with `isSupported()`.
 
 ¹ Jest has no leaderboards: every call rejects with `FEATURE_NOT_SUPPORTED`.
 

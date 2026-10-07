@@ -60,7 +60,7 @@ Unified interface for interstitial, rewarded, and banner ads. Interstitials run 
 
 `isRewardedAdAvailable` is **Partial** on the ad platforms: it only checks that the platform ad object exists; there is no true readiness signal, so a `true` result can still no-fill.
 
-² CrazyGames detects ad blocking through an **async `hasAdblock()`** on its strategy, not a synchronous `isAdBlocked`. The unified `ads.isAdBlocked()` only delegates to a strategy method literally named `isAdBlocked`, so it returns `false` for CrazyGames. Use the platform's own adblock handling instead.
+² CrazyGames detects ad blocking asynchronously (its **async `hasAdblock()`**), not through a synchronous `isAdBlocked`. The unified `ads.isAdBlocked()` has no synchronous answer to report there, so it returns `false` for CrazyGames. Use the platform's own adblock handling instead.
 
 ³ Jest has no in-game ads, but the calls stay safe to keep in shared code. In TypeScript and Defold every interstitial and rewarded request calls `noFill` and then `afterAd` straight away, and the promise resolves. `beforeAd` is never called and no reward is granted. Unity reports the same no-fill as `onError` with `error.Code == "NoFill"` and does not call `afterAd` afterwards (see [Unity](#unity-c)).
 ⁴ Throws `FEATURE_NOT_SUPPORTED` on Jest.
@@ -83,7 +83,7 @@ Unified interface for interstitial, rewarded, and banner ads. Interstitials run 
 | `bool IsRewardedAdAvailable()` | Best-effort readiness hint. |
 | `bool IsInterstitialSupported()` / `bool IsRewardedSupported()` | Whether the platform serves the format at all. False on Jest. |
 
-**No fill in Unity.** A no-fill arrives as `onError` with `error.Code == "NoFill"`. Its `error.ErrorCode` is `Unknown`, so check `Code`. Once `onError` fires the ad is complete, and a later platform `afterAd` is dropped. Resume the game in `onError` as well as in `afterAd`. This is the path every ad call takes on Jest.
+**No fill in Unity.** A no-fill arrives as `onError` with `error.Code == "NoFill"`. Its `error.ErrorCode` is `Unknown`, so check `Code`. Once `onError` fires the ad is complete, and a later platform `afterAd` is dropped. Resume the game in `onError` on a no-fill, and in `afterAd` only when an ad actually ran. On Jest no ad ever runs, so every ad call takes the `onError` path.
 
 ```csharp
 Yes2SDK.Yes2SDK.Ads.ShowRewarded("double_coins", "Double your coins",

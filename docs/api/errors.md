@@ -60,11 +60,11 @@ Unity's `ErrorCode` enum is a smaller mapped set: `NotInitialized, InvalidParams
 ## Runtime behavior
 
 - Parameter validation failures throw `INVALID_PARAM`.
-- Calling an async method before init / without a wired strategy throws `NOT_INITIALIZED`.
+- Calling an async method before the SDK has initialized throws `NOT_INITIALIZED`.
 - Unhandled platform-side failures are wrapped as `PLATFORM_ERROR` (`message` from the underlying error; `originalError` set).
 - `IAP_PURCHASE_CANCELLED` means the player closed the platform checkout without paying, where the platform reports it (Jest does); on Yandex a closed checkout surfaces as `PLATFORM_ERROR`. Do not retry or show an error; return to the game. Unity reports it as `ErrorCode.UserCancelled`; Defold as the code string `"IAP_PURCHASE_CANCELLED"` from `parse_error`.
 - **`FEATURE_NOT_SUPPORTED` is the normal signal that a platform doesn't implement a feature**. Handle it gracefully, don't treat it as a bug.
-- `isXSupported()` returns `false` (never throws) when no strategy is wired.
+- `isXSupported()` returns `false` (never throws) before the SDK has initialized.
 
 ---
 

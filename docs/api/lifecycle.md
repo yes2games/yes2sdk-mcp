@@ -12,7 +12,7 @@ The top-level entry point. Every game must initialize the SDK, report loading pr
 
 | Signature | Description |
 |-----------|-------------|
-| `initializeAsync(options?: InitializationOptions): Promise<void>` | Initialize the SDK. Must be called before any other SDK function. Detects the platform, loads platform code, initializes the platform SDK, and wires strategies. **Idempotent**: repeat calls return the in-flight/resolved promise. |
+| `initializeAsync(options?: InitializationOptions): Promise<void>` | Initialize the SDK. Must be called before any other SDK function. Detects the platform, loads platform code, initializes the platform SDK, and connects the platform. **Idempotent**: repeat calls return the in-flight/resolved promise. |
 | `startGameAsync(): Promise<void>` | Signal the game is loaded and ready to display. Waits for `initializeAsync` if still running; throws `NOT_INITIALIZED` if init never started. No-ops if already started. Emits `gameStarted`. |
 | `setLoadingProgress(progress: number): void` | Report loading progress, `0` to `100`. Throws `INVALID_PARAM` if out of range. Emits `loadingProgress`. Progress reported before `initializeAsync` completes is not lost: the latest value is applied once the platform initializes, where the platform has a loading-progress API. |
 | `performHapticFeedback(): void` | Trigger haptic feedback where supported. No-ops (warns) before init. |
@@ -47,8 +47,8 @@ The top-level entry point. Every game must initialize the SDK, report loading pr
 
 Jest draws its own loading screen. You choose its mode in Jest's Developer Console. It is not a Yes2Games dashboard setting. Jest has three modes: Auto, Manual and Off. Two of them matter here:
 
-- **Auto (recommended).** Jest runs the loading screen itself. Use this mode for now.
-- **Manual.** Jest's overlay follows your loading progress and sends the player back to the Jest home screen if it gets no progress update for 15 seconds. Each `setLoadingProgress` call resets that timer. Once Yes2SDK has initialized, it re-sends your last progress every 10 seconds (capped at 99), so a slow load after init is safe. It cannot cover the engine download that happens before the Jest SDK loads. Manual is safe only when the Jest SDK loads before the engine, as bundles from the dashboard release do once it ships.
+- **Auto (recommended).** Jest runs the loading screen itself. It is the simple default.
+- **Manual.** Jest's overlay follows your loading progress and sends the player back to the Jest home screen if it gets no progress update for 15 seconds. Each `setLoadingProgress` call resets that timer. Once Yes2SDK has initialized, it re-sends your last progress every 10 seconds (capped at 99), so a slow load after init is safe. Manual is supported for bundles built by the dashboard, because they load the Jest SDK before the engine download, so progress reaches Jest from the start. A bundle built some other way should use Auto.
 
 `startGameAsync()` (Unity `StartGameAsync`, Defold `start_game`) calls Jest's `markGameLoaded`. Jest accepts it in either mode, and in Manual mode it dismisses the loading overlay. Yes2SDK has no separate `markGameLoaded` method. Jest only uses `setLoadingProgress` in Manual mode. Keep calling it in both modes: it does no harm in Auto, and the same code then works on the other platforms. See the [Jest guide](/docs/jest) for the full setup.
 

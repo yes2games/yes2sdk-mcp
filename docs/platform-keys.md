@@ -49,7 +49,7 @@ When Stage 3 is green:
 3. Describe your game: gameplay, target audience, what makes it unique
 4. Submit the request
 
-The Yes2Games team reviews the submission, runs platform-specific checks, bundles the build for the target portal (injecting any required keys), and submits to the platform on your behalf. You receive status updates (`pending_review` → `reviewing` → `approved` / `needs_changes` / `rejected`) and can exchange feedback messages on the game page.
+The Yes2Games team reviews the submission, runs platform-specific checks, bundles the build for the target portal (injecting any required keys), and submits to the platform on your behalf. Jest is the exception: the team builds the Jest bundle, and you upload the zip yourself in the Jest Developer Console (see the [Jest quickstart](quickstart-jest.md#how-to-submit)). You receive status updates (`pending_review` → `reviewing` → `approved` / `needs_changes` / `rejected`) and can exchange feedback messages on the game page.
 
 If reviewers request changes, upload a new build and submit that build for review.
 

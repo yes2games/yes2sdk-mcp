@@ -28,7 +28,7 @@ Numeric player statistics: read, set, and atomically increment named counters (m
 | `incrementStatsAsync` | None | None | None | Ready | None | None¹ |
 | `isSupported` | None | None | None | Ready | None | None |
 
-Yandex maps to its native stats API. On every other platform the strategy's `isSupported()` returns `false`. Guard your calls with `isSupported()`.
+Yandex maps to its native stats API. On every other platform `isSupported()` returns `false`. Guard your calls with `isSupported()`.
 
 ¹ Jest has no stats API: every call rejects with `FEATURE_NOT_SUPPORTED`. Keep counters in the [`data`](data.md) module instead.
 

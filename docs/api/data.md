@@ -2,7 +2,7 @@
 
 [← Back to overview](overview.md)
 
-PlayerPrefs-style typed key-value storage. Works before init via a `yes2sdk_`-prefixed `localStorage` fallback; on strategy binding any pre-init keys are migrated into the platform store.
+PlayerPrefs-style typed key-value storage. Works before init via a `yes2sdk_`-prefixed `localStorage` fallback; once the SDK has initialized, any pre-init keys are migrated into the platform store.
 
 > **`data` or `player`: which do I use?** Use **`data`** for almost all saved state: settings, preferences, high scores, and game progress. It's synchronous, typed (`int` / `float` / `string`), and works on every platform: cloud-synced where the platform offers it, local otherwise. Reach for the [`player`](player.md) module only when you need account-tied features: the player's identity, connected players, or server-verifiable signed save data. On CrazyGames, Yandex, YouTube, and Jest the two modules share the same underlying store, so keep any given key in **one** module. Don't write the same key through both.
 

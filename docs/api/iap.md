@@ -50,7 +50,7 @@ In-app purchases: read the product catalog, initiate a purchase, restore and con
 | `isSupported` | None | None | None | Ready | None | Ready |
 | `isSubscriptionSupported` | None | None | None | None¹ | None | Ready |
 
-Yandex maps to its native payments API and Jest to Jest payments. On every other platform the strategy's `isSupported()` returns `false`. Guard your calls with `isSupported()`.
+Yandex maps to its native payments API and Jest to Jest payments. On every other platform `isSupported()` returns `false`. Guard your calls with `isSupported()`.
 
 ¹ Yandex offers no subscriptions. `isSubscriptionSupported()` returns `false` there, as on Poki, GameDistribution, CrazyGames and YouTube, and the four subscription methods reject with `FEATURE_NOT_SUPPORTED`.
 ² On Jest, `priceAmount` is Jest's decimal price (for example `4.99`), not an amount in the smallest currency unit, and `imageUri` is empty. Jest prices are typically in USD.

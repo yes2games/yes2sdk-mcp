@@ -55,7 +55,7 @@ Player identity, cloud-backed player data, and connected players (friends who al
 ¹ Returns a hardcoded anonymous player (`{ id: "anonymous", name: null, photo: null }`).
 ² Auto-flush platforms: `flushDataAsync` is a no-op (CrazyGames, YouTube) or relies on `setData(flush=true)` (Yandex).
 ³ Yandex `getPlayer({ signed: true })` returns the player id + signature.
-⁴ Poki & GameDistribution have no platform storage API, so the **Core API transparently falls back to namespaced `localStorage`**: `getDataAsync`/`setDataAsync` persist locally (device-local, not cloud/cross-device), `flushDataAsync` is a no-op success, and `isDataSupported()` returns `true`. The platform *strategy* reports no support. The fallback lives in `PlayerAPI`. The Unity and Defold SDKs call the same player module in the runtime, so they get the same fallback.
+⁴ Poki & GameDistribution have no platform storage API, so the **Core API transparently falls back to namespaced `localStorage`**: `getDataAsync`/`setDataAsync` persist locally (device-local, not cloud/cross-device), `flushDataAsync` is a no-op success, and `isDataSupported()` returns `true`. The platform itself has no storage; the SDK provides the fallback. The Unity and Defold SDKs call the same player module in the runtime, so they get the same fallback.
 ⁵ Yandex-only identity extras. Off-platform they resolve to a safe default (`"anonymous"` / `"unknown"` / `null`). Always safe to call.
 ⁶ Cross-game identity is Yandex-only; elsewhere it resolves to an empty array.
 ⁷ CrazyGames has its own player identity, so `getUniqueId`/`getPhoto` reuse `getPlayer()`'s real id/photo (no photo size variants), and `getMode` reflects logged-in (`"authorized"`) vs anonymous (`"lite"`). `getPayingStatus` is still `"unknown"` and `getIDsPerGame` is empty there.
@@ -67,7 +67,7 @@ Player identity, cloud-backed player data, and connected players (friends who al
 
 ### Signed player info on Jest
 
-`getSignedPlayerInfoAsync()` gives you a value your server can trust. Send `signature` to your server and verify it there before you key anything on `playerId`. The client values alone prove nothing. The [Jest guide](/docs/jest#server-verification) shows which value to send and how the Yes2Games dashboard can check it for you, available once the dashboard release ships.
+`getSignedPlayerInfoAsync()` gives you a value your server can trust. Send `signature` to your server and verify it there before you key anything on `playerId`. The client values alone prove nothing. The [Jest guide](/docs/jest#server-verification) shows which value to send and how the Yes2Games dashboard can check it for you.
 
 ```typescript
 const { playerId, signature } = await Yes2SDK.player.getSignedPlayerInfoAsync();

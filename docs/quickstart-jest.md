@@ -19,8 +19,6 @@ Yes2SDK loads the Jest SDK from Jest's CDN at runtime. You never call `JestSDK` 
 
 ## Setting Up in the Dashboard
 
-Jest settings in the Yes2Games dashboard are available once the dashboard release ships.
-
 ### Turning Jest on for your studio
 
 Jest is enabled per studio by a Yes2Games admin. It starts off for every studio, and studios cannot turn it on themselves. Ask the Yes2Games team when you are ready to ship on Jest.
@@ -59,7 +57,7 @@ The loading screen mode is a Jest setting. You choose it in the Jest Developer C
 | **Manual** | Shows an overlay at 0% and lets the game report progress and dismiss it |
 | **Off** | Shows no loading overlay |
 
-**Use Auto mode.** In Manual mode, if Jest receives no progress update for 15 seconds it assumes the game failed to load and sends the player back to the home screen. Yes2SDK keeps progress flowing once it has initialized, but nothing can report progress while the engine is still downloading, before the Jest SDK has loaded. Manual mode is safe only when the Jest SDK loads before the engine, which bundles built by the dashboard release do once it ships.
+**Auto is the simple default and the one we recommend.** Manual is supported for bundles built by the dashboard: they load the Jest SDK before the engine download, so progress reaches Jest from the start. The 15 second rule still applies in Manual mode: if Jest receives no progress update for 15 seconds it assumes the game failed to load and sends the player back to the home screen. Each `setLoadingProgress` call resets that timer, and once Yes2SDK has initialized it re-sends your last progress every 10 seconds. If you build a Jest bundle some other way, not with the dashboard, use Auto.
 
 In every mode, `Yes2SDK.startGameAsync()` calls Jest's `markGameLoaded`, which tells Jest the game is interactive. In Manual mode it also dismisses the overlay as if progress had reached 100.
 
@@ -547,8 +545,6 @@ end
 
 Never grant paid items, subscription perks or referral rewards on client values alone. Jest signs the values it hands the game with your game's shared secret, and the Yes2Games dashboard can check those signatures for you once you have filled in the [Jest server verification card](#jest-server-verification-card).
 
-Both endpoints below are available once the dashboard release ships.
-
 ### Which value is the token
 
 | What to verify | `kind` | TypeScript | Unity | Defold |
@@ -679,8 +675,9 @@ Unity users can also exercise subscriptions, notifications, the registration pro
 1. Make sure Jest is enabled for your studio and the game's **Jest server verification** card holds the Jest game id and shared secret.
 2. Set **Automatic login reminders** for the game.
 3. Upload a build on your game page and test it in the Inspector.
-4. Click **Request Publish** and select Jest. The Yes2Games team builds the Jest bundle. A Jest bundle never includes ads.
-5. The bundle zip is uploaded in the Jest Developer Console under **Manage > Versions**. Run the Simulator checklist on that version before it goes to Jest's review.
+4. Click **Request Publish** and select Jest. A Jest bundle never includes ads.
+5. When the Yes2Games team approves the request, it builds the Jest bundle from that build. If bundle downloads are turned on for your studio, open the game's **Versions** tab and click **Download** next to the `jest` bundle under **Platform Bundles**. If they are not, the Yes2Games team shares the zip with you.
+6. Upload the zip yourself in the Jest Developer Console under **Manage > Versions**, then run the Simulator checklist on that version before it goes to Jest's review.
 
 Your source build needs `index.html` at the zip root and **relative paths only**. Jest serves games from a sub-path, so root-absolute paths such as `/assets/hero.png` break, and the dashboard refuses to bundle them.
 
@@ -690,10 +687,10 @@ These fail the Simulator checklist or Jest's review. Each one maps to a row of t
 
 | Issue | Fix |
 |---|---|
-| The player is sent back to the home screen while loading | The loading screen mode is Manual and Jest got no progress for 15 seconds. Switch to Auto mode in the Jest Developer Console |
+| The player is sent back to the home screen while loading | The loading screen mode is Manual and Jest got no progress for 15 seconds. Keep calling `setLoadingProgress` during long loads, use a bundle built by the dashboard, or switch to Auto mode in the Jest Developer Console |
 | The first load takes longer than 10 seconds | Keep the first download small and load the rest after `startGameAsync()` |
 | A guest loses progress, or has to register to keep it | Save with `data.setString` as a guest too, before any login prompt |
-| Two login prompts at once | Turn **Automatic login reminders** off for the game and rebuild the bundle |
+| Two login prompts at once | Turn **Automatic login reminders** off in the game's Overview edit form. Then, if your studio can download bundles, open the bundle settings (gear) next to the `jest` bundle under **Platform Bundles** in the **Versions** tab and click **Re-bundle**; otherwise upload a new build and click **Request Publish** for Jest again (or ask the Yes2Games team for a new bundle). Then upload the new zip in the Jest Developer Console |
 | No D1 to D7 notification sequence | Schedule at least one notification per day for the next seven days once the player registers (see [Notification sequence](#notification-sequence-d1-to-d7)) |
 | An interrupted purchase is not granted on the next launch | Recover with `iap.getPurchasesAsync()` at startup, grant, then `iap.consumePurchaseAsync()` |
 | A subscription the player holds is offered again | Check `isActive` from `iap.getSubscriptionsAsync()` before offering `iap.subscribeAsync()` |

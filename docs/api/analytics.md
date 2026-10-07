@@ -41,7 +41,7 @@ Track gameplay events. All methods are synchronous, fire-and-forget.
 ¹ Logged locally (`logger.debug`) only: no platform delivery.
 ² Logs locally **and** calls the real `gameplayStart`/`gameplayStop` (`PokiSDK`, CrazyGames `sdk.game`, Yandex `GameplayAPI`).
 ³ GameDistribution drives internal gameplay state only (no platform gameplay call).
-⁴ YouTube sets an internal gameplay flag only. Note: the YouTube strategy additionally exposes real **`reportError`/`reportWarning`** backed by `ytgame.health.logError`/`logWarning` (not part of the cross-platform analytics surface).
+⁴ YouTube sets an internal gameplay flag only. Note: on YouTube the SDK additionally exposes real **`reportError`/`reportWarning`** backed by `ytgame.health.logError`/`logWarning` (not part of the cross-platform analytics surface).
 ⁵ **Yandex only, when a Metrica counter ID is configured** for the game: the call also fires `ym('reachGoal', …)`. Goal name is the `eventName` for `logEvent`; `score` / `tutorial` / `purchase` / `level_start` / `level_end` for the typed methods. Without a counter configured it degrades to local logging (¹). Metrica is separate from the YaGames SDK. The dashboard injects the counter tag into Yandex builds. See the [Yandex quickstart](/docs/yandex).
 ⁶ Jest: logged locally only. Yes2SDK does not forward events to Jest's own event capture, which Jest has retired.
 ⁷ Jest: logged locally only. Jest has no gameplay start or stop signal, so nothing reaches the platform. See the [Jest guide](/docs/jest).

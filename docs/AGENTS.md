@@ -126,8 +126,10 @@ platform SDK directly. Only the method-naming convention differs per engine:
 - No in-game ads. Ad calls report `noFill` then `afterAd` at once (Unity: `onError`
   with `Code == "NoFill"`, no `afterAd`), so shared ad code stays safe.
 - `startGameAsync()` calls Jest's `markGameLoaded`; call it the moment the game is
-  interactive. Use Jest's Auto loading screen mode (set in the Jest Developer
-  Console); Manual mode exits the player after 15 seconds without progress.
+  interactive. Auto loading screen mode (set in the Jest Developer Console) is the
+  simple default. Manual works for bundles built by the dashboard, which load the
+  Jest SDK before the engine; it still exits the player after 15 seconds without
+  progress, so keep calling `setLoadingProgress`.
 - Save progress for guests too (`data.*`, Jest player store, 1 MB per player).
 - Save synchronously in `Yes2SDK.on('exitRequested', ...)`.
 - `auth.showRegistrationPrompt(...)` is for guests only and throws; turn the game's
@@ -146,5 +148,10 @@ platform SDK directly. Only the method-naming convention differs per engine:
   basics and pause/resume/audio checks — pay extra attention for YouTube.
 - Click **Request Publish** (Onboarding → Stage 4) and select your platforms. You
   don't upload to platforms yourself; the Yes2Games team validates and submits on
-  your behalf, and you'll see status (`pending_review` → `reviewing` → `approved` /
-  `needs_changes`) and feedback on the game page.
+  your behalf, and you'll see status (`pending_review` → `reviewing` →
+  `approved` / `needs_changes`) and feedback on the game page.
+- Jest is the exception. After approval the Yes2Games team builds the Jest
+  bundle. If bundle downloads are on for your studio, click **Download** next to
+  the `jest` bundle in the game's **Versions** tab; otherwise the Yes2Games team
+  shares the zip with you. You upload it in the Jest Developer Console under
+  Manage > Versions.
