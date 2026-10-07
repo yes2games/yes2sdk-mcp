@@ -22,11 +22,11 @@ In-game rating / feedback prompt. Ask the platform to show its native "rate this
 
 ## Platform support
 
-| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
-|--------|:----:|:----------------:|:----------:|:------:|:-------:|
-| `canReviewAsync` | None¹ | None¹ | None¹ | Ready | None¹ |
-| `requestReviewAsync` | None¹ | None¹ | None¹ | Ready | None¹ |
-| `isSupported` | None | None | None | Ready | None |
+| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Jest |
+|--------|:----:|:----------------:|:----------:|:------:|:-------:|:----:|
+| `canReviewAsync` | None¹ | None¹ | None¹ | Ready | None¹ | None¹ |
+| `requestReviewAsync` | None¹ | None¹ | None¹ | Ready | None¹ | None¹ |
+| `isSupported` | None | None | None | Ready | None | None |
 
 ¹ Returns `{ canReview: false, reason: "FEATURE_NOT_SUPPORTED" }` / a no-op result. Only Yandex (`ysdk.feedback`) exposes a rating prompt.
 

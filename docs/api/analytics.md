@@ -4,7 +4,7 @@
 
 Track gameplay events. All methods are synchronous, fire-and-forget.
 
-> **Good to know:** Custom events (`logEvent`, `logScore`, `logTutorial`, `logPurchase`) are recorded locally on every platform. Bring your own analytics pipeline if you need delivery. **Exception (Yandex):** when a Metrica counter ID is configured for the game (dashboard game settings), these events are additionally delivered to **Yandex Metrica** as `reachGoal` calls (see the [Yandex quickstart](../quickstart-yandex.md)). The **gameplay lifecycle** is wired to each platform's real engagement signals: `logLevelStart`/`logLevelEnd` drive `gameplayStart`/`gameplayStop`, which platforms use for monetization timing.
+> **Good to know:** Custom events (`logEvent`, `logScore`, `logTutorial`, `logPurchase`) are recorded locally on every platform. Bring your own analytics pipeline if you need delivery. **Exception (Yandex):** when a Metrica counter ID is configured for the game (dashboard game settings), these events are additionally delivered to **Yandex Metrica** as `reachGoal` calls (see the [Yandex quickstart](/docs/yandex)). The **gameplay lifecycle** is wired to each platform's real engagement signals: `logLevelStart`/`logLevelEnd` drive `gameplayStart`/`gameplayStop`, which platforms use for monetization timing. Jest has no gameplay signal, so on Jest all analytics calls are logged locally only.
 
 ---
 
@@ -28,21 +28,23 @@ Track gameplay events. All methods are synchronous, fire-and-forget.
 
 ## Platform support
 
-| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
-|--------|:----:|:----------------:|:----------:|:------:|:-------:|
-| `logEvent` | None¹ | None¹ | None¹ | Metrica⁵ | None¹ |
-| `logLevelStart` | Partial² | Partial³ | Partial² | Partial²˒⁵ | None⁴ |
-| `logLevelEnd` | Partial² | Partial³ | Partial² | Partial²˒⁵ | None⁴ |
-| `logScore` | None¹ | None¹ | None¹ | Metrica⁵ | None¹ |
-| `logTutorial` | None¹ | None¹ | None¹ | Metrica⁵ | None¹ |
-| `logPurchase` | None¹ | None¹ | None¹ | Metrica⁵ | None¹ |
-| `isSupported` | Ready | Ready | Ready | Ready | Ready |
+| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Jest |
+|--------|:----:|:----------------:|:----------:|:------:|:-------:|:----:|
+| `logEvent` | None¹ | None¹ | None¹ | Metrica⁵ | None¹ | None⁶ |
+| `logLevelStart` | Partial² | Partial³ | Partial² | Partial²˒⁵ | None⁴ | None⁷ |
+| `logLevelEnd` | Partial² | Partial³ | Partial² | Partial²˒⁵ | None⁴ | None⁷ |
+| `logScore` | None¹ | None¹ | None¹ | Metrica⁵ | None¹ | None⁶ |
+| `logTutorial` | None¹ | None¹ | None¹ | Metrica⁵ | None¹ | None⁶ |
+| `logPurchase` | None¹ | None¹ | None¹ | Metrica⁵ | None¹ | None⁶ |
+| `isSupported` | Ready | Ready | Ready | Ready | Ready | Ready |
 
 ¹ Logged locally (`logger.debug`) only: no platform delivery.
 ² Logs locally **and** calls the real `gameplayStart`/`gameplayStop` (`PokiSDK`, CrazyGames `sdk.game`, Yandex `GameplayAPI`).
 ³ GameDistribution drives internal gameplay state only (no platform gameplay call).
-⁴ YouTube sets an internal gameplay flag only. Note: the YouTube strategy additionally exposes real **`reportError`/`reportWarning`** backed by `ytgame.health.logError`/`logWarning` (not part of the cross-platform analytics surface).
-⁵ **Yandex only, when a Metrica counter ID is configured** for the game: the call also fires `ym('reachGoal', …)`. Goal name is the `eventName` for `logEvent`; `score` / `tutorial` / `purchase` / `level_start` / `level_end` for the typed methods. Without a counter configured it degrades to local logging (¹). Metrica is separate from the YaGames SDK. The dashboard injects the counter tag into Yandex builds. See the [Yandex quickstart](../quickstart-yandex.md).
+⁴ YouTube sets an internal gameplay flag only. Note: on YouTube the SDK additionally exposes real **`reportError`/`reportWarning`** backed by `ytgame.health.logError`/`logWarning` (not part of the cross-platform analytics surface).
+⁵ **Yandex only, when a Metrica counter ID is configured** for the game: the call also fires `ym('reachGoal', …)`. Goal name is the `eventName` for `logEvent`; `score` / `tutorial` / `purchase` / `level_start` / `level_end` for the typed methods. Without a counter configured it degrades to local logging (¹). Metrica is separate from the YaGames SDK. The dashboard injects the counter tag into Yandex builds. See the [Yandex quickstart](/docs/yandex).
+⁶ Jest: logged locally only. Yes2SDK does not forward events to Jest's own event capture, which Jest has retired.
+⁷ Jest: logged locally only. Jest has no gameplay start or stop signal, so nothing reaches the platform. See the [Jest guide](/docs/jest).
 
 ---
 

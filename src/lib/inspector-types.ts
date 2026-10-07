@@ -80,6 +80,7 @@ export const INSPECTOR_PLATFORMS = [
   "yandex",
   "gamedistribution",
   "youtube",
+  "jest",
 ] as const;
 
 export type InspectorPlatform = (typeof INSPECTOR_PLATFORMS)[number];
