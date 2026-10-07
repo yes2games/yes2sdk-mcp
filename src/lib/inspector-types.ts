@@ -17,6 +17,8 @@
  */
 export type ErrorSource = "sdk" | "platform" | "game" | "console";
 
+export type LogLevel = "info" | "warn" | "error";
+
 export interface LogEntry {
   id: string;
   timestamp: number;
@@ -29,6 +31,8 @@ export interface LogEntry {
   // ── Error-row-specific fields (type === "error") ─────────────────────
   /** Origin of the error: SDK internals, platform SDK, or game code. */
   source?: ErrorSource;
+  /** Severity for console-captured rows (type === "error"). Absent = "error" (backward-compat). */
+  level?: LogLevel;
   /** Full stack trace from the error, when available. */
   stack?: string;
   /** Machine-readable error code posted by the bridge or spy script. */
@@ -50,6 +54,11 @@ export interface LogEntry {
    *  (`result.timestamp - call.timestamp`). Drives the latency badge and
    *  color thresholds in the event log. */
   durationMs?: number;
+  /** Present only on a synthetic flood-suppression notice from the console
+   *  spy: the number of console lines it dropped in that window
+   *  instead of forwarding them individually. The store folds this into
+   *  `suppressedConsoleCount` rather than rendering it as a row. */
+  suppressedCount?: number;
 }
 
 export type ComplianceSeverity = "FAIL" | "WARN" | "INFO";

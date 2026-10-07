@@ -27,18 +27,15 @@ export interface LaunchChecklist {
 
 const JEST: LaunchChecklist = {
   platformName: "Jest",
-  summary: "Each item is checked by hand: an Inspector event log cannot prove it.",
+  summary:
+    "Each item is checked by hand: an Inspector event log cannot prove it. Everything else on Jest's launch checklist is automated as rules J-001 to J-014 (run them with validate_integration and an Inspector event log).",
   items: [
-    "Save as a guest before any login prompt: write progress through `Yes2SDK.data` and confirm it (`setStringAsync` or `flushAsync`) before `auth.signInAsync()` or `auth.showRegistrationPrompt()`. Registration can reload the game.",
-    "Schedule D1 to D7 notifications with images for registered players: one `notifications.scheduleAsync` per day with `scheduledInDays` 1 to 7, a stable `id` per day, and an image through `imageAssetId` or `imageDataUrl`. Guests get `PLAYER_NOT_AUTHENTICATED`, so schedule after the player registers.",
-    "Recover and complete incomplete purchases at startup: after `initializeAsync`, call `iap.getPurchasesAsync()`, grant and save each item, then `iap.consumePurchaseAsync(purchaseToken)`; repeat until the list is empty (Jest returns at most 50 per call). Verify `signedRequest` on your server before granting anything of value.",
-    "Never re-offer a subscription the player already holds: read `iap.getSubscriptionsAsync()` at launch, grant access when `isActive` is true and hide that offer. A repeat `subscribeAsync` fails with `IAP_ALREADY_PURCHASED`.",
-    "Show the registration prompt to guests only (`auth.isAuthenticated()` is false; a registered player gets `INVALID_OPERATION`). When the game shows its own prompt, tell the Yes2Games team so they turn off Jest's Automatic login reminders for the game, so the player does not get two prompts.",
-    "Save in `exitRequested`: `Yes2SDK.on(\"exitRequested\", ...)` (Unity `OnExitRequested`, Defold `on_exit_requested`) and write synchronously inside the handler. Yes2SDK flushes player data right after it returns; async work started there is not awaited.",
-    "Report loading progress with `setLoadingProgress` and call `startGameAsync()` (Jest's `markGameLoaded`) only when the game is playable. In Jest's Manual loading-screen mode Jest sends the player home after 15 s without a progress update, and nothing can report progress while the engine is still downloading, so use Jest's Auto loading-screen mode (the default, recommended for now).",
-    "Load every asset by a relative path: no root-relative (`/assets/...`) or absolute host URLs.",
+    "Reach a playable state in under 10 seconds on a real phone: keep the first download small and load the rest after `startGameAsync()`. J-001 checks that `startGameAsync()` (Jest's `markGameLoaded`) is called and J-002 that loading progress never stops for more than 15 s (in Jest's Manual loading-screen mode Jest sends the player home after 15 s without a progress update); the load time itself is measured by hand. Keep the game on Jest's Auto loading-screen mode (the default, recommended for now): the Yes2Games team manages that setting.",
     "Read launch data from the entry payload (`session.getEntryPointData()`), never from URL query parameters: Jest does not pass game data through the page URL.",
-    "Do not rely on ads: Jest has no in-game ads. Every interstitial and rewarded request ends at once without showing an ad: JS gets `noFill` then `afterAd` (Unity: `onError` with `NoFill`; Defold: `no_fill` then `after_ad`). No progression may depend on a rewarded ad.",
+    "Nothing points outside Jest: no external links, calls to action or outside sign-up prompts. No haptics either: `performHapticFeedback()` already does nothing on Jest, so remove any other vibration the game triggers.",
+    "Verify each purchase's `signedRequest` on your server before granting anything of value. J-011 and J-012 check the order of the calls (`iap.getPurchasesAsync()` at startup, every purchase consumed), not that the grant was verified.",
+    "When the game shows its own registration prompt, tell the Yes2Games team so they turn off Jest's Automatic login reminders for the game, so the player does not get two prompts. J-005 and J-006 check that guest progress is saved before the prompt and that only guests see it.",
+    "Load every asset by a relative path: `index.html` at the zip root and no root-relative (`/assets/...`) or absolute host URLs, because Jest serves games from a sub-path. The dashboard refuses a Jest bundle with root-absolute paths at upload; check the rest by hand.",
   ],
 };
 
