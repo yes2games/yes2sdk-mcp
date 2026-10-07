@@ -142,7 +142,7 @@ export const SYMPTOMS: Symptom[] = [
     keywords: ["loading screen", "stuck", "15 s", "15 seconds", "sent home", "home screen", "loading timeout", "markgameloaded"],
     cause: "In Jest's Manual loading-screen mode Jest sends the player home after 15 s without a progress update, and the overlay stays until the game reports it is loaded. Nothing can report progress while the engine is still downloading.",
     fix: [
-      "Switch to Jest's Auto loading-screen mode (the default, recommended for now) in the Jest Developer Console.",
+      "Ask the Yes2Games team to keep the game on Jest's Auto loading-screen mode (the default, recommended for now); they manage the Jest settings.",
       "Report progress with setLoadingProgress while loading, and call startGameAsync() (Jest's markGameLoaded) once the game is playable.",
     ],
   },
@@ -164,7 +164,7 @@ export const SYMPTOMS: Symptom[] = [
     fix: [
       "Check auth.isAuthenticated() first and show the prompt only while it is false.",
       "A custom message must be non-blank, at most 140 characters, and contain {{registrationCode}} exactly once.",
-      "When the game shows its own prompt, turn off Automatic login reminders in your game's Overview settings on the Yes2Games Dashboard (available once Jest is enabled for your studio).",
+      "When the game shows its own prompt, tell the Yes2Games team so they turn off Jest's Automatic login reminders for the game.",
     ],
   },
 ];

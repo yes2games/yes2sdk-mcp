@@ -155,8 +155,8 @@ describe("get_platform_requirements: jest", () => {
     expect(text).toContain("exitRequested");
     expect(text).toContain("getEntryPointData");
     expect(text).toContain("getPurchasesAsync");
-    expect(text).toMatch(/Automatic login reminders in your game's Overview settings on the Yes2Games Dashboard/);
-    expect(text).not.toMatch(/ask the Yes2Games team/);
+    expect(text).toMatch(/tell the Yes2Games team so they turn off Jest's Automatic login reminders/);
+    expect(text).not.toMatch(/Overview settings on the Yes2Games Dashboard/);
     expect(text).toMatch(/15 s/);
   });
 
@@ -253,8 +253,7 @@ describe("troubleshoot: jest symptoms", () => {
 describe("jest ads: engine-specific no-fill behaviour", () => {
   it("the quickstart gives Unity its onError(NoFill) form and Defold its no_fill/after_ad form", () => {
     const doc = readDocBySlug("quickstart-jest") as string;
-    expect(doc).toMatch(/Unity.*`onError`.*`NoFill`/);
-    expect(doc).toContain("IsRewardedSupported()");
+    expect(doc).toMatch(/Unity: `onError` with `error\.Code == "NoFill"`/);
     expect(doc).toMatch(/`no_fill`.*`after_ad`/);
     expect(doc).not.toMatch(/continue in `afterAd`\.\s*\|/);
   });
@@ -349,18 +348,18 @@ describe("round 2 review fixes", () => {
     expect(textOf(res)).toMatch(/^# Referrals/m);
   });
 
-  it("points the login reminder setting at the game's Overview on the dashboard", async () => {
+  it("leaves the login reminder setting to the Yes2Games team", async () => {
     const doc = readDocBySlug("quickstart-jest") as string;
-    expect(doc).toMatch(/Overview edit form has a \*\*Jest\*\* box with one setting, \*\*Automatic login reminders\*\*/);
+    expect(doc).toMatch(/tell the Yes2Games team so Jest's Automatic login reminders are turned off/);
     const text = textOf(
       await client.callTool({ name: "troubleshoot", arguments: { symptom: "showRegistrationPrompt throws INVALID_OPERATION" } })
     );
-    expect(text).toMatch(/Automatic login reminders in your game's Overview settings on the Yes2Games Dashboard/);
-    expect(text).not.toMatch(/ask the Yes2Games team/);
+    expect(text).toMatch(/tell the Yes2Games team so they turn off Jest's Automatic login reminders/);
+    expect(text).not.toMatch(/Overview settings on the Yes2Games Dashboard/);
   });
 
   it("the quickstart explains that gameplayStart/gameplayStop are still expected", () => {
     const doc = readDocBySlug("quickstart-jest") as string;
-    expect(doc).toMatch(/gameplayStart.*gameplayStop.*universal/);
+    expect(doc).toMatch(/keep calling `game\.gameplayStart\(\)` and `game\.gameplayStop\(\)`/);
   });
 });
