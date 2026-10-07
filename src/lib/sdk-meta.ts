@@ -33,12 +33,12 @@ export const SDK_META: Record<Engine, EngineMeta> = {
     "engine": "unity",
     "displayName": "Unity",
     "packageName": "com.yes2games.yes2sdk",
-    "version": "2.10.0",
+    "version": "2.11.0",
     "repoUrl": "https://github.com/yes2games/yes2sdk-unity",
     "installSteps": [
       "In the Unity menu bar choose Window > Package Manager.",
       "Click the + button (top-left) and choose \"Add package from git URL…\".",
-      "Enter: https://github.com/yes2games/yes2sdk-unity.git#v2.10.0  (the #v2.10.0 tag pins this release; drop the tag only to track main).",
+      "Enter: https://github.com/yes2games/yes2sdk-unity.git#v2.11.0  (the #v2.11.0 tag pins this release; drop the tag only to track main).",
       "Wait for Package Manager to resolve and import com.yes2games.yes2sdk."
     ],
     "postInstallSteps": [
