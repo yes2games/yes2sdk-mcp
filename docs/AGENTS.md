@@ -10,14 +10,14 @@ methods. When unsure, fetch the full corpus.
 - Full docs (everything concatenated): `/llms-full.txt`
 - Curated index: `/llms.txt`
 - Per-platform guides: `/docs/raw/quickstart-<platform>` (poki, crazygames, yandex,
-  gamedistribution, youtube)
+  gamedistribution, youtube, jest)
 - API reference: `/docs/raw/api/<module>` (overview, lifecycle, ads, game, session,
   data, player, auth, banners, friends, score, analytics, errors, leaderboard,
   stats, iap, config, review)
 
 ## The unified API
 
-Yes2SDK exposes one API surface that works across all five platforms. The same
+Yes2SDK exposes one API surface that works across every supported platform. The same
 calls map to each platform's native SDK under the hood — you never call the
 platform SDK directly. Only the method-naming convention differs per engine:
 
@@ -122,11 +122,36 @@ platform SDK directly. Only the method-naming convention differs per engine:
 - Submit every score with `score.addScore(n)` — YouTube displays the highest.
 - No `banners`, `auth`, `friends`, or IAP.
 
+### Jest (`/docs/raw/quickstart-jest`)
+- No in-game ads. Ad calls report `noFill` then `afterAd` at once (Unity: `onError`
+  with `Code == "NoFill"`, no `afterAd`), so shared ad code stays safe.
+- `startGameAsync()` calls Jest's `markGameLoaded`; call it the moment the game is
+  interactive. Auto loading screen mode (set in the Jest Developer Console) is the
+  simple default. Manual works for bundles built by the dashboard, which load the
+  Jest SDK before the engine; it still exits the player after 15 seconds without
+  progress, so keep calling `setLoadingProgress`.
+- Save progress for guests too (`data.*`, Jest player store, 1 MB per player).
+- Save synchronously in `Yes2SDK.on('exitRequested', ...)`.
+- `auth.showRegistrationPrompt(...)` is for guests only and throws; turn the game's
+  "Automatic login reminders" off when you use it.
+- Notifications reach registered players only: schedule a D1 to D7 sequence with
+  `scheduledInDays` and a stable `id`.
+- On launch, recover purchases with `iap.getPurchasesAsync()`, grant, then
+  `iap.consumePurchaseAsync(...)`. Check `getSubscriptionsAsync()` before offering
+  a plan.
+- Verify signed values on a server before granting value. Unity `GetPlatform()`
+  returns `Platform.Unknown` on Jest.
+
 ## Before you ship
 
 - Test the build in the **Inspector** (Onboarding → Stage 3). It runs the SDK
   basics and pause/resume/audio checks — pay extra attention for YouTube.
 - Click **Request Publish** (Onboarding → Stage 4) and select your platforms. You
   don't upload to platforms yourself; the Yes2Games team validates and submits on
-  your behalf, and you'll see status (`pending_review` → `reviewing` → `approved` /
-  `needs_changes`) and feedback on the game page.
+  your behalf, and you'll see status (`pending_review` → `reviewing` →
+  `approved` / `needs_changes`) and feedback on the game page.
+- Jest is the exception. After approval the Yes2Games team builds the Jest
+  bundle. If bundle downloads are on for your studio, click **Download** next to
+  the `jest` bundle in the game's **Versions** tab; otherwise the Yes2Games team
+  shares the zip with you. You upload it in the Jest Developer Console under
+  Manage > Versions.

@@ -4,7 +4,7 @@
 
 Score submission, including an encrypted/signed variant for anti-cheat. Supported on **CrazyGames** and **YouTube**.
 
-> On Poki, GameDistribution, and Yandex, score submission isn't offered by the platform. `addScore`/`submitScore` are recorded locally and safe to keep in your code. On YouTube, `submitScore` accepts the encrypted-score string and forwards it as a plain score value.
+> On Poki, GameDistribution, Yandex, and Jest, score submission isn't offered by the platform. `addScore`/`submitScore` are recorded locally and safe to keep in your code. On YouTube, `submitScore` accepts the encrypted-score string and forwards it as a plain score value.
 
 ---
 
@@ -20,11 +20,11 @@ Score submission, including an encrypted/signed variant for anti-cheat. Supporte
 
 ## Platform support
 
-| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
-|--------|:----:|:----------------:|:----------:|:------:|:-------:|
-| `addScore` | None¹ | None¹ | Ready² | None¹ | Ready³ |
-| `submitScore` | None¹ | None¹ | Ready² | None¹ | Partial⁴ |
-| `isSupported` | None | None | Ready | None | Ready |
+| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Jest |
+|--------|:----:|:----------------:|:----------:|:------:|:-------:|:----:|
+| `addScore` | None¹ | None¹ | Ready² | None¹ | Ready³ | None¹ |
+| `submitScore` | None¹ | None¹ | Ready² | None¹ | Partial⁴ | None¹ |
+| `isSupported` | None | None | Ready | None | Ready | None |
 
 ¹ Recorded locally; the platform doesn't offer a score API yet.
 ² CrazyGames `sdk.user.addScore`/`submitScore` if the SDK version exposes them (warns otherwise).
@@ -35,13 +35,13 @@ Score submission, including an encrypted/signed variant for anti-cheat. Supporte
 
 ## Unity (C#)
 
-`Yes2SDK.Score`.
+`Yes2SDK.Yes2SDK.Score`.
 
 | Signature | Description |
 |-----------|-------------|
 | `void AddScore(float score)` | |
 | `void SubmitScore(string encryptedScore)` | |
-| `bool IsSupported()` | Supported on CrazyGames + Yandex + YouTube per the Unity CHANGELOG. Editor: false. |
+| `bool IsSupported()` | Reads the runtime's `isSupported()` (true on CrazyGames and YouTube). Editor: false. |
 
 ---
 

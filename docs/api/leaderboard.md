@@ -4,7 +4,7 @@
 
 Named leaderboards: submit scores, read top/ranked entries, and fetch the current player's or friends' standings. Optional. Guard with `isSupported()`.
 
-> Available on **Yandex** today (`ysdk.getLeaderboards()`). Other platforms report `isSupported() === false`; the calls stay safe (no-op / empty results) so a single codebase runs everywhere. For write-only score submission that's available more widely, see the [score](score.md) module.
+> Available on **Yandex** today (`ysdk.getLeaderboards()`). Other platforms report `isSupported() === false` and every call rejects with `FEATURE_NOT_SUPPORTED`, so guard your calls with `isSupported()` to keep one codebase running everywhere. For write-only score submission that's available more widely, see the [score](score.md) module.
 
 ---
 
@@ -25,16 +25,18 @@ Named leaderboards: submit scores, read top/ranked entries, and fetch the curren
 
 ## Platform support
 
-| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
-|--------|:----:|:----------------:|:----------:|:------:|:-------:|
-| `getLeaderboardAsync` | None | None | None | Ready | None |
-| `setScoreAsync` | None | None | None | Ready | None |
-| `getEntriesAsync` | None | None | None | Ready | None |
-| `getPlayerEntryAsync` | None | None | None | Ready | None |
-| `getConnectedPlayerEntriesAsync` | None | None | None | Ready | None |
-| `isSupported` | None | None | None | Ready | None |
+| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Jest |
+|--------|:----:|:----------------:|:----------:|:------:|:-------:|:----:|
+| `getLeaderboardAsync` | None | None | None | Ready | None | None¹ |
+| `setScoreAsync` | None | None | None | Ready | None | None¹ |
+| `getEntriesAsync` | None | None | None | Ready | None | None¹ |
+| `getPlayerEntryAsync` | None | None | None | Ready | None | None¹ |
+| `getConnectedPlayerEntriesAsync` | None | None | None | Ready | None | None¹ |
+| `isSupported` | None | None | None | Ready | None | None |
 
-Yandex maps to its native leaderboards API. On every other platform the strategy's `isSupported()` returns `false`. Guard your calls with `isSupported()`.
+Yandex maps to its native leaderboards API. On every other platform `isSupported()` returns `false`. Guard your calls with `isSupported()`.
+
+¹ Jest has no leaderboards: every call rejects with `FEATURE_NOT_SUPPORTED`.
 
 ---
 

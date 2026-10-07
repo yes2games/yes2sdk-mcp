@@ -4,7 +4,7 @@
 
 Unified interface for interstitial, rewarded, and banner ads. Interstitials run at natural break points; rewarded ads run only when the player opts in.
 
-**Always** call `gameplayStop()` before an ad and `gameplayStart()` after, pause your game in the before-ad callback, and resume in **both** the after-ad and error/no-fill paths. Grant rewards **only** in the "viewed" callback.
+**Always** call `gameplayStop()` before an ad and `gameplayStart()` after, pause your game in the before-ad callback, and resume in the after-ad callback (`afterAd`, Defold `after_ad`), which also runs after a no-fill. Unity drops `afterAd` after a no-fill, so also resume in the no-fill path there (Unity: `onError` with `NoFill`, see [Unity](#unity-c)). Grant rewards **only** in the "viewed" callback.
 
 ---
 
@@ -38,17 +38,17 @@ Unified interface for interstitial, rewarded, and banner ads. Interstitials run 
 
 ## Platform support
 
-| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
-|--------|:----:|:----------------:|:----------:|:------:|:-------:|
-| `showInterstitial` | Ready | Ready | Ready | Ready | Ready |
-| `showRewarded` | Ready | Ready | Ready | Ready | Ready |
-| `showBanner` | None | None | Ready | Ready | None |
-| `hideBanner` | None | None | Ready | Ready | None |
-| `isInterstitialSupported` | Ready | Ready | Ready | Ready | Ready |
-| `isRewardedSupported` | Ready | Ready | Ready | Ready | Ready |
-| `isBannerSupported` | None | None | Ready | Ready | None |
-| `isRewardedAdAvailable` | Partial | Partial | Partial | Partial | Partial |
-| `isAdBlocked` | Ready¹ | None | None² | None | None |
+| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Jest |
+|--------|:----:|:----------------:|:----------:|:------:|:-------:|:----:|
+| `showInterstitial` | Ready | Ready | Ready | Ready | Ready | None³ |
+| `showRewarded` | Ready | Ready | Ready | Ready | Ready | None³ |
+| `showBanner` | None | None | Ready | Ready | None | None⁴ |
+| `hideBanner` | None | None | Ready | Ready | None | None |
+| `isInterstitialSupported` | Ready | Ready | Ready | Ready | Ready | None⁵ |
+| `isRewardedSupported` | Ready | Ready | Ready | Ready | Ready | None⁵ |
+| `isBannerSupported` | None | None | Ready | Ready | None | None⁵ |
+| `isRewardedAdAvailable` | Partial | Partial | Partial | Partial | Partial | None⁵ |
+| `isAdBlocked` | Ready¹ | None | None² | None | None | None |
 
 **Platform mapping:**
 - **Poki:** `PokiSDK.commercialBreak` / `rewardedBreak`. No banner. ¹ `isAdBlocked` calls `PokiSDK.isAdBlocked()` if present.
@@ -56,16 +56,21 @@ Unified interface for interstitial, rewarded, and banner ads. Interstitials run 
 - **CrazyGames:** `sdk.ad.requestAd("midgame" | "rewarded")`; banners via `sdk.banner.*`; `hasAdblock()` is real.
 - **Yandex:** `ysdk.adv.showFullscreenAdv` / `showRewardedVideo` / `showBannerAdv`. `!wasShown` maps to `noFill`.
 - **YouTube:** `ytgame.ads.requestInterstitialAd()` / `requestRewardedAd(placement)`. No banner.
+- **Jest:** no in-game ads. See ³ to ⁵ and the [Jest guide](/docs/jest).
 
-`isRewardedAdAvailable` is **Partial** everywhere: it only checks that the platform ad object exists; there is no true readiness signal, so a `true` result can still no-fill.
+`isRewardedAdAvailable` is **Partial** on the ad platforms: it only checks that the platform ad object exists; there is no true readiness signal, so a `true` result can still no-fill.
 
-² CrazyGames detects ad blocking through an **async `hasAdblock()`** on its strategy, not a synchronous `isAdBlocked`. The unified `ads.isAdBlocked()` only delegates to a strategy method literally named `isAdBlocked`, so it returns `false` for CrazyGames. Use the platform's own adblock handling instead.
+² CrazyGames detects ad blocking asynchronously (its **async `hasAdblock()`**), not through a synchronous `isAdBlocked`. The unified `ads.isAdBlocked()` has no synchronous answer to report there, so it returns `false` for CrazyGames. Use the platform's own adblock handling instead.
+
+³ Jest has no in-game ads, but the calls stay safe to keep in shared code. In TypeScript and Defold every interstitial and rewarded request calls `noFill` and then `afterAd` straight away, and the promise resolves. `beforeAd` is never called and no reward is granted. Unity reports the same no-fill as `onError` with `error.Code == "NoFill"` and does not call `afterAd` afterwards (see [Unity](#unity-c)).
+⁴ Throws `FEATURE_NOT_SUPPORTED` on Jest.
+⁵ Returns `false` on Jest. Use these checks to hide ad buttons and reward offers there.
 
 ---
 
 ## Unity (C#)
 
-`Yes2SDK.Ads` (`Yes2SDKAds`). Banner uses a `BannerPosition` enum (`Top`, `Bottom`).
+`Yes2SDK.Yes2SDK.Ads` (`Yes2SDKAds`). Banner uses a `BannerPosition` enum (`Top`, `Bottom`).
 
 | Signature | Description |
 |-----------|-------------|
@@ -76,6 +81,21 @@ Unified interface for interstitial, rewarded, and banner ads. Interstitials run 
 | `bool IsAdBlocked()` | |
 | `bool IsAdShowing()` | True while an interstitial/rewarded call is in flight. |
 | `bool IsRewardedAdAvailable()` | Best-effort readiness hint. |
+| `bool IsInterstitialSupported()` / `bool IsRewardedSupported()` | Whether the platform serves the format at all. False on Jest. |
+
+**No fill in Unity.** A no-fill arrives as `onError` with `error.Code == "NoFill"`. Its `error.ErrorCode` is `Unknown`, so check `Code`. Once `onError` fires the ad is complete, and a later platform `afterAd` is dropped. Resume the game in `onError` on a no-fill, and in `afterAd` only when an ad actually ran. On Jest no ad ever runs, so every ad call takes the `onError` path.
+
+```csharp
+Yes2SDK.Yes2SDK.Ads.ShowRewarded("double_coins", "Double your coins",
+    beforeAd: () => PauseGame(),
+    afterAd: () => ResumeGame(),
+    adViewed: () => GrantReward(),
+    onError: error =>
+    {
+        // error.Code == "NoFill" on Jest and whenever no ad is available.
+        ResumeGame();
+    });
+```
 
 ---
 
@@ -89,5 +109,8 @@ A Lua-side `_ad_in_flight` flag rejects a second concurrent ad call (logs a warn
 | `yes2sdk.ads_show_rewarded(placement, before_ad, after_ad, ad_dismissed, ad_viewed, no_fill)` | Grant rewards in `ad_viewed`, **not** `after_ad`. |
 | `yes2sdk.ads_is_ad_showing()` | True while a call is in flight (Lua-side flag). |
 | `yes2sdk.ads_is_rewarded_ad_available()` | Best-effort readiness hint. |
+| `yes2sdk.ads_is_interstitial_supported()` / `yes2sdk.ads_is_rewarded_supported()` | Whether the platform serves the format at all. `false` on Jest. |
+
+`after_ad` always follows `no_fill`, so resume the game in `after_ad` only. The one exception is a call rejected because another ad is still in flight: it gets `no_fill` alone. On Jest every ad call takes the `no_fill` then `after_ad` path.
 
 > Defold has no banner functions in the `ads_*` namespace (banners are a separate module; see [banners.md](banners.md)).

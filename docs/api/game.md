@@ -25,28 +25,31 @@ Gameplay lifecycle signals, invite links, platform settings, and clipboard. The 
 
 ## Platform support
 
-| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
-|--------|:----:|:----------------:|:----------:|:------:|:-------:|
-| `gameplayStart` | Ready | Partial¹ | Ready | Ready | Partial² |
-| `gameplayStop` | Ready | Partial¹ | Ready | Ready | Partial² |
-| `happyTime` | None | None | Ready | None | None |
-| `inviteLink` | Ready³ | None | Ready | None | None |
-| `getInviteParam` | Ready⁴ | None | Ready | None | None |
-| `showInviteButton` | None | None | Ready | None | None |
-| `hideInviteButton` | None | None | Ready | None | None |
-| `getSettings` | None⁵ | None⁵ | Ready⁶ | None⁵ | Ready⁷ |
-| `copyToClipboard` | Partial⁸ | Partial⁸ | Partial⁸ | Partial⁸ | Partial⁸ |
-| `getServerTimeAsync` | Partial⁹ | Partial⁹ | Partial⁹ | Ready | Partial⁹ |
+| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Jest |
+|--------|:----:|:----------------:|:----------:|:------:|:-------:|:----:|
+| `gameplayStart` | Ready | Partial¹ | Ready | Ready | Partial² | Partial¹⁰ |
+| `gameplayStop` | Ready | Partial¹ | Ready | Ready | Partial² | Partial¹⁰ |
+| `happyTime` | None | None | Ready | None | None | None |
+| `inviteLink` | Ready³ | None | Ready | None | None | None¹¹ |
+| `getInviteParam` | Ready⁴ | None | Ready | None | None | None¹¹ |
+| `showInviteButton` | None | None | Ready | None | None | None¹² |
+| `hideInviteButton` | None | None | Ready | None | None | None |
+| `getSettings` | None⁵ | None⁵ | Ready⁶ | None⁵ | Ready⁷ | None⁵ |
+| `copyToClipboard` | Partial⁸ | Partial⁸ | Partial⁸ | Partial⁸ | Partial⁸ | Partial⁸ |
+| `getServerTimeAsync` | Partial⁹ | Partial⁹ | Partial⁹ | Ready | Partial⁹ | Partial⁹ |
 
 ¹ Internal state only: GameDistribution has no platform gameplay call.
 ² YouTube sets an internal flag; the real lifecycle uses `firstFrameReady`/`gameReady` (driven by the SDK's `startGame`).
 ³ `PokiSDK.shareableURL`.  ⁴ `PokiSDK.getURLParam`.  ⁵ Returns `"{}"`.  ⁶ Reads CrazyGames `disableChat`/`muteAudio`.  ⁷ Reads `system.getLanguage()` + `isAudioEnabled()`.  ⁸ Uses the browser `navigator.clipboard` (and CrazyGames' `copyToClipboard` where present), not a dedicated platform API.  ⁹ No server-time API: returns the local (unsynced) device clock via `Date.now()`. Yandex returns tamper-proof `ysdk.serverTime()`.
+¹⁰ Jest has no gameplay start or stop signal. The calls are safe and update Yes2SDK's own gameplay state only. On Jest, loading ends with `startGameAsync()`, which tells Jest the game is loaded (see [lifecycle](lifecycle.md) and the [Jest guide](/docs/jest)).
+¹¹ Jest has no invite links. `inviteLink` only returns the game page's own URL with your params, which is not a Jest share link. `getInviteParam` only reads the page's own query string, which carries no Jest invite data. Jest launch data comes from `session.getEntryPointData()`, so use [referrals](referrals.md) to invite players.
+¹² Throws `FEATURE_NOT_SUPPORTED` on Jest.
 
 ---
 
 ## Unity (C#)
 
-`Yes2SDK.Game`. Event `static event Action<GameSettings> OnSettingsChanged`.
+`Yes2SDK.Yes2SDK.Game`. Settings changes arrive on the static event `Yes2SDKGame.OnSettingsChanged` (`Action<GameSettings>`).
 
 | Signature | Description |
 |-----------|-------------|

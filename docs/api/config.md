@@ -21,13 +21,13 @@ Remote configuration / feature flags: a flat `string → string` map you can rea
 
 ## Platform support
 
-| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube |
-|--------|:----:|:----------------:|:----------:|:------:|:-------:|
-| `getFlagsAsync` | Partial¹ | Partial¹ | Partial¹ | Ready | Partial¹ |
-| `isSupported` | None² | None² | None² | Ready | None² |
+| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Jest |
+|--------|:----:|:----------------:|:----------:|:------:|:-------:|:----:|
+| `getFlagsAsync` | Partial¹ | Partial¹ | Partial¹ | Ready | Partial¹ | Partial¹ |
+| `isSupported` | None² | None² | None² | Ready | None² | None² |
 
 ¹ No remote-config service: `getFlagsAsync` returns the `defaults` you pass, unchanged. Your code still works; it just never sees a remote override.
-² The strategy's `isSupported()` returns `false` (only Yandex has remote config). Treat `getFlagsAsync` as always available; treat `isSupported()` as "are remote overrides possible here?".
+² `isSupported()` returns `false` here (only Yandex has remote config). Treat `getFlagsAsync` as always available; treat `isSupported()` as "are remote overrides possible here?".
 
 ---
 
