@@ -141,9 +141,9 @@ Full signatures and the rollout picture are in [upcoming.md](upcoming.md). These
 | SDK | Version | Notes |
 |-----|---------|-------|
 | Core (TS) | `2.10.0` | UMD bundle, injected by the dashboard build pipeline |
-| Unity | `2.10.0` | Unity 2021.3+; WebGL build target |
+| Unity | `2.11.0` | Unity 2021.3+; WebGL build target |
 | Defold | `1.8.0` | Defold 1.10.2+; HTML5 build target |
 
 Live platforms across all surfaces: **Poki, CrazyGames, Yandex Games, GameDistribution, YouTube Playables, [Jest](/docs/jest)**.
 
-On Jest, Core reports the platform id `"jest"`. Unity 2.10.0 has no Jest member in its `Platform` enum, so `GetPlatform()` returns `Platform.Unknown` there.
+On Jest, Core reports the platform id `"jest"`. In Unity, `GetPlatform()` returns `Platform.Jest` from 2.11.0 (2.10.0 returns `Platform.Unknown` there).
