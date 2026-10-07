@@ -72,7 +72,7 @@ sub.unsubscribe();
 | `audioEnabledChange` | `{ enabled: boolean }` | Platform mute/unmute (via platform UI). Game **MUST** update its audio state. Emitted only where a native signal exists. |
 | `accountDialogOpen` | `void` | Yandex account-selection dialog opened. **Yandex-only**; pause gameplay/audio while it is open. |
 | `accountDialogClose` | `void` | Yandex account-selection dialog closed. **Yandex-only**; resume gameplay/audio. |
-| `exitRequested` | `void` | The platform started its exit flow (back navigation or a platform close control). The player has not confirmed yet, so do not tear the game down. Save recent progress **synchronously** inside the handler; Yes2SDK flushes player data right after the handler returns. Async work started in the handler is not awaited. Not emitted on the current platforms. |
+| `exitRequested` | `void` | The platform started its exit flow (back navigation or a platform close control). The player has not confirmed yet, so do not tear the game down. Save recent progress **synchronously** inside the handler; Yes2SDK flushes player data right after the handler returns. Async work started in the handler is not awaited. Emitted on Jest only. |
 
 Saving on `exitRequested`:
 

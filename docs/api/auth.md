@@ -46,7 +46,7 @@ Authentication and account linking. Optional. Guard with `isSupported()`.
 
 ¹ `sdk.user.showAuthPrompt()`.  ² `ysdk.auth.openAuthDialog()` then re-fetches the player.  ³ No platform sign-out API.  ⁴ `sdk.user.getUserToken()` (1h local expiry).  ⁵ Signed player info (`getPlayer({signed:true})` → signature).  ⁶ `sdk.user.showAccountLinkPrompt()`.  ⁷ Delegates to `sdk.user.isUserAccountAvailable()`.
 
-`showRegistrationPrompt` is not offered on any current platform, so it throws `FEATURE_NOT_SUPPORTED` there.
+`showRegistrationPrompt` is offered on Jest only (guests only; see the Jest quickstart). Every other platform throws `FEATURE_NOT_SUPPORTED`.
 
 ---
 

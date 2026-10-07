@@ -4,7 +4,7 @@
 
 Let a player invite others with a share link, then read back who joined. Each invite carries a campaign `reference` so conversions can be grouped. Optional. Guard with `isSupported()`.
 
-> Not offered on the current platforms. `isSupported()` returns `false` on Poki, GameDistribution, CrazyGames, Yandex and YouTube, and `shareAsync` / `listAsync` reject with `FEATURE_NOT_SUPPORTED`. The API is in Core so you can build against it and adopt it where a platform supports it.
+> Offered on Jest only (see the Jest quickstart). `isSupported()` returns `false` on Poki, GameDistribution, CrazyGames, Yandex and YouTube, and `shareAsync` / `listAsync` reject with `FEATURE_NOT_SUPPORTED` there.
 
 > **Verify before rewarding.** Never grant a referral reward from the client alone. Send `signedRequest` from `listAsync` to your server and verify it there first.
 

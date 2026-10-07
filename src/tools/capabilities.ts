@@ -133,7 +133,7 @@ export function registerCapabilitiesTool(server: McpServer): void {
       ...readOnlyTool("Get the module × platform support matrix"),
       description:
         `Which Yes2SDK modules are supported on which platforms (${SUPPORTED_PLATFORMS.join(", ")}), as a Ready / Partial / not-offered matrix, optionally narrowed to one platform (a column) or one module (a row). ` +
-        "Answers \"do I need to guard this module behind isSupported()?\" — Friends and Auth are CrazyGames/Yandex-only, banners are not offered on Poki. " +
+        "Answers \"do I need to guard this module behind isSupported()?\": Friends is CrazyGames-only, Auth is CrazyGames, Yandex and Jest only, banners are not offered on Poki, and Jest has no ads. " +
         "Reads the bundled API docs; per-method detail comes from get_api_reference(module).",
       inputSchema: {
         platform: z

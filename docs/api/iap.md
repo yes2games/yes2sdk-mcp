@@ -4,7 +4,7 @@
 
 In-app purchases: read the product catalog, initiate a purchase, restore and consume purchases, and manage subscriptions. Optional. Guard with `isSupported()`; guard the subscription calls with `isSubscriptionSupported()`.
 
-> Available on **Yandex** today (native payments). Other platforms report `isSupported() === false`; the calls stay safe so a single codebase runs everywhere. The subscription API exists in Core, but no current platform offers subscriptions (`isSubscriptionSupported() === false` everywhere), so those calls are not usable yet.
+> Available on **Yandex** (native payments) and **Jest** today. Other platforms report `isSupported() === false`; the calls stay safe so a single codebase runs everywhere. Subscriptions are offered on Jest only (`isSubscriptionSupported() === true` there, `false` everywhere else). See the Jest quickstart.
 
 > **Always consume after granting.** For consumable products, grant the item to the player first, then call `consumePurchaseAsync` with the purchase token so the player can buy it again.
 
@@ -52,7 +52,7 @@ In-app purchases: read the product catalog, initiate a purchase, restore and con
 
 Yandex maps to its native payments API. On every other platform the strategy's `isSupported()` returns `false`. Guard your calls with `isSupported()`.
 
-¹ Subscriptions are not offered anywhere yet. `isSubscriptionSupported()` returns `false` on every platform, Yandex included, and the four subscription methods reject with `FEATURE_NOT_SUPPORTED`.
+¹ Subscriptions are offered on Jest only. `isSubscriptionSupported()` returns `false` on every other platform, Yandex included, and there the four subscription methods reject with `FEATURE_NOT_SUPPORTED`.
 
 ---
 

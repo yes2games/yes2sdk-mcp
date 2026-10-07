@@ -7,9 +7,11 @@ import {
   runBuildChecksInline,
   type BuildFinding,
   type BuildSeverity,
+  PLATFORM_LABELS,
 } from "../lib/build-checks.js";
 import { readOnlyTool } from "../lib/annotations.js";
 import { SUPPORTED_PLATFORMS } from "../lib/platforms.js";
+import { getLaunchChecklist, hasPlatformRules } from "../lib/launch-checklists.js";
 
 const SEVERITY_ORDER: Record<string, number> = { FAIL: 0, WARN: 1, INFO: 2 };
 
@@ -87,7 +89,8 @@ export function registerValidateTool(server: McpServer): void {
         "   a) `buildPath`: absolute path to an ALREADY-EXTRACTED build folder, available when this server runs LOCALLY over stdio; the HOSTED/sandboxed server has no disk access.\n" +
         "   b) INLINE content for the hosted server: `indexHtml` (the index.html text), `fileList` (file paths in the build) and/or `jsContents` (the build's JS file contents). Bundling is verifiable only when `jsContents` is present.\n" +
         "   Covered: Yes2SDK bundled into the JS, no external <script src=\"http...\"> tags (platforms block them), index.html present (Poki also needs index.json), and a responsive full-viewport canvas heuristic.\n\n" +
-        "2) BEHAVIORAL compliance checks — `eventLogJson`: a JSON string of an exported Yes2SDK Inspector event log (LogEntry objects with type, method, params, success). Covers the platform's runtime rules such as gameplayStop before ads, reward only on adViewed, and no ads in the first 30s. These rules need a real run in the QA Inspector; static files cannot produce them.",
+        "2) BEHAVIORAL compliance checks, from `eventLogJson`: a JSON string of an exported Yes2SDK Inspector event log (LogEntry objects with type, method, params, success). Covers the platform's runtime rules such as gameplayStop before ads, reward only on adViewed, and no ads in the first 30s. These rules need a real run in the QA Inspector; static files cannot produce them.\n\n" +
+        "For a platform with no automated rules yet (Jest), only universal rules run and the verdict says so.",
       inputSchema: {
         platform: z.enum(SUPPORTED_PLATFORMS).describe("Target platform to validate against."),
         buildPath: z
@@ -114,10 +117,20 @@ export function registerValidateTool(server: McpServer): void {
       
     },
     async ({ platform, buildPath, indexHtml, fileList, jsContents, eventLogJson }) => {
+      // A platform with no automated rules of its own must never read as a
+      // clean pass: only the universal rules ran for it.
+      const rulesPending = !hasPlatformRules(platform);
+      const platformName = getLaunchChecklist(platform)?.platformName ?? PLATFORM_LABELS[platform] ?? platform;
+      const checklistPointer = getLaunchChecklist(platform)
+        ? ` Verify its launch checklist from get_platform_requirements(platform: "${platform}") by hand.`
+        : "";
       const hasInlineStatic =
         indexHtml !== undefined || fileList !== undefined || jsContents !== undefined;
       const sections: string[] = [];
       let totalFails = 0;
+      // False until a static or compliance section actually ran: a bad event
+      // log alone must not produce a "no blocking FAILs" verdict.
+      let checksRan = false;
 
       if (!buildPath && !hasInlineStatic && !eventLogJson) {
         return {
@@ -154,6 +167,7 @@ export function registerValidateTool(server: McpServer): void {
         }
         totalFails += buildFindings.filter((f) => f.severity === "FAIL").length;
         sections.push(renderFindings("STATIC BUILD CHECKS", buildFindings));
+        checksRan = true;
       } else if (hasInlineStatic) {
         let buildFindings: Finding[];
         try {
@@ -167,6 +181,7 @@ export function registerValidateTool(server: McpServer): void {
         }
         totalFails += buildFindings.filter((f) => f.severity === "FAIL").length;
         sections.push(renderFindings("STATIC BUILD CHECKS", buildFindings));
+        checksRan = true;
       }
 
       // ── Behavioral compliance checks ─────────────────────────────────
@@ -192,6 +207,7 @@ export function registerValidateTool(server: McpServer): void {
           } else {
             const logs = parsed as LogEntry[];
             const results = runComplianceChecks(logs, platform);
+            checksRan = true;
             // Only surface rules that actually failed (passed===false); list passes as INFO count.
             const failedOrFlagged = results.filter((r) => !r.passed);
             const findings = failedOrFlagged.map(fromComplianceResult);
@@ -201,7 +217,11 @@ export function registerValidateTool(server: McpServer): void {
               `COMPLIANCE CHECKS (${results.length} rules, ${passedCount} passed)`,
               findings
             );
-            sections.push(header);
+            sections.push(
+              rulesPending
+                ? `${header}\n\n${platformName}-specific rules: PENDING. Only the ${results.length} universal rules ran; no automated ${platformName} rule exists yet, so passing them says nothing about ${platformName}'s own requirements.${checklistPointer}`
+                : header
+            );
           }
         }
       }
@@ -210,9 +230,17 @@ export function registerValidateTool(server: McpServer): void {
         totalFails > 0
           ? `VERDICT: ${totalFails} blocking FAIL(s) — fix these before uploading.`
           : "VERDICT: no blocking FAILs. Review any WARNs above.";
+      const pendingVerdict = ` This is not a platform pass: automated ${platformName} rules are pending.${checklistPointer}`;
+      const finalVerdict = !checksRan
+        ? `VERDICT: no checks ran. Fix the input above and run validate_integration again.${rulesPending ? pendingVerdict : ""}`
+        : !rulesPending
+        ? verdict
+        : totalFails > 0
+          ? `${verdict}${pendingVerdict}`
+          : `VERDICT: no blocking FAILs in the universal checks.${pendingVerdict}`;
 
       return {
-        content: [{ type: "text" as const, text: `${sections.join("\n\n===\n\n")}\n\n${verdict}` }],
+        content: [{ type: "text" as const, text: `${sections.join("\n\n===\n\n")}\n\n${finalVerdict}` }],
       };
     }
   );

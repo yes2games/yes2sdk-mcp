@@ -21,11 +21,11 @@ All tools are read-only (`readOnlyHint`); none write to the consumer filesystem 
 | `get_install_instructions` | `{ engine, platform? }` | Version-pinned install + post-install steps for `unity` \| `defold` \| `js`, plus how to verify the SDK is importable. Call before generating any SDK code. |
 | `detect_sdk` | `{ projectPath }` or `{ files }` | Inspect a project (read-only): engine, whether the SDK is installed, the version, and any install steps still required. `projectPath` reads disk (local stdio only); `files` takes the engine-marker files inline, which is how the hosted server sees a project. |
 | `search_docs` | `{ query }` | Keyword search across all bundled docs; returns top sections with their doc slug. |
-| `get_quickstart` | `{ platform }` | Full quickstart guide for `poki` \| `crazygames` \| `yandex` \| `gamedistribution` \| `youtube`. |
-| `get_api_reference` | `{ module }` | Full API reference for one module (`overview`, `lifecycle`, `ads`, `analytics`, `auth`, `banners`, `data`, `errors`, `friends`, `game`, `player`, `score`, `session`, `upcoming`). |
+| `get_quickstart` | `{ platform }` | Full quickstart guide for `poki` \| `crazygames` \| `yandex` \| `gamedistribution` \| `youtube` \| `jest`. |
+| `get_api_reference` | `{ module }` | Full API reference for one module (`overview`, `lifecycle`, `ads`, `analytics`, `auth`, `banners`, `data`, `errors`, `friends`, `game`, `player`, `score`, `session`, `referrals`, `upcoming`). |
 | `list_sdk_modules` | `{}` | List all API reference module names. |
 | `get_platform_capabilities` | `{ platform?, module? }` | Module × platform support matrix (`Ready` / `Partial` / not offered); optionally filter to one platform column or one module row. |
-| `get_platform_requirements` | `{ platform }` | The compliance rules a build must satisfy for a platform, as `id [severity]: description`. |
+| `get_platform_requirements` | `{ platform }` | The compliance rules a build must satisfy for a platform, as `id [severity]: description`. For Jest, whose automated rules are pending, it says so and lists the launch checklist as `[manual]` items. |
 | `get_compliance_rule` | `{ ruleId }` | One compliance rule by id (e.g. `P-002`): severity, platform, what it checks, and the fix. |
 | `troubleshoot` | `{ symptom }` | Map an error string or description to its likely cause and the ordered fix. |
 | `validate_integration` | `{ platform, buildPath? \| inline build, eventLogJson? }` | Static build checks and/or behavioral compliance checks (see below). |
@@ -46,6 +46,10 @@ All tools are read-only (`readOnlyHint`); none write to the consumer filesystem 
    30 s). These require running the game in the QA Inspector and exporting its log.
 
 You may pass one or both. Always pass `platform`.
+
+For a platform with no automated rules of its own yet (currently Jest), only the universal
+rules run, and the result says so: the verdict is never a platform pass, and it points to the
+launch checklist in `get_platform_requirements`.
 
 ## Connecting
 
@@ -235,7 +239,8 @@ Notes:
 - `src/resources/`, `src/prompts/` — the `yes2sdk://` module resources and the integrate prompts.
 - `src/lib/` — the leaf layer, importing nothing from `tools/`: docs scanner/search (`docs.ts`),
   the copied compliance engine and its types (`compliance.ts`, `inspector-types.ts`), engine
-  metadata (`sdk-meta.ts`), static build checks (`build-checks.ts`), shared tool annotations
+  metadata (`sdk-meta.ts`), static build checks (`build-checks.ts`), hand-written platform
+  launch checklists (`launch-checklists.ts`), shared tool annotations
   (`annotations.ts`), the canonical positioning line (`positioning.ts`) and the version lookup
   (`version.ts`).
 - `docs/` — bundled markdown docs, shipped with the package and with the container.

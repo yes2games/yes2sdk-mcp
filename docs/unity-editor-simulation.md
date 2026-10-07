@@ -39,7 +39,7 @@ The table below is derived directly from the `#else` branch of each `Runtime/<Mo
 | **Context** | Stub module: `IsSupported()` returns `false`; all calls resolve with `FeatureNotSupported` on every platform including Editor |
 | **IAP** | Stub module: `IsSupported()` returns `false`; all calls resolve with `FeatureNotSupported` on every platform including Editor |
 | **Leaderboard** | Stub module: `IsSupported()` returns `false`; all calls resolve with `FeatureNotSupported` on every platform including Editor |
-| **Notifications** | Stub module: `IsSupported()` returns `false`; all calls resolve with `FeatureNotSupported` on every platform including Editor |
+| **Notifications** | `IsSupported()` returns `false` and calls resolve with `FeatureNotSupported` in the Editor unless the Editor notifications mock is enabled; WebGL builds report the real platform (supported on Jest) |
 | **Stats** | Stub module: `IsSupported()` returns `false`; all calls resolve with `FeatureNotSupported` on every platform including Editor |
 | **Tournament** | Stub module: `IsSupported()` returns `false`; all calls resolve with `FeatureNotSupported` on every platform including Editor |
 
