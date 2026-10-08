@@ -152,6 +152,7 @@ end
 
 `ScheduleNotificationOptions = { id?; title; body; iconUrl?; imageAssetId?; imageDataUrl?; delaySeconds?; scheduledInDays?; ctaText?; priority?; data? }`
 
+- `title`: required, but it may be an empty string. Where the platform allows it (Jest), the notification is then sent without a title.
 - `id`: stable id. Scheduling again with the same id replaces the earlier notification where the platform supports it; generated when omitted.
 - `delaySeconds` / `scheduledInDays`: provide **exactly one**. `delaySeconds` is a positive number of seconds (a platform may cap it, for example at 7 days, and rejects longer delays with `INVALID_PARAM`). `scheduledInDays` is a whole number from 0 to 7 and lets the platform pick the delivery time within that day. Existing calls that pass only `delaySeconds` keep working.
 - `ctaText`: call-to-action label, 1 to 50 characters. A platform default is used when omitted.
@@ -166,7 +167,7 @@ end
 ### Notifications on Jest
 
 - **Registered players only.** A guest gets `PLAYER_NOT_AUTHENTICATED`. Check `auth.isAuthenticated()` first, or offer the [registration prompt](auth.md).
-- **Limits:** `title` at most 200 characters, `body` 1 to 2000 characters, `ctaText` 1 to 50 characters (default `"Play"`), `delaySeconds` at most 7 days. Breaking one rejects with `INVALID_PARAM`.
+- **Limits:** `title` at most 200 characters (it may be empty: Jest then sends the notification without a title), `body` 1 to 2000 characters, `ctaText` 1 to 50 characters (default `"Play"`), `delaySeconds` at most 7 days. Breaking one rejects with `INVALID_PARAM`.
 - `scheduledInDays` lets Jest pick the delivery time. `0` means later today.
 - `imageAssetId` is an image from your game's Image Library in Jest's Developer Console. A missing or unapproved id falls back to the game's Hero image. `iconUrl` is ignored.
 - Scheduling again with the same `id` replaces the earlier notification, so there is no need to cancel first.
@@ -200,7 +201,7 @@ if (Yes2SDK.notifications.isSupported() && Yes2SDK.auth.isAuthenticated()) {
 | `void CancelAsync(string notificationId, Action onSuccess = null, Action<Error> onError = null)` / `Task CancelAsync(string notificationId, CancellationToken cancellationToken)` | Cancel by the id returned when scheduling. |
 | `void CancelAllAsync(Action onSuccess = null, Action<Error> onError = null)` / `Task CancelAllAsync(CancellationToken cancellationToken)` | Cancel every notification this game scheduled (on Jest, only this session's). |
 
-`NotificationOptions` (class): `string Id`, `string Title`, `string Body`, `int? DelaySeconds`, `int? ScheduledInDays` (set exactly one of the two), `string CtaText`, `NotificationPriority? Priority` (`Low`, `Medium`, `High`, `Critical`; default `Medium`), `string ImageAssetId` or `string ImageDataUrl` (at most one), `string IconUrl`, `Dictionary<string, object> Data`. The rules match Core.
+`NotificationOptions` (class): `string Id`, `string Title` (may be empty: the notification is then sent without a title), `string Body`, `int? DelaySeconds`, `int? ScheduledInDays` (set exactly one of the two), `string CtaText`, `NotificationPriority? Priority` (`Low`, `Medium`, `High`, `Critical`; default `Medium`), `string ImageAssetId` or `string ImageDataUrl` (at most one), `string IconUrl`, `Dictionary<string, object> Data`. The rules match Core.
 
 `ScheduledNotification` (struct): `string Id`, `string Title`, `string Body`, `long ScheduledAt` (Unix ms).
 
@@ -231,7 +232,7 @@ if (Yes2SDK.Yes2SDK.Notifications.IsSupported() && Yes2SDK.Yes2SDK.Auth.IsAuthen
 
 | Signature | Description |
 |-----------|-------------|
-| `yes2sdk.notifications_schedule(options, callback)` | `options` table with snake_case keys: `id`, `title` (required), `body`, `delay_seconds` or `scheduled_in_days` (exactly one), `cta_text`, `priority` (`"low"`, `"medium"`, `"high"` or `"critical"`), `image_asset_id` or `image_data_url` (at most one), `icon_url`, `data` (table). A JSON string is passed through as is, so use the camelCase names in that case. `callback(self, success, result_json)`: `{"id","title","body","scheduledAt"}` with `scheduledAt` in ms since the epoch. Invalid options fail with `INVALID_PARAM`. |
+| `yes2sdk.notifications_schedule(options, callback)` | `options` table with snake_case keys: `id`, `title` (required, a string; it may be empty, and platforms that allow it then send the notification without a title), `body`, `delay_seconds` or `scheduled_in_days` (exactly one), `cta_text`, `priority` (`"low"`, `"medium"`, `"high"` or `"critical"`), `image_asset_id` or `image_data_url` (at most one), `icon_url`, `data` (table). A JSON string is passed through as is, so use the camelCase names in that case. `callback(self, success, result_json)`: `{"id","title","body","scheduledAt"}` with `scheduledAt` in ms since the epoch. Invalid options fail with `INVALID_PARAM`. |
 | `yes2sdk.notifications_cancel(id, callback)` | `callback(self, success, err)`. A non-string or empty id fails with `INVALID_PARAM`. |
 | `yes2sdk.notifications_cancel_all(callback)` | Cancel every notification this game scheduled (on Jest, only this session's). |
 | `yes2sdk.notifications_is_supported()` | Boolean. |

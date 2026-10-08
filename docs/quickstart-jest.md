@@ -11,7 +11,7 @@ Jest needs at least Core 2.10.0, Unity 2.10.0 (2.11.0 for `Platform.Jest`) or De
 
 If you use the Yes2SDK MCP, call `get_install_instructions` for exact pinned steps and `detect_sdk` to confirm the SDK is installed before generating any code.
 
-**Do not add Jest's own SDK.** No Jest Unity package and no Jest `<script>` tag. Yes2SDK loads the Jest SDK itself, and a second copy can conflict with it.
+**Do not add Jest's own SDK.** No Jest Unity package and no Jest `<script>` tag. Yes2SDK loads the Jest SDK itself, and a second copy can conflict with it. In Unity, Yes2SDK logs a warning in the Editor and on each WebGL build when it finds Jest's `com.jest.sdk` package or a leftover `Assets/com.jest.sdk/init.jspre`; remove them.
 
 ## What Jest Is
 
@@ -41,6 +41,7 @@ The middle column is what Yes2SDK invokes on `JestSDK` under the hood. You never
 | `lifecycle.onHide` / `onShow` | `Yes2SDK.on('pause', fn)` / `on('resume', fn)` | Recommended |
 | `JestSDK.getEntryPayload()` | `session.getEntryPointData()` | Recommended |
 | Signed player | `player.getSignedPlayerInfoAsync()` | Optional (for your server) |
+| Bot avatars | `player.getBotAvatarAsync(username, size)`, `player.isBotAvatarSupported()` | Optional (avatars for computer-controlled players) |
 | `JestSDK.referrals` | `referrals.shareAsync()`, `referrals.listAsync()` | Optional |
 | `JestSDK.social.shareImage()` | `context.shareAsync({ intent, image, data })` | Optional |
 
@@ -354,6 +355,7 @@ If reviewers send back changes, upload a new build and request publish again on 
 
 - **Data storage:** the Data module and `player.getDataAsync/setDataAsync` share Jest's player store, which follows the player across devices. The limit is 1 MB per player. Past it, `data.setString` skips the write with a warning and `setStringAsync` resolves `false`.
 - **Player:** every player, guest or registered, has a stable id. `player.getMode()` returns `"authorized"` for a registered player and `"lite"` for a guest.
+- **Bot avatars:** `player.getBotAvatarAsync(username, size)` returns a Jest-generated avatar URL for a bot. The same username always gets the same picture. Other platforms reject it, so check `player.isBotAvatarSupported()` and keep your own art as the fallback.
 - **Registration prompt:** throws `INVALID_OPERATION` for a registered player. `INVALID_PARAM` means the message is blank, over 140 characters, or lacks exactly one `{{registrationCode}}`. Jest finishes registration over SMS and reloads the game, so check `auth.isAuthenticated()` on the next launch.
 - **Prices:** `Product.priceAmount` is a decimal such as `4.99`, not cents. `developerPayload` is not passed to Jest.
 - **Purchases:** a closed checkout rejects with `IAP_PURCHASE_CANCELLED` (Unity: `ErrorCode.UserCancelled`). `consumePurchaseAsync` is safe to repeat. Test purchases have `isSandbox: true`.
@@ -362,4 +364,5 @@ If reviewers send back changes, upload a new build and request publish again on 
 - **Gameplay events:** keep calling `game.gameplayStart()` and `game.gameplayStop()`. They do nothing on Jest, but the same code then works on the other platforms.
 - **Analytics, audio, haptics:** `analytics.log*` is not forwarded to Jest. `session.isAudioEnabled()` is always `true`. Haptic feedback does nothing.
 - **Invites:** use Referrals, not `game.inviteLink()`. Jest only counts invited players who complete registration.
+- **Referral options:** `referrals.shareAsync` also takes `onboardingSlug` (route invited players through an onboarding game first) and `notificationTemplates` (notifications to the referrer as invited players join). See [Referrals](/docs/api/referrals).
 - **Entry point data:** comes only from Jest's entry payload, never from the page URL.
