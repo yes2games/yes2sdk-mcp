@@ -115,11 +115,13 @@ Content-Type: multipart/form-data
 |---|---|---|---|
 | `build` | file | yes | The WebGL build zip, `index.html` at the zip root or one level down. Max 500 MB |
 | `version` | text | yes | Your version string, up to 100 characters. Must be unique within the game |
+| `notes` | text | no | Release notes for this build, shown on the build in the dashboard and in the team's new-build notification. Up to 500 characters, trimmed. Blank is the same as absent |
 
 ```bash
 curl -X POST https://dashboard.yes2games.com/api/v1/games/$GAME_ID/builds \
   -H "Authorization: Bearer $YES2_API_KEY" \
   -F "version=3.0.9" \
+  -F "notes=Fixed the wave 10 boss softlock" \
   -F "build=@Age of Zombies v3.0.9.zip"
 ```
 
@@ -130,14 +132,17 @@ curl -X POST https://dashboard.yes2games.com/api/v1/games/$GAME_ID/builds \
   "success": true,
   "data": {
     "id": "c81e...",
-    "game_id": "3f6c1b8e-...",
-    "engine": "unity",
-    "version": "3.0.9",
+    "original_filename": "Age of Zombies v3.0.9.zip",
+    "original_size_bytes": 48211934,
     "status": "uploaded",
-    "created_at": "2026-08-24T09:14:02.887Z"
+    "notes": "Fixed the wave 10 boss softlock",
+    "created_at": "2026-08-24T09:14:02.887Z",
+    "version": "3.0.9"
   }
 }
 ```
+
+The response may also carry informational analysis fields such as `compression`, `largest_file_bytes`, and `largest_file_name`. Do not depend on them being present.
 
 ### What happens after a successful upload
 
@@ -164,6 +169,7 @@ Every failure answers with `{"success": false, "error": "...", "code": "..."}`. 
 | `401` | `INVALID_API_KEY` | Missing, malformed, revoked, or unknown key |
 | `403` | | The key's team does not own this game |
 | `400` | `MISSING_VERSION` | No `version`, blank, or over 100 characters |
+| `400` | `BUILD_NOTES_TOO_LONG` | `notes` is over 500 characters after trimming |
 | `400` | `MISSING_BUILD` | No `build` file part |
 | `400` | `UPLOAD_ANALYSIS_FAILED` | The zip could not be read. `details` carries the reason |
 | `409` | `VERSION_EXISTS` | This game already has a build at that version |
@@ -188,10 +194,13 @@ Every failure answers with `{"success": false, "error": "...", "code": "..."}`. 
       "https://dashboard.yes2games.com/api/v1/games/$GAME_ID/builds" \
       -H "Authorization: Bearer $YES2_API_KEY" \
       -F "version=${GITHUB_REF_NAME}" \
+      --form-string "notes=$(git log -1 --format=%s | cut -c1-500)" \
       -F "build=@build/WebGL.zip"
 ```
 
 `--fail-with-body` makes curl exit non-zero on a 4xx or 5xx while still printing the JSON, so a failed upload fails the job and says why. Without it curl exits `0` and the pipeline goes green on a rejected build.
+
+The `notes` line attaches the commit subject as release notes. It uses `--form-string` because `-F` would read a subject starting with `@` or `<` as a file path. Keep the `cut -c1-500`: notes over 500 characters fail the whole upload with `BUILD_NOTES_TOO_LONG`.
 
 To make a re-run of the same tag a no-op instead of a failure, treat `409` as success:
 
