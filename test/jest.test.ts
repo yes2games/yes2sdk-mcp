@@ -9,6 +9,9 @@ import { parseCapabilityMatrix } from "../src/tools/capabilities.js";
 import { readDocBySlug } from "../src/lib/docs.js";
 import { evaluateBuild } from "../src/lib/build-checks.js";
 import { getLaunchChecklist, hasPlatformRules } from "../src/lib/launch-checklists.js";
+import { getRuleById, getRulesForPlatform } from "../src/lib/compliance.js";
+
+const JEST_RULE_IDS = Array.from({ length: 14 }, (_, i) => `J-${String(i + 1).padStart(3, "0")}`);
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const GOODBUILD = path.join(HERE, "fixtures", "goodbuild");
@@ -129,29 +132,55 @@ describe("get_platform_capabilities: jest column", () => {
 });
 
 describe("launch checklists", () => {
-  it("has a 10-item Jest checklist and none invented for other platforms", () => {
-    expect(getLaunchChecklist("jest")?.items).toHaveLength(10);
+  it("has a 6-item manual Jest checklist and none invented for other platforms", () => {
+    expect(getLaunchChecklist("jest")?.items).toHaveLength(6);
     for (const p of SUPPORTED_PLATFORMS.filter((x) => x !== "jest")) {
       expect(getLaunchChecklist(p), p).toBeUndefined();
     }
   });
 
-  it("knows Jest has no automated platform rules yet, Poki does", () => {
-    expect(hasPlatformRules("jest")).toBe(false);
+  it("knows Jest has automated platform rules J-001 to J-014, like Poki", () => {
+    expect(hasPlatformRules("jest")).toBe(true);
     expect(hasPlatformRules("poki")).toBe(true);
+    const jestOnly = getRulesForPlatform("jest").filter((r) => r.platform === "jest");
+    expect(jestOnly.map((r) => r.id)).toEqual(JEST_RULE_IDS);
+  });
+
+  it("every rule id the Jest checklist points at exists and is a Jest rule", () => {
+    const cited = new Set(
+      (getLaunchChecklist("jest")?.items ?? []).flatMap((item) => item.match(/J-\d{3}/g) ?? [])
+    );
+    expect(cited.size).toBeGreaterThan(0);
+    for (const id of cited) {
+      expect(getRuleById(id)?.platform, id).toBe("jest");
+    }
+  });
+
+  it("drops the checklist items the J- rules now automate", () => {
+    const items = (getLaunchChecklist("jest")?.items ?? []).join("\n");
+    expect(items).not.toMatch(/notifications\.scheduleAsync/);
+    expect(items).not.toMatch(/getSubscriptionsAsync/);
+    expect(items).not.toMatch(/Yes2SDK\.on\(\\?"exitRequested/);
+    expect(items).not.toMatch(/Do not rely on ads/);
   });
 });
 
 describe("get_platform_requirements: jest", () => {
-  it("states that automated Jest rules are pending, lists universal rules and the checklist", async () => {
+  it("lists the automated universal and J- rules, then the manual checklist", async () => {
     const text = textOf(
       await client.callTool({ name: "get_platform_requirements", arguments: { platform: "jest" } })
     );
-    expect(text).toMatch(/automated compliance rules for Jest are pending/i);
+    expect(text).not.toMatch(/pending/i);
+    expect(text).toMatch(/Automated rules \(universal and Jest-specific, run by validate_integration\)/);
     expect(text).toMatch(/U-001 \[/);
-    for (let i = 1; i <= 10; i++) {
+    for (const id of JEST_RULE_IDS) {
+      expect(text, id).toMatch(new RegExp(`^- ${id} \\[(FAIL|WARN)\\]: `, "m"));
+    }
+    for (let i = 1; i <= 6; i++) {
       expect(text, `checklist item ${i}`).toMatch(new RegExp(`^${i}\\. \\[manual\\] `, "m"));
     }
+    expect(text).not.toMatch(/^7\. \[manual\] /m);
+    expect(text).toMatch(/under 10 seconds/);
     expect(text).toContain("exitRequested");
     expect(text).toContain("getEntryPointData");
     expect(text).toContain("getPurchasesAsync");
@@ -169,21 +198,25 @@ describe("get_platform_requirements: jest", () => {
   });
 });
 
-describe("validate_integration: jest never reads as a clean platform pass", () => {
-  it("behavioral mode states the pending rules and points at the checklist", async () => {
+describe("validate_integration: jest runs its J- rules", () => {
+  it("behavioral mode runs the J- rules and points at the manual checklist", async () => {
     const text = textOf(
       await client.callTool({
         name: "validate_integration",
         arguments: { platform: "jest", eventLogJson: "[]" },
       })
     );
-    expect(text).toMatch(/Jest-specific rules: PENDING/);
+    expect(text).not.toMatch(/PENDING/);
+    expect(text).not.toMatch(/not a platform pass/i);
+    const rulesRan = Number(text.match(/COMPLIANCE CHECKS \((\d+) rules/)?.[1]);
+    expect(rulesRan).toBe(getRulesForPlatform("jest").length);
+    // An empty log never called startGameAsync().
+    expect(text).toMatch(/\[J-001\]/);
+    expect(text).toMatch(/VERDICT: \d+ blocking FAIL\(s\)/);
     expect(text).toContain('get_platform_requirements(platform: "jest")');
-    expect(text).not.toContain("VERDICT: no blocking FAILs. Review any WARNs above.");
-    expect(text).toMatch(/VERDICT: .*not a platform pass/i);
   });
 
-  it("static-only mode also carries the pending verdict", async () => {
+  it("static-only mode gives a normal verdict plus the checklist pointer", async () => {
     const text = textOf(
       await client.callTool({
         name: "validate_integration",
@@ -191,11 +224,22 @@ describe("validate_integration: jest never reads as a clean platform pass", () =
       })
     );
     expect(text).toContain("Static build checks for platform: Jest.");
-    expect(text).not.toContain("VERDICT: no blocking FAILs. Review any WARNs above.");
-    expect(text).toMatch(/VERDICT: .*not a platform pass/i);
+    expect(text).not.toMatch(/not a platform pass/i);
+    expect(text).toContain("VERDICT: no blocking FAILs. Review any WARNs above.");
+    expect(text).toContain('get_platform_requirements(platform: "jest")');
   });
 
-  it("still reports blocking FAILs for jest when there are some", async () => {
+  it("other platforms get no checklist pointer", async () => {
+    const text = textOf(
+      await client.callTool({
+        name: "validate_integration",
+        arguments: { platform: "poki", buildPath: GOODBUILD },
+      })
+    );
+    expect(text).not.toContain("get_platform_requirements(");
+  });
+
+  it("flags a rewarded ad on jest as J-003", async () => {
     const text = textOf(
       await client.callTool({
         name: "validate_integration",
@@ -207,7 +251,15 @@ describe("validate_integration: jest never reads as a clean platform pass", () =
         },
       })
     );
-    expect(text).toMatch(/Jest-specific rules: PENDING/);
+    expect(text).toMatch(/FAIL[\s\S]*\[J-003\]/);
+    expect(text).toMatch(/VERDICT: \d+ blocking FAIL\(s\)/);
+  });
+
+  it("get_compliance_rule serves a Jest rule by id", async () => {
+    const res = await client.callTool({ name: "get_compliance_rule", arguments: { ruleId: "j-001" } });
+    expect(isError(res), textOf(res)).toBe(false);
+    expect(textOf(res)).toMatch(/J-001/);
+    expect(textOf(res)).toMatch(/startGameAsync/);
   });
 
   it("labels jest in the static checks", () => {
@@ -258,10 +310,9 @@ describe("jest ads: engine-specific no-fill behaviour", () => {
     expect(doc).not.toMatch(/continue in `afterAd`\.\s*\|/);
   });
 
-  it("the checklist ad item names each engine's callback", () => {
-    const item = getLaunchChecklist("jest")?.items[9] ?? "";
-    expect(item).toMatch(/Unity: `onError` with `NoFill`/);
-    expect(item).toMatch(/Defold: `no_fill` then `after_ad`/);
+  it("ads are automated by J-003 and J-004, not a manual checklist item", () => {
+    expect(getRuleById("J-003")?.severity).toBe("FAIL");
+    expect(getRuleById("J-004")?.severity).toBe("WARN");
   });
 
   it("troubleshoot maps a Unity onError NoFill symptom and tells Unity to resume in onError", async () => {
@@ -336,10 +387,11 @@ describe("round 2 review fixes", () => {
     }
   });
 
-  it("validate_integration's description mentions the Jest caveat", async () => {
+  it("validate_integration's description names the Jest rules", async () => {
     const { tools } = await client.listTools();
     const tool = tools.find((t) => t.name === "validate_integration");
-    expect(tool?.description).toMatch(/no automated rules yet \(Jest\)/);
+    expect(tool?.description).toMatch(/Jest runs its automated rules J-001 to J-014/);
+    expect(tool?.description).not.toMatch(/no automated rules yet \(Jest\)/);
   });
 
   it("get_api_reference serves referrals", async () => {

@@ -90,7 +90,7 @@ export function registerValidateTool(server: McpServer): void {
         "   b) INLINE content for the hosted server: `indexHtml` (the index.html text), `fileList` (file paths in the build) and/or `jsContents` (the build's JS file contents). Bundling is verifiable only when `jsContents` is present.\n" +
         "   Covered: Yes2SDK bundled into the JS, no external <script src=\"http...\"> tags (platforms block them), index.html present (Poki also needs index.json), and a responsive full-viewport canvas heuristic.\n\n" +
         "2) BEHAVIORAL compliance checks, from `eventLogJson`: a JSON string of an exported Yes2SDK Inspector event log (LogEntry objects with type, method, params, success). Covers the platform's runtime rules such as gameplayStop before ads, reward only on adViewed, and no ads in the first 30s. These rules need a real run in the QA Inspector; static files cannot produce them.\n\n" +
-        "For a platform with no automated rules yet (Jest), only universal rules run and the verdict says so.",
+        "Jest runs its automated rules J-001 to J-014 alongside the universal ones; its remaining launch checklist items are manual, and the verdict points at them. A platform with no automated rules of its own runs only the universal rules and the verdict says so.",
       inputSchema: {
         platform: z.enum(SUPPORTED_PLATFORMS).describe("Target platform to validate against."),
         buildPath: z
@@ -122,7 +122,7 @@ export function registerValidateTool(server: McpServer): void {
       const rulesPending = !hasPlatformRules(platform);
       const platformName = getLaunchChecklist(platform)?.platformName ?? PLATFORM_LABELS[platform] ?? platform;
       const checklistPointer = getLaunchChecklist(platform)
-        ? ` Verify its launch checklist from get_platform_requirements(platform: "${platform}") by hand.`
+        ? ` Then verify the ${platformName} launch checklist from get_platform_requirements(platform: "${platform}") by hand.`
         : "";
       const hasInlineStatic =
         indexHtml !== undefined || fileList !== undefined || jsContents !== undefined;
@@ -234,7 +234,7 @@ export function registerValidateTool(server: McpServer): void {
       const finalVerdict = !checksRan
         ? `VERDICT: no checks ran. Fix the input above and run validate_integration again.${rulesPending ? pendingVerdict : ""}`
         : !rulesPending
-        ? verdict
+        ? `${verdict}${checklistPointer}`
         : totalFails > 0
           ? `${verdict}${pendingVerdict}`
           : `VERDICT: no blocking FAILs in the universal checks.${pendingVerdict}`;

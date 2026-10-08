@@ -47,6 +47,119 @@ function allEvents(logs: LogEntry[], eventName: string): LogEntry[] {
   );
 }
 
+/**
+ * Marker every rule puts in its message when the log holds nothing it can
+ * judge yet. The Inspector rail reads it to show "not checked" instead of a
+ * pass, so keep the wording exact.
+ */
+export const NOT_APPLICABLE_MARKER = "(rule not applicable)";
+
+/** True when a rule result only means "nothing to judge in this log yet". */
+export function isNotApplicable(result: ComplianceResult): boolean {
+  return result.passed && result.message.includes(NOT_APPLICABLE_MARKER);
+}
+
+// ── Jest helpers ──────────────────────────────────────────────────────
+
+/** Calls that write player progress through Yes2SDK (data module or player store). */
+const DATA_WRITE_PREFIXES = ["data.set", "data.flush", "data.save", "player.setData", "player.flushData"];
+
+function isDataWrite(entry: LogEntry): boolean {
+  return entry.type === "call" && DATA_WRITE_PREFIXES.some((p) => entry.method.startsWith(p));
+}
+
+function byTime(a: LogEntry, b: LogEntry): number {
+  return a.timestamp - b.timestamp;
+}
+
+/** Calls whose method is exactly one of `methods`, oldest first. */
+function callsTo(logs: LogEntry[], ...methods: string[]): LogEntry[] {
+  return logs.filter((l) => l.type === "call" && methods.includes(l.method)).sort(byTime);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * The first argument of a logged call. The Inspector spy posts the call's
+ * arguments as an array; the debug adapter posts a params object instead.
+ */
+function firstArg(entry: LogEntry): unknown {
+  const params: unknown = entry.params;
+  return Array.isArray(params) ? params[0] : params;
+}
+
+/** The first argument as an options object (a JSON string is parsed), or undefined. */
+function optionsArg(entry: LogEntry): Record<string, unknown> | undefined {
+  let arg = firstArg(entry);
+  if (typeof arg === "string") {
+    try {
+      arg = JSON.parse(arg);
+    } catch {
+      return undefined;
+    }
+  }
+  return isRecord(arg) ? arg : undefined;
+}
+
+/** The result row a call produced: paired by correlationId, else the next result of the same method. */
+function resultOf(logs: LogEntry[], call: LogEntry): LogEntry | undefined {
+  if (call.correlationId) {
+    const paired = logs.find((l) => l.type === "result" && l.correlationId === call.correlationId);
+    if (paired) return paired;
+  }
+  return logs
+    .filter((l) => l.type === "result" && l.method === call.method && l.timestamp >= call.timestamp)
+    .sort(byTime)[0];
+}
+
+function failedWith(result: LogEntry | undefined, code: string): boolean {
+  return !!result && result.success === false && result.error?.code === code;
+}
+
+/**
+ * What the log says about the player being registered, from every signal that
+ * reports it: `auth.isAuthenticated()`, `player.getMode()` ("authorized" or
+ * "lite") and a successful `auth.signInAsync()`.
+ */
+function authSignals(logs: LogEntry[]): Array<{ timestamp: number; registered: boolean }> {
+  const out: Array<{ timestamp: number; registered: boolean }> = [];
+  for (const l of logs) {
+    if (l.type !== "result" || l.success === false) continue;
+    if (l.method === "auth.isAuthenticated" && typeof l.result === "boolean") {
+      out.push({ timestamp: l.timestamp, registered: l.result });
+    } else if (l.method === "player.getMode" && (l.result === "authorized" || l.result === "lite")) {
+      out.push({ timestamp: l.timestamp, registered: l.result === "authorized" });
+    } else if (l.method === "auth.signInAsync") {
+      out.push({ timestamp: l.timestamp, registered: true });
+    }
+  }
+  return out.sort((a, b) => a.timestamp - b.timestamp);
+}
+
+/** The latest known registration state at `timestamp`, or undefined when nothing reported it yet. */
+function registeredAt(logs: LogEntry[], timestamp: number): boolean | undefined {
+  const before = authSignals(logs).filter((s) => s.timestamp <= timestamp);
+  return before.length > 0 ? before[before.length - 1].registered : undefined;
+}
+
+/** The day (1 to 7, or 0) a scheduled notification lands on, when its options say. */
+function notificationDay(options: Record<string, unknown> | undefined): number | undefined {
+  if (!options) return undefined;
+  if (typeof options.scheduledInDays === "number") return options.scheduledInDays;
+  if (typeof options.delaySeconds === "number") return Math.ceil(options.delaySeconds / 86400);
+  return undefined;
+}
+
+/** Purchase tokens carried by a purchase result (one Purchase or a list of them). */
+function purchaseTokens(value: unknown): string[] {
+  const list = Array.isArray(value) ? value : [value];
+  return list
+    .map((p) => (isRecord(p) && typeof p.purchaseToken === "string" ? p.purchaseToken : undefined))
+    .filter((t): t is string => !!t);
+}
+
 function makeResult(
   rule: Pick<ComplianceRule, "id" | "platform" | "severity" | "description">,
   passed: boolean,
@@ -1422,6 +1535,443 @@ const YT003: ComplianceRule = {
   },
 };
 
+// ── Jest Rules ────────────────────────────────────────────────────────
+//
+// Only what an Inspector event log can prove. Jest's launch checklist items
+// that need a person (load time on a real phone, entry payload instead of URL
+// parameters, links that lead outside Jest, haptics, server verification,
+// Jest's own login reminders) stay manual. Root-absolute asset paths are a
+// static check: the dashboard's Jest packaging gate refuses those bundles.
+
+const J001: ComplianceRule = {
+  id: "J-001",
+  platform: "jest",
+  severity: "FAIL",
+  description: "Game marked loaded (startGameAsync calls Jest markGameLoaded)",
+  check: (logs) => {
+    const startGame = findCall(logs, "startGameAsync") || findCall(logs, "startGame");
+    return makeResult(J001, !!startGame,
+      startGame
+        ? "startGameAsync() was called, so Jest's markGameLoaded ran"
+        : "startGameAsync() never called: Jest keeps its loading screen up and the player never reaches the game",
+      { autoFix: "Call startGameAsync() the moment the game is interactive. On Jest it calls markGameLoaded" }
+    );
+  },
+};
+
+/** Longest silence Jest's Manual loading mode allows before it sends the player home. */
+const JEST_PROGRESS_GAP_MS = 15000;
+
+const J002: ComplianceRule = {
+  id: "J-002",
+  platform: "jest",
+  severity: "WARN",
+  description: "Loading progress reported at least every 15 seconds until startGameAsync",
+  check: (logs) => {
+    const startGame = [...allCalls(logs, "startGameAsync"), ...allCalls(logs, "startGame")].sort(byTime)[0];
+    if (!startGame) {
+      return makeResult(J002, true, `startGameAsync() not seen yet ${NOT_APPLICABLE_MARKER}`);
+    }
+    const sessionStart = Math.min(...logs.map((l) => l.timestamp));
+    const marks = [
+      sessionStart,
+      ...allCalls(logs, "setLoadingProgress")
+        .filter((p) => p.timestamp <= startGame.timestamp)
+        .map((p) => p.timestamp),
+      startGame.timestamp,
+    ].sort((a, b) => a - b);
+    let worstGap = 0;
+    let worstFrom = sessionStart;
+    for (let i = 1; i < marks.length; i++) {
+      const gap = marks[i] - marks[i - 1];
+      if (gap > worstGap) {
+        worstGap = gap;
+        worstFrom = marks[i - 1];
+      }
+    }
+    const passed = worstGap <= JEST_PROGRESS_GAP_MS;
+    return makeResult(J002, passed,
+      passed
+        ? `Loading progress never went quiet for more than 15s (longest gap ${Math.round(worstGap / 1000)}s)`
+        : `No loading progress for ${Math.round(worstGap / 1000)}s before startGameAsync(): in Jest's Manual loading mode the player is sent home after 15s`,
+      {
+        details: passed ? undefined : `Gap starts at ${worstFrom}ms; startGameAsync() at ${startGame.timestamp}ms`,
+        autoFix: "Call setLoadingProgress(n) at least every 15 seconds until startGameAsync(), and load the rest of the game after it",
+      }
+    );
+  },
+};
+
+const J003: ComplianceRule = {
+  id: "J-003",
+  platform: "jest",
+  severity: "FAIL",
+  description: "No rewarded ad requested (Jest disallows rewarded-ad mechanics)",
+  check: (logs) => {
+    const rewarded = allCalls(logs, "ads.showRewarded");
+    const passed = rewarded.length === 0;
+    return makeResult(J003, passed,
+      passed
+        ? "No rewarded ad requested"
+        : `${rewarded.length} rewarded ad request(s): Jest has no ads, so each one ends in noFill and whatever it unlocks is unreachable`,
+      {
+        details: passed ? undefined : rewarded.map((a) => `${a.method} at ${a.timestamp}ms`).join("; "),
+        autoFix: "Hide rewarded-ad offers on Jest (ads.isRewardedSupported() is false there) and never gate progression on a rewarded ad",
+      }
+    );
+  },
+};
+
+const J004: ComplianceRule = {
+  id: "J-004",
+  platform: "jest",
+  severity: "WARN",
+  description: "No interstitial or banner requested (Jest has no in-game ads)",
+  check: (logs) => {
+    const ads = [
+      ...allCalls(logs, "ads.showInterstitial"),
+      ...allCalls(logs, "ads.showBanner"),
+      ...allCalls(logs, "banners.show"),
+    ].sort(byTime);
+    const passed = ads.length === 0;
+    return makeResult(J004, passed,
+      passed
+        ? "No interstitial or banner requested"
+        : `${ads.length} ad request(s): they are safe on Jest (no ad is shown) but are dead code there`,
+      {
+        details: passed ? undefined : ads.map((a) => `${a.method} at ${a.timestamp}ms`).join("; "),
+        autoFix: "Skip ad requests on Jest: check ads.isInterstitialSupported() and ads.isBannerSupported() first",
+      }
+    );
+  },
+};
+
+const J005: ComplianceRule = {
+  id: "J-005",
+  platform: "jest",
+  severity: "FAIL",
+  description: "Guest progress saved before any registration or sign-in prompt",
+  check: (logs) => {
+    const prompt = callsTo(logs, "auth.showRegistrationPrompt", "auth.signInAsync")[0];
+    if (!prompt) {
+      return makeResult(J005, true, `No registration or sign-in prompt seen ${NOT_APPLICABLE_MARKER}`);
+    }
+    const save = logs.filter((l) => isDataWrite(l) && l.timestamp <= prompt.timestamp).sort(byTime)[0];
+    return makeResult(J005, !!save,
+      save
+        ? `Progress was saved (${save.method}) before the first ${prompt.method}()`
+        : `${prompt.method}() at ${prompt.timestamp}ms came before any save: registration reloads the game, so a guest loses progress`,
+      { autoFix: "Save the guest's progress through Yes2SDK.data (and confirm it with flushAsync or setStringAsync) before showRegistrationPrompt() or signInAsync()" }
+    );
+  },
+};
+
+const J006: ComplianceRule = {
+  id: "J-006",
+  platform: "jest",
+  severity: "FAIL",
+  description: "Registration prompt shown to guests only",
+  check: (logs) => {
+    const prompts = allCalls(logs, "auth.showRegistrationPrompt").sort(byTime);
+    if (prompts.length === 0) {
+      return makeResult(J006, true, `No registration prompt seen ${NOT_APPLICABLE_MARKER}`);
+    }
+    let unchecked = 0;
+    for (const prompt of prompts) {
+      const result = resultOf(logs, prompt);
+      const rejectedAsRegistered =
+        failedWith(result, "INVALID_OPERATION") ||
+        (!!result && result.success === false &&
+          (result.error?.message ?? "").toLowerCase().includes("already registered"));
+      const state = registeredAt(logs, prompt.timestamp);
+      if (rejectedAsRegistered || state === true) {
+        return makeResult(J006, false, "Registration prompt shown to a player who is already registered", {
+          details: `showRegistrationPrompt() at ${prompt.timestamp}ms${rejectedAsRegistered ? " was rejected with INVALID_OPERATION" : " after the player was reported as registered"}`,
+          autoFix: "Check auth.isAuthenticated() first and only show the registration prompt while it is false",
+        });
+      }
+      if (state === undefined) unchecked++;
+    }
+    return makeResult(J006, true,
+      unchecked === 0
+        ? "Every registration prompt was shown to a guest"
+        : `No prompt reached a registered player, but ${unchecked} prompt(s) had no auth.isAuthenticated() check before them`,
+      { autoFix: "Check auth.isAuthenticated() first and only show the registration prompt while it is false" }
+    );
+  },
+};
+
+const J007: ComplianceRule = {
+  id: "J-007",
+  platform: "jest",
+  severity: "WARN",
+  description: "No notification scheduled while the player is a guest",
+  check: (logs) => {
+    const calls = allCalls(logs, "notifications.scheduleAsync").sort(byTime);
+    if (calls.length === 0) {
+      return makeResult(J007, true, `No notification scheduled ${NOT_APPLICABLE_MARKER}`);
+    }
+    const guestCalls = calls.filter((c) =>
+      failedWith(resultOf(logs, c), "PLAYER_NOT_AUTHENTICATED") || registeredAt(logs, c.timestamp) === false
+    );
+    const passed = guestCalls.length === 0;
+    return makeResult(J007, passed,
+      passed
+        ? "Notifications were only scheduled for a registered player"
+        : `${guestCalls.length} notification(s) scheduled for a guest: Jest only notifies registered players`,
+      {
+        details: passed ? undefined : guestCalls.map((c) => `scheduleAsync at ${c.timestamp}ms`).join("; "),
+        autoFix: "Schedule notifications only when auth.isAuthenticated() is true; a guest gets PLAYER_NOT_AUTHENTICATED",
+      }
+    );
+  },
+};
+
+const J008: ComplianceRule = {
+  id: "J-008",
+  platform: "jest",
+  severity: "WARN",
+  description: "No subscription started while the player is a guest",
+  check: (logs) => {
+    const calls = allCalls(logs, "iap.subscribeAsync").sort(byTime);
+    if (calls.length === 0) {
+      return makeResult(J008, true, `No subscription started ${NOT_APPLICABLE_MARKER}`);
+    }
+    const guestCalls = calls.filter((c) =>
+      failedWith(resultOf(logs, c), "PLAYER_NOT_AUTHENTICATED") || registeredAt(logs, c.timestamp) === false
+    );
+    const passed = guestCalls.length === 0;
+    return makeResult(J008, passed,
+      passed
+        ? "Subscriptions were only offered to a registered player"
+        : `${guestCalls.length} subscription(s) started for a guest: Jest subscriptions need a registered player`,
+      {
+        details: passed ? undefined : guestCalls.map((c) => `subscribeAsync at ${c.timestamp}ms`).join("; "),
+        autoFix: "Offer subscriptions only when auth.isAuthenticated() is true; prompt a guest to register first",
+      }
+    );
+  },
+};
+
+const J009: ComplianceRule = {
+  id: "J-009",
+  platform: "jest",
+  severity: "WARN",
+  description: "D1 to D7 notification sequence scheduled for a registered player",
+  check: (logs) => {
+    const sawRegistered = authSignals(logs).some((s) => s.registered);
+    const scheduled = allCalls(logs, "notifications.scheduleAsync").filter(
+      (c) => resultOf(logs, c)?.success !== false
+    );
+    if (!sawRegistered && scheduled.length === 0) {
+      return makeResult(J009, true, `No registered player seen in this session ${NOT_APPLICABLE_MARKER}`);
+    }
+    const days = new Set(scheduled.map((c) => notificationDay(optionsArg(c))));
+    const missing = [1, 2, 3, 4, 5, 6, 7].filter((d) => !days.has(d));
+    const passed = missing.length === 0;
+    return makeResult(J009, passed,
+      passed
+        ? "Notifications scheduled for every day from D1 to D7"
+        : scheduled.length === 0
+          ? "A registered player was seen but no notification was scheduled"
+          : `Notification sequence is missing day(s) ${missing.join(", ")}`,
+      { autoFix: "When the player is registered, schedule one notification per day with scheduledInDays 1 to 7 and a stable id per day" }
+    );
+  },
+};
+
+const J010: ComplianceRule = {
+  id: "J-010",
+  platform: "jest",
+  severity: "WARN",
+  description: "Every scheduled notification carries an image",
+  check: (logs) => {
+    const calls = allCalls(logs, "notifications.scheduleAsync").sort(byTime);
+    if (calls.length === 0) {
+      return makeResult(J010, true, `No notification scheduled ${NOT_APPLICABLE_MARKER}`);
+    }
+    const missing = calls.filter((c) => {
+      const options = optionsArg(c);
+      if (!options) return false; // options not readable from the log: nothing to judge
+      const hasImage =
+        (typeof options.imageAssetId === "string" && options.imageAssetId.length > 0) ||
+        (typeof options.imageDataUrl === "string" && options.imageDataUrl.length > 0);
+      return !hasImage;
+    });
+    const passed = missing.length === 0;
+    return makeResult(J010, passed,
+      passed
+        ? "Every scheduled notification has an image"
+        : `${missing.length} notification(s) scheduled without an image`,
+      {
+        details: passed ? undefined : missing.map((c) => `scheduleAsync at ${c.timestamp}ms`).join("; "),
+        autoFix: "Give every notification an image: imageAssetId (approved on Jest) or imageDataUrl, not both",
+      }
+    );
+  },
+};
+
+/** IAP calls that mean the game sells items (subscriptions are judged by J-008 and J-013). */
+const JEST_ITEM_IAP_METHODS = [
+  "iap.getCatalogAsync",
+  "iap.getProductAsync",
+  "iap.purchaseAsync",
+  "iap.getPurchasesAsync",
+  "iap.consumePurchaseAsync",
+];
+
+const J011: ComplianceRule = {
+  id: "J-011",
+  platform: "jest",
+  severity: "FAIL",
+  description: "Incomplete purchases checked at startup (getPurchasesAsync before any purchase)",
+  check: (logs) => {
+    if (callsTo(logs, ...JEST_ITEM_IAP_METHODS).length === 0) {
+      return makeResult(J011, true, `No in-app purchase calls seen ${NOT_APPLICABLE_MARKER}`);
+    }
+    const firstRecover = callsTo(logs, "iap.getPurchasesAsync")[0];
+    const firstBuy = callsTo(logs, "iap.purchaseAsync")[0];
+    if (!firstRecover) {
+      return makeResult(J011, false, "The game uses in-app purchases but never called iap.getPurchasesAsync(): an interrupted purchase is never granted", {
+        autoFix: "After startGameAsync(), call iap.getPurchasesAsync(), grant and save each item, then consumePurchaseAsync(purchaseToken)",
+      });
+    }
+    const passed = !firstBuy || firstRecover.timestamp <= firstBuy.timestamp;
+    return makeResult(J011, passed,
+      passed
+        ? "iap.getPurchasesAsync() ran before any new purchase"
+        : `First purchase at ${firstBuy.timestamp}ms came before iap.getPurchasesAsync() at ${firstRecover.timestamp}ms`,
+      { autoFix: "After startGameAsync(), call iap.getPurchasesAsync(), grant and save each item, then consumePurchaseAsync(purchaseToken)" }
+    );
+  },
+};
+
+const J012: ComplianceRule = {
+  id: "J-012",
+  platform: "jest",
+  severity: "FAIL",
+  description: "Every recovered or completed purchase is consumed",
+  check: (logs) => {
+    const owed = new Set<string>();
+    for (const l of logs) {
+      if (l.type !== "result" || l.success !== true) continue;
+      if (l.method === "iap.getPurchasesAsync" || l.method === "iap.purchaseAsync") {
+        for (const token of purchaseTokens(l.result)) owed.add(token);
+      }
+    }
+    if (owed.size === 0) {
+      return makeResult(J012, true, `No purchase to consume in this session ${NOT_APPLICABLE_MARKER}`);
+    }
+    const consumed = new Set(
+      allCalls(logs, "iap.consumePurchaseAsync")
+        .map((c) => {
+          const arg = firstArg(c);
+          if (typeof arg === "string") return arg;
+          return isRecord(arg) && typeof arg.purchaseToken === "string" ? arg.purchaseToken : undefined;
+        })
+        .filter((t): t is string => !!t)
+    );
+    const unconsumed = [...owed].filter((t) => !consumed.has(t));
+    const passed = unconsumed.length === 0;
+    return makeResult(J012, passed,
+      passed
+        ? `All ${owed.size} purchase(s) were consumed`
+        : `${unconsumed.length} of ${owed.size} purchase(s) never consumed: Jest keeps returning them and the player can be granted twice`,
+      {
+        details: passed ? undefined : `Unconsumed purchase token(s): ${unconsumed.join(", ")}`,
+        autoFix: "Grant and save the item, then call iap.consumePurchaseAsync(purchaseToken) for every purchase",
+      }
+    );
+  },
+};
+
+const J013: ComplianceRule = {
+  id: "J-013",
+  platform: "jest",
+  severity: "FAIL",
+  description: "A subscription the player holds is never offered again",
+  check: (logs) => {
+    const subscribes = allCalls(logs, "iap.subscribeAsync").sort(byTime);
+    if (subscribes.length === 0) {
+      return makeResult(J013, true, `No subscription offered ${NOT_APPLICABLE_MARKER}`);
+    }
+    for (const sub of subscribes) {
+      const productId = firstArg(sub);
+      if (failedWith(resultOf(logs, sub), "IAP_ALREADY_PURCHASED")) {
+        return makeResult(J013, false, "subscribeAsync() was called for a plan the player already holds", {
+          details: `subscribeAsync(${String(productId)}) at ${sub.timestamp}ms was rejected with IAP_ALREADY_PURCHASED`,
+          autoFix: "Read iap.getSubscriptionsAsync() at launch and hide the offer for any plan whose isActive is true",
+        });
+      }
+      const reads = logs
+        .filter((l) =>
+          l.type === "result" && l.success === true && l.timestamp <= sub.timestamp &&
+          (l.method === "iap.getSubscriptionsAsync" || l.method === "iap.getSubscriptionStatusAsync")
+        )
+        .sort(byTime);
+      if (reads.length === 0) {
+        return makeResult(J013, false, "A subscription was offered before the game read which plans the player holds", {
+          details: `subscribeAsync(${String(productId)}) at ${sub.timestamp}ms had no getSubscriptionsAsync() result before it`,
+          autoFix: "Read iap.getSubscriptionsAsync() at launch and hide the offer for any plan whose isActive is true",
+        });
+      }
+      const latest = reads[reads.length - 1];
+      const held = Array.isArray(latest.result) && latest.result.some(
+        (s) => isRecord(s) && s.productId === productId && s.isActive === true
+      );
+      if (held) {
+        return makeResult(J013, false, "subscribeAsync() was called for a plan the player already holds", {
+          details: `getSubscriptionsAsync() reported ${String(productId)} active before subscribeAsync at ${sub.timestamp}ms`,
+          autoFix: "Read iap.getSubscriptionsAsync() at launch and hide the offer for any plan whose isActive is true",
+        });
+      }
+    }
+    return makeResult(J013, true, "Subscriptions were only offered after checking which plans the player holds");
+  },
+};
+
+/** How long after exitRequested a save still counts as made by the handler. */
+const JEST_EXIT_SAVE_WINDOW_MS = 1000;
+
+const J014: ComplianceRule = {
+  id: "J-014",
+  platform: "jest",
+  severity: "WARN",
+  description: "Progress saved in the exitRequested handler",
+  check: (logs) => {
+    const exits = allEvents(logs, "exitRequested").sort(byTime);
+    if (exits.length > 0) {
+      const unsaved = exits.filter((e) => !logs.some(
+        (l) => isDataWrite(l) && l.timestamp >= e.timestamp && l.timestamp <= e.timestamp + JEST_EXIT_SAVE_WINDOW_MS
+      ));
+      const passed = unsaved.length === 0;
+      return makeResult(J014, passed,
+        passed
+          ? "The game saved progress when exitRequested fired"
+          : `exitRequested fired ${unsaved.length} time(s) with no save after it: progress is lost when the player leaves`,
+        {
+          details: passed ? undefined : unsaved.map((e) => `exitRequested at ${e.timestamp}ms`).join("; "),
+          autoFix: "In Yes2SDK.on('exitRequested', ...) write progress synchronously (data.setString); async work started there is not awaited",
+        }
+      );
+    }
+    const handler = logs.some((l) =>
+      l.type === "call" && (l.method === "on" || l.method === "once") && firstArg(l) === "exitRequested"
+    );
+    if (handler) {
+      return makeResult(J014, true,
+        `exitRequested handler registered; fire Exit Request from the Inspector Tools panel to prove it saves ${NOT_APPLICABLE_MARKER}`
+      );
+    }
+    if (!findCall(logs, "startGameAsync")) {
+      return makeResult(J014, true, `startGameAsync() not seen yet ${NOT_APPLICABLE_MARKER}`);
+    }
+    return makeResult(J014, false, "No exitRequested handler registered: nothing saves progress when the player leaves", {
+      autoFix: "Register Yes2SDK.on('exitRequested', ...) (Unity OnExitRequested, Defold on_exit_requested) and save synchronously inside it",
+    });
+  },
+};
+
 // ── All Rules ─────────────────────────────────────────────────────────
 
 const UNIVERSAL_RULES: ComplianceRule[] = [U001, U002, U003, U004, U005, U006, U007, U008];
@@ -1432,8 +1982,14 @@ const PLATFORM_RULES: Record<string, ComplianceRule[]> = {
   yandex: [Y001, Y002, Y003, Y004, Y005, Y006, Y007, Y008, Y009, Y010, Y011, Y012, Y013, Y014, Y015, Y016],
   gamedistribution: [GD001, GD002, GD003, GD004, GD005, GD006],
   youtube: [YT001, YT002, YT003],
+  jest: [J001, J002, J003, J004, J005, J006, J007, J008, J009, J010, J011, J012, J013, J014],
   debug: [],
 };
+
+/** The rules specific to `platform` (universal rules excluded), in rule order. */
+export function platformComplianceRules(platform: string): ComplianceRule[] {
+  return PLATFORM_RULES[platform] ?? [];
+}
 
 // ── Runner ────────────────────────────────────────────────────────────
 
@@ -1657,6 +2213,49 @@ export const RULE_FIXES: Record<string, string[]> = {
   "YT-003": [
     "Remove calls to APIs blocked by YouTube's sandbox (window.open, document.cookie, etc.)",
     "Avoid APIs blocked by YouTube's sandbox (window.open, document.cookie, localStorage, etc.)"
+  ],
+  "J-001": [
+    "Call startGameAsync() the moment the game is interactive. On Jest it calls markGameLoaded"
+  ],
+  "J-002": [
+    "Call setLoadingProgress(n) at least every 15 seconds until startGameAsync(), and load the rest of the game after it"
+  ],
+  "J-003": [
+    "Hide rewarded-ad offers on Jest (ads.isRewardedSupported() is false there) and never gate progression on a rewarded ad"
+  ],
+  "J-004": [
+    "Skip ad requests on Jest: check ads.isInterstitialSupported() and ads.isBannerSupported() first"
+  ],
+  "J-005": [
+    "Save the guest's progress through Yes2SDK.data (and confirm it with flushAsync or setStringAsync) before showRegistrationPrompt() or signInAsync()"
+  ],
+  "J-006": [
+    "Check auth.isAuthenticated() first and only show the registration prompt while it is false"
+  ],
+  "J-007": [
+    "Schedule notifications only when auth.isAuthenticated() is true; a guest gets PLAYER_NOT_AUTHENTICATED"
+  ],
+  "J-008": [
+    "Offer subscriptions only when auth.isAuthenticated() is true; prompt a guest to register first"
+  ],
+  "J-009": [
+    "When the player is registered, schedule one notification per day with scheduledInDays 1 to 7 and a stable id per day"
+  ],
+  "J-010": [
+    "Give every notification an image: imageAssetId (approved on Jest) or imageDataUrl, not both"
+  ],
+  "J-011": [
+    "After startGameAsync(), call iap.getPurchasesAsync(), grant and save each item, then consumePurchaseAsync(purchaseToken)"
+  ],
+  "J-012": [
+    "Grant and save the item, then call iap.consumePurchaseAsync(purchaseToken) for every purchase"
+  ],
+  "J-013": [
+    "Read iap.getSubscriptionsAsync() at launch and hide the offer for any plan whose isActive is true"
+  ],
+  "J-014": [
+    "In Yes2SDK.on('exitRequested', ...) write progress synchronously (data.setString); async work started there is not awaited",
+    "Register Yes2SDK.on('exitRequested', ...) (Unity OnExitRequested, Defold on_exit_requested) and save synchronously inside it"
   ]
 };
 

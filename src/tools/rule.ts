@@ -54,7 +54,7 @@ export function registerRuleTool(server: McpServer): void {
         ruleId: z
           .string()
           .min(1)
-          .describe("Rule id, e.g. 'P-002' (Poki), 'U-001' (universal), 'CG-003' (CrazyGames), 'Y-010' (Yandex), 'GD-002' (GameDistribution), 'YT-001' (YouTube). Case-insensitive."),
+          .describe("Rule id, e.g. 'P-002' (Poki), 'U-001' (universal), 'CG-003' (CrazyGames), 'Y-010' (Yandex), 'GD-002' (GameDistribution), 'YT-001' (YouTube), 'J-001' (Jest). Case-insensitive."),
       },
       
     },

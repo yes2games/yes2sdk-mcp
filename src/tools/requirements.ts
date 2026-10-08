@@ -16,7 +16,7 @@ function ruleLines(rules: ComplianceRule[]): string {
  * the plain rule list, exactly as before. A platform without any gets an
  * explicit "pending" notice first, so an empty platform section never reads as
  * "nothing to do". A hand-written launch checklist, where one exists, follows
- * as manual items.
+ * the automated rules as manual items.
  */
 export function renderRequirements(platform: string): string {
   const rules = getRulesForPlatform(platform);
@@ -33,7 +33,11 @@ export function renderRequirements(platform: string): string {
         (checklist ? " Until they ship, the launch checklist below is the platform requirement set; verify each item by hand." : "")
     );
   }
-  parts.push(`Universal rules (automated, every platform):\n${ruleLines(rules)}`);
+  parts.push(
+    pending
+      ? `Universal rules (automated, every platform):\n${ruleLines(rules)}`
+      : `Automated rules (universal and ${name}-specific, run by validate_integration):\n${ruleLines(rules)}`
+  );
   if (checklist) {
     const items = checklist.items.map((item, i) => `${i + 1}. [manual] ${item}`).join("\n");
     parts.push(`${name} launch checklist (manual). ${checklist.summary}\n${items}`);
