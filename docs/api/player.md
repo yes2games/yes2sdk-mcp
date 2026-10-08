@@ -20,6 +20,7 @@ Player identity, cloud-backed player data, and connected players (friends who al
 | `getPayingStatus(): Promise<PayingStatus>` | The player's monetization status. `"unknown"` where unsupported. |
 | `getMode(): Promise<PlayerMode>` | The player's session mode (`"lite"` anonymous, `"authorized"` logged-in). `"unknown"` where undeterminable. |
 | `getPhoto(size?: PlayerPhotoSize): Promise<string \| null>` | Profile photo URL at the requested size (default `"medium"`); `null` if none. |
+| `getBotAvatarAsync(username: string, size?: PlayerPhotoSize): Promise<string>` | Platform-generated avatar URL for a bot (a computer-controlled player), at the requested size (default `"medium"`). The username seeds the picture, so the same name always gets the same avatar. An empty `username` or a size other than `"small"`, `"medium"` or `"large"` rejects with `INVALID_PARAM`; a platform without bot avatars rejects with `FEATURE_NOT_SUPPORTED`. |
 | `getConnectedPlayers(): Promise<ConnectedPlayer[]>` | Friends who also play this game. |
 | `getDataAsync(keys: string[] \| string): Promise<PlayerData>` | Load player data for keys. Accepts a JSON-string of keys (Unity bridge). |
 | `setDataAsync(data: PlayerData \| string): Promise<void>` | Save player data. Accepts a JSON string (Unity bridge). |
@@ -27,6 +28,7 @@ Player identity, cloud-backed player data, and connected players (friends who al
 | `getSignedPlayerInfoAsync(payload?: string): Promise<SignedPlayerInfo>` | Signed player info for server-side verification. |
 | `isDataSupported(): boolean` | Whether save/load works. |
 | `isConnectedPlayersSupported(): boolean` | Whether connected players is supported. |
+| `isBotAvatarSupported(): boolean` | Whether the platform generates bot avatars. `false` before initialization. |
 
 **Types:** `Player = { id: string; name: string | null; photo: string | null }`; `ConnectedPlayer` same shape; `SignedPlayerInfo = { playerId: string; signature: string }`; `PlayerData = Record<string, unknown>`; `PayingStatus = "paying" | "partially_paying" | "not_paying" | "unknown"`; `PlayerMode = "lite" | "authorized" | "unknown"`; `PlayerPhotoSize = "small" | "medium" | "large"`; `GameIdentity = { appId: number; userId: string }`.
 
@@ -44,6 +46,7 @@ Player identity, cloud-backed player data, and connected players (friends who al
 | `getPayingStatus` | None⁵ | None⁵ | None⁵ | Ready | None⁵ | None⁵ |
 | `getMode` | None⁵ | None⁵ | Partial⁷ | Ready | None⁵ | Ready⁸ |
 | `getPhoto` | None⁵ | None⁵ | Partial⁷ | Ready | None⁵ | Ready⁸ |
+| `getBotAvatarAsync` | None | None | None | None | None | Ready¹¹ |
 | `getConnectedPlayers` | None | None | None | None | None | None |
 | `getDataAsync` | Partial⁴ | Partial⁴ | Ready | Ready | Ready | Ready⁹ |
 | `setDataAsync` | Partial⁴ | Partial⁴ | Ready | Ready | Ready | Ready⁹ |
@@ -51,6 +54,7 @@ Player identity, cloud-backed player data, and connected players (friends who al
 | `getSignedPlayerInfoAsync` | None | None | None | Ready³ | None | Ready¹⁰ |
 | `isDataSupported` | Ready⁴ | Ready⁴ | Ready | Ready | Ready | Ready |
 | `isConnectedPlayersSupported` | None | None | None | None | None | None |
+| `isBotAvatarSupported` | None | None | None | None | None | Ready¹¹ |
 
 ¹ Returns a hardcoded anonymous player (`{ id: "anonymous", name: null, photo: null }`).
 ² Auto-flush platforms: `flushDataAsync` is a no-op (CrazyGames, YouTube) or relies on `setData(flush=true)` (Yandex).
@@ -62,6 +66,7 @@ Player identity, cloud-backed player data, and connected players (friends who al
 ⁸ Jest reads the live Jest player on every call. `getPlayer()` returns `{ id: playerId, name: username, photo: avatarUrl }`; for a guest, `name` and `photo` are `null`. `getMode()` is `"authorized"` for a registered player and `"lite"` for a guest. `getPhoto` asks Jest for a 64, 256 or 1000 pixel avatar (`small`, `medium`, `large`) and returns `null` when there is none.
 ⁹ Jest stores player data in the Jest player store, which persists across sessions and devices. The `data` module uses the same store, so the two share one budget of 1 MB per game per player. `setDataAsync` merges the keys you pass into the store. It does not check the size first, and a write past the limit fails on Jest's side, possibly without an error. Keep player data well under 1 MB, or use `data.setStringAsync`, which checks the limit and resolves `false`. `flushDataAsync` waits until Jest acknowledges the pending writes. Yes2SDK also flushes on pause and right after the `exitRequested` event.
 ¹⁰ Jest returns `{ playerId, signature }`, where `signature` is Jest's signed player payload (an HS256 JWS signed with your game's shared secret). It works for guests too. The `payload` argument is ignored on Jest. See [Signed player info on Jest](#signed-player-info-on-jest).
+¹¹ Jest generates bot avatars at 64, 256 or 1000 pixels (`small`, `medium`, `large`). `isBotAvatarSupported()` is `false` on the other five platforms, and `getBotAvatarAsync` rejects with `FEATURE_NOT_SUPPORTED` there. See [Bot avatars](#bot-avatars).
 
 **Connected players** isn't offered by the live platforms yet. **Player identity** (`getPlayer`) is anonymous on Poki and GameDistribution, though player saved-data still persists locally there.
 
@@ -76,6 +81,16 @@ const { playerId, signature } = await Yes2SDK.player.getSignedPlayerInfoAsync();
 
 Jest player data is limited to 1 MB per game per player, shared with the `data` module. Writes past the limit fail until the stored data gets smaller, so keep saves compact.
 
+### Bot avatars
+
+Games that fill a lobby or leaderboard with computer-controlled players can ask the platform for a matching avatar. Only Jest generates them today, so check `isBotAvatarSupported()` first and keep your own art as the fallback.
+
+```typescript
+const avatarUrl = Yes2SDK.player.isBotAvatarSupported()
+    ? await Yes2SDK.player.getBotAvatarAsync("RoboRita", "small")
+    : "assets/bots/default.png";
+```
+
 ---
 
 ## Unity (C#)
@@ -88,10 +103,12 @@ Jest player data is limited to 1 MB per game per player, shared with the `data` 
 | `void GetDataAsync(string[] keys, …)` / `Task<string> GetDataAsync(string[] keys, CancellationToken)` | Cloud-backed on CrazyGames, Yandex, YouTube and Jest; local storage elsewhere (see the table above). |
 | `void SetDataAsync(string dataJson, …)` / `Task SetDataAsync(string dataJson, CancellationToken)` | On Jest, counts toward the 1 MB player store. |
 | `void FlushDataAsync(…)` / `Task FlushDataAsync(CancellationToken)` | On Jest, completes once Jest acknowledges the pending writes. |
+| `void GetBotAvatarAsync(string username, string size, Action<string> onSuccess = null, Action<Error> onError = null)` / `Task<string> GetBotAvatarAsync(string username, string size, CancellationToken)` | Bot avatar URL. `size` is `"small"`, `"medium"` or `"large"`; the overloads without `size` use `"medium"`. An empty username or another size calls `onError` right away with `InvalidParams`. FeatureNotSupported where the platform has no bot avatars (Jest is the only one today). |
 | `void GetConnectedPlayersAsync(…)` / `Task<string> GetConnectedPlayersAsync(CancellationToken)` | FeatureNotSupported on all platforms. |
 | `void GetSignedPlayerInfoAsync(string payload, Action<string> onSuccess = null, Action<Error> onError = null)` / `Task<string> GetSignedPlayerInfoAsync(string payload, CancellationToken)` | `onSuccess` receives a JSON object with `playerId` and `signature`. `payload` is reserved and not included in the signed result. Verify `signature` on your server. FeatureNotSupported where the platform has no signed player info. |
 | `bool IsDataSupported()` | Reads the runtime's `isDataSupported()`: true whenever save and load work, including on Jest. |
 | `bool IsConnectedPlayersSupported()` | False on all platforms. |
+| `bool IsBotAvatarSupported()` | Whether the platform generates bot avatars. False before initialization. In the Editor it follows the "Mock referrals, notifications and signed player" toggle, which returns a placeholder URL that does not load. |
 
 `PlayerInfo` (struct): `Id`, `Name`, `Photo`.
 
@@ -112,6 +129,8 @@ Jest player data is limited to 1 MB per game per player, shared with the `data` 
 | `yes2sdk.player_get_paying_status(callback)` | `callback(self, success, status)`: `"unknown"` where unsupported. |
 | `yes2sdk.player_get_mode(callback)` | `callback(self, success, mode)`: `"lite"`, `"authorized"`, or `"unknown"`. |
 | `yes2sdk.player_get_photo(size, callback)` | `size` = `"small"`/`"medium"`/`"large"`. `callback(self, success, photo_json)`: JSON string URL or `"null"`. |
+| `yes2sdk.player_get_bot_avatar(username, [size], callback)` | `size` = `"small"`/`"medium"`/`"large"`, optional (default `"medium"`). `callback(self, success, url)`: the image URL as a plain string. An empty username or an unknown size fails with `INVALID_PARAM`; a platform without bot avatars fails with `FEATURE_NOT_SUPPORTED`. |
+| `yes2sdk.player_is_bot_avatar_supported()` | Boolean. True on Jest. |
 | `yes2sdk.player_get_signed_info(payload, callback)` | `payload` optional (pass `nil` to skip; Jest ignores it). `callback(self, success, signed_json)`: `{"playerId","signature"}`. Verify server-side. |
 
 > Connected players are not exposed in the Defold SDK.

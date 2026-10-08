@@ -13,7 +13,7 @@ methods. When unsure, fetch the full corpus.
   gamedistribution, youtube, jest)
 - API reference: `/docs/raw/api/<module>` (overview, lifecycle, ads, game, session,
   data, player, auth, banners, friends, score, analytics, errors, leaderboard,
-  stats, iap, config, review)
+  stats, iap, referrals, config, review)
 
 ## The unified API
 
@@ -141,6 +141,10 @@ platform SDK directly. Only the method-naming convention differs per engine:
   a plan.
 - Verify signed values on a server before granting value. Unity `GetPlatform()`
   returns `Platform.Jest` on Jest (Unity 2.11.0 and later).
+- Bot avatars are Jest only: gate `player.getBotAvatarAsync(username, size)` on
+  `player.isBotAvatarSupported()` and fall back to your own art.
+- `referrals.shareAsync` also takes the Jest-only `onboardingSlug` and
+  `notificationTemplates` options.
 
 ## Before you ship
 

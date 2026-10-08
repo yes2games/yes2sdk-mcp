@@ -102,7 +102,7 @@ A module-level summary across the six live platforms. Per-method detail is on ea
 ¹¹ On Jest, Data and Player saved data share one Jest player store that persists across sessions and devices, limited to 1 MB per game per player. Writes past the limit fail.
 ¹² Jest invites go through Referrals (`referrals.shareAsync`), not invite links. Jest counts an invited player once they complete registration.
 ¹³ On Jest, `session.getEntryPointData()` returns Jest's entry payload, the `data` attached to the referral, notification, registration prompt or image share the player arrived through. The page URL is never read. `getCountry()` returns `""` and `isAudioEnabled()` is always `true`.
-¹⁴ Jest gives every player, guest or registered, a stable id. The signed player (`player.getSignedPlayerInfoAsync`) returns `{ playerId, signature }`: verify the signature on a server before you trust it (see [Server Verification](/docs/jest#server-verification)).
+¹⁴ Jest gives every player, guest or registered, a stable id. Jest also generates avatars for bots (`player.getBotAvatarAsync`; check `isBotAvatarSupported()` first). The signed player (`player.getSignedPlayerInfoAsync`) returns `{ playerId, signature }`: verify the signature on a server before you trust it (see [Server Verification](/docs/jest#server-verification)).
 ¹⁵ Notifications are offered on Jest only, for registered players: a guest gets `PLAYER_NOT_AUTHENTICATED`. Jest asks for a D1 to D7 sequence, at least one notification per day for the next seven days. There is no method to list scheduled notifications, and `cancelAllAsync()` cancels only the notifications scheduled in the current page session.
 ¹⁶ Jest supports image sharing only (`context.shareAsync`, Unity `Context.ShareImageAsync`, Defold `context_share`). `isSupported()` is `false` on Jest, but sharing an image works, so do not gate it on `isSupported()`. The context is always solo: `getContext()`, `getType()` and `isSizeBetween()` answer for a solo context, and `getPlayersAsync`, `switchAsync`, `chooseAsync`, `createAsync` and `updateAsync` report `FEATURE_NOT_SUPPORTED`. On CrazyGames, `context.shareAsync` shows CrazyGames' invite button and ignores `image` and `data`, so skip the call there. On Poki, GameDistribution, Yandex and YouTube it reports `FEATURE_NOT_SUPPORTED`.
 
@@ -133,6 +133,7 @@ Full signatures and the rollout picture are in [upcoming.md](upcoming.md). These
 - **Core 2.10.0** wires every module to the `Yes2SDK.<module>` API, including `referrals`, `notifications`, `context`, `achievements` and `tournament`. On every current platform, Achievements and Tournament calls report `FEATURE_NOT_SUPPORTED`, except `tournament.getCurrentAsync()`, which resolves `null` (no current tournament) instead of rejecting.
 - **Unity 2.10.0** exposes every module, including `Referrals`, `Notifications` and IAP subscriptions. `Context.ShareImageAsync` (and the older `Context.ShareAsync`) shares an image. `SwitchAsync`, `ChooseAsync` and `CreateAsync` return `FeatureNotSupported`, and `Context.IsSupported()` is always `false`, so do not gate image sharing on it. The Achievements and Tournament accessors return `FeatureNotSupported`.
 - **Defold 1.8.0** exposes every module except Achievements and Tournament, including `referrals_*`, `notifications_*` and IAP subscriptions. Context is `context_share` plus the `context_is_supported()` hint. The newer calls need Yes2SDK runtime 2.10.0; older runtimes report `FEATURE_NOT_SUPPORTED` for them.
+- **Core 2.11.0, Unity 2.12.0 and Defold 1.9.0** add bot avatars to Player (`getBotAvatarAsync` and `isBotAvatarSupported`, Jest only), the Jest-only `onboardingSlug` and `notificationTemplates` options to `referrals.shareAsync`, and allow an empty notification title.
 
 ---
 
@@ -140,9 +141,9 @@ Full signatures and the rollout picture are in [upcoming.md](upcoming.md). These
 
 | SDK | Version | Notes |
 |-----|---------|-------|
-| Core (TS) | `2.10.0` | UMD bundle, injected by the dashboard build pipeline |
-| Unity | `2.11.0` | Unity 2021.3+; WebGL build target |
-| Defold | `1.8.0` | Defold 1.10.2+; HTML5 build target |
+| Core (TS) | `2.11.0` | UMD bundle, injected by the dashboard build pipeline |
+| Unity | `2.12.0` | Unity 2021.3+; WebGL build target |
+| Defold | `1.9.0` | Defold 1.10.2+; HTML5 build target |
 
 Live platforms across all surfaces: **Poki, CrazyGames, Yandex Games, GameDistribution, YouTube Playables, [Jest](/docs/jest)**.
 
