@@ -1,6 +1,6 @@
 # Build Upload API
 
-> Create a game and upload versioned builds from CI with a team API key, instead of clicking through the dashboard.
+> Create and read games, set their icon and banner, and upload versioned builds from CI with a team API key, instead of clicking through the dashboard.
 
 Every action here has an equivalent in the dashboard UI. Use this API when a build should be uploaded by a pipeline: a tagged release, a nightly job, an engine build step. Interactive uploads keep working exactly as before and are unaffected by anything on this page.
 
@@ -18,7 +18,7 @@ Every request carries a team API key as a bearer token:
 Authorization: Bearer y2g_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-A key belongs to a **team**, not to a person. It can only reach games owned by that team, and it grants nothing outside the three endpoints below. A dashboard login token is not accepted here, and a key is not accepted on the dashboard's own routes.
+A key belongs to a **team**, not to a person. It can only reach games owned by that team, and it grants nothing outside the endpoints on this page. A dashboard login token is not accepted here, and a key is not accepted on the dashboard's own routes.
 
 ### Creating a key
 
@@ -104,6 +104,125 @@ curl -X PATCH https://dashboard.yes2games.com/api/v1/games/$GAME_ID \
 
 ---
 
+## Read games and builds
+
+All three reads return rows in snake_case. A game that does not exist and a game owned by another team both answer `404 Game not found`, so a key cannot probe for other teams' game ids.
+
+### List games
+
+```
+GET /api/v1/games
+```
+
+Lists the key team's games, newest first. `data` is an array of game objects. Use it in CI to look up a game id by name.
+
+```bash
+curl https://dashboard.yes2games.com/api/v1/games \
+  -H "Authorization: Bearer $YES2_API_KEY"
+```
+
+### Get a game
+
+```
+GET /api/v1/games/:gameId
+```
+
+Returns one game object:
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string | |
+| `name` | string | |
+| `description` | string or null | |
+| `team_id` | string | |
+| `engine` | string or null | |
+| `category` | string or null | |
+| `tags` | string[] | |
+| `orientation` | string | |
+| `yandex_metrica_counter_id` | integer or null | Metrica counter used by the Yandex bundle |
+| `jest_auto_login_reminders` | boolean | Whether the Jest bundle shows its auto-login reminders |
+| `qa_passed_platforms` | string[] | Platforms the game passed QA for |
+| `qa_passed_at` | timestamp or null | |
+| `has_icon` | boolean | An icon is uploaded |
+| `has_banner` | boolean | A banner is uploaded |
+| `build_count` | integer | |
+| `created_at`, `updated_at` | timestamp | |
+
+### List builds
+
+```
+GET /api/v1/games/:gameId/builds
+```
+
+Lists the game's builds, newest first, each with its bundles:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "c81e...",
+      "version": "3.0.9",
+      "display_name": "Release candidate",
+      "original_filename": "Age of Zombies v3.0.9.zip",
+      "original_size_bytes": 48211934,
+      "status": "uploaded",
+      "notes": "Fixed the wave 10 boss softlock",
+      "created_at": "2026-08-24T09:14:02.887Z",
+      "bundles": [
+        { "platform": "debug", "status": "ready", "size_bytes": 48302211, "created_at": "2026-08-24T09:15:40.112Z" }
+      ]
+    }
+  ]
+}
+```
+
+`version` is `null` for a build uploaded through the dashboard by hand. `display_name` is `null` until someone names the build in the dashboard. `bundles` is `[]` until a bundle is built, and holds one entry per bundled target.
+
+---
+
+## Upload an icon or banner
+
+```
+POST /api/v1/games/:gameId/icon
+POST /api/v1/games/:gameId/banner
+Content-Type: application/json
+```
+
+The body is JSON, not multipart: one `dataUrl` field holding a base64 data URL of type `image/png`, `image/jpeg`, or `image/webp`. The whole request body is capped at 20 MB. An upload replaces the image that is already there.
+
+```bash
+curl -X POST https://dashboard.yes2games.com/api/v1/games/$GAME_ID/icon \
+  -H "Authorization: Bearer $YES2_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d "{\"dataUrl\": \"data:image/png;base64,$(base64 -w0 icon.png)\"}"
+```
+
+`200 OK` for an icon:
+
+```json
+{ "success": true, "data": { "id": "3f6c1b8e-...", "has_icon": true, "onboarding_stage": "qa" } }
+```
+
+An icon can complete the game profile, so the icon response carries the game's recomputed onboarding stage. `onboarding_stage` is `null` when the recompute failed. The icon is still stored in that case.
+
+`200 OK` for a banner:
+
+```json
+{ "success": true, "data": { "id": "3f6c1b8e-...", "has_banner": true } }
+```
+
+### Remove an icon or banner
+
+```
+DELETE /api/v1/games/:gameId/icon
+DELETE /api/v1/games/:gameId/banner
+```
+
+Removes the image. Removing an image that is not there still answers `200`. The body matches the upload response with `has_icon` or `has_banner` set to `false`. Removing the icon also recomputes `onboarding_stage`.
+
+---
+
 ## Upload a build
 
 ```
@@ -115,11 +234,13 @@ Content-Type: multipart/form-data
 |---|---|---|---|
 | `build` | file | yes | The WebGL build zip, `index.html` at the zip root or one level down. Max 500 MB |
 | `version` | text | yes | Your version string, up to 100 characters. Must be unique within the game |
+| `notes` | text | no | Release notes for this build, shown on the build in the dashboard and in the team's new-build notification. Up to 500 characters, trimmed. Blank is the same as absent |
 
 ```bash
 curl -X POST https://dashboard.yes2games.com/api/v1/games/$GAME_ID/builds \
   -H "Authorization: Bearer $YES2_API_KEY" \
   -F "version=3.0.9" \
+  -F "notes=Fixed the wave 10 boss softlock" \
   -F "build=@Age of Zombies v3.0.9.zip"
 ```
 
@@ -130,14 +251,17 @@ curl -X POST https://dashboard.yes2games.com/api/v1/games/$GAME_ID/builds \
   "success": true,
   "data": {
     "id": "c81e...",
-    "game_id": "3f6c1b8e-...",
-    "engine": "unity",
-    "version": "3.0.9",
+    "original_filename": "Age of Zombies v3.0.9.zip",
+    "original_size_bytes": 48211934,
     "status": "uploaded",
-    "created_at": "2026-08-24T09:14:02.887Z"
+    "notes": "Fixed the wave 10 boss softlock",
+    "created_at": "2026-08-24T09:14:02.887Z",
+    "version": "3.0.9"
   }
 }
 ```
+
+The response may also carry informational analysis fields such as `compression`, `largest_file_bytes`, and `largest_file_name`. Do not depend on them being present.
 
 ### What happens after a successful upload
 
@@ -157,18 +281,21 @@ Builds uploaded through the dashboard by hand carry no version, and they never c
 
 ## Errors
 
-Every failure answers with `{"success": false, "error": "...", "code": "..."}`. Branch on `code`, not on the message text.
+Every failure answers with `{"success": false, "error": "..."}`, plus a `code` where the table lists one. Branch on `code`, not on the message text.
 
 | Status | `code` | Meaning |
 |---|---|---|
 | `401` | `INVALID_API_KEY` | Missing, malformed, revoked, or unknown key |
-| `403` | | The key's team does not own this game |
+| `403` | | The key's team does not own this game. Returned by the endpoints that change a game |
+| `404` | | `Game not found` from a read endpoint. See [Read games and builds](#read-games-and-builds) |
+| `400` | | `dataUrl` is missing, or is not a PNG, JPEG, or WebP base64 data URL |
 | `400` | `MISSING_VERSION` | No `version`, blank, or over 100 characters |
+| `400` | `BUILD_NOTES_TOO_LONG` | `notes` is over 500 characters after trimming |
 | `400` | `MISSING_BUILD` | No `build` file part |
 | `400` | `UPLOAD_ANALYSIS_FAILED` | The zip could not be read. `details` carries the reason |
 | `409` | `VERSION_EXISTS` | This game already has a build at that version |
 | `422` | `SDK_NOT_INTEGRATED` | Yes2SDK was not detected in the build |
-| `413` | | The zip is over the 500 MB cap |
+| `413` | | The zip is over the 500 MB cap, or a JSON body is over 20 MB |
 | `400` | | A field failed validation. The message names the field |
 | `500` | | Server error. Safe to retry |
 
@@ -188,10 +315,13 @@ Every failure answers with `{"success": false, "error": "...", "code": "..."}`. 
       "https://dashboard.yes2games.com/api/v1/games/$GAME_ID/builds" \
       -H "Authorization: Bearer $YES2_API_KEY" \
       -F "version=${GITHUB_REF_NAME}" \
+      --form-string "notes=$(git log -1 --format=%s | cut -c1-500)" \
       -F "build=@build/WebGL.zip"
 ```
 
 `--fail-with-body` makes curl exit non-zero on a 4xx or 5xx while still printing the JSON, so a failed upload fails the job and says why. Without it curl exits `0` and the pipeline goes green on a rejected build.
+
+The `notes` line attaches the commit subject as release notes. It uses `--form-string` because `-F` would read a subject starting with `@` or `<` as a file path. Keep the `cut -c1-500`: notes over 500 characters fail the whole upload with `BUILD_NOTES_TOO_LONG`.
 
 To make a re-run of the same tag a no-op instead of a failure, treat `409` as success:
 
