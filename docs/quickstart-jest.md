@@ -59,21 +59,58 @@ The middle column is what Yes2SDK invokes on `JestSDK` under the hood. You never
 7. notifications.scheduleAsync()    <-- D1 to D7, once the player is registered
 ```
 
-### Critical Rules
+### Launch checklist: what to call
 
-| Rule | Description |
-|------|-------------|
-| Loads in under 10 seconds | Keep the first download small. Load the rest after `startGameAsync()` |
-| Guests keep progress | Save with `data.*` as a guest, before any login prompt |
-| One login prompt at a time | If the game shows its own registration prompt, tell the Yes2Games team so Jest's Automatic login reminders are turned off. Two prompts at once is a rejection |
-| Prompt guests only | Check `auth.isAuthenticated()` before `showRegistrationPrompt()` |
-| D1 to D7 notifications | At least one per day for the next seven days once the player registers |
-| Recover purchases at startup | Grant, then consume, every purchase `getPurchasesAsync()` returns |
-| Never re-offer a held plan | Check `isActive` before offering a subscription |
-| Save on exit | Save synchronously in the `exitRequested` handler |
-| Nothing points outside Jest | No external links, CTAs or outside sign-up prompts |
-| No haptics | No vibrations. `performHapticFeedback()` already does nothing on Jest |
-| Relative paths only | `index.html` at the zip root, no root-absolute paths such as `/assets/hero.png`. Jest serves games from a sub-path |
+Each item on Jest's launch checklist, the Yes2SDK call that satisfies it, and how it is checked. **Auto** means the Inspector checks it from an event log (the rule id is shown, and `validate_integration` in the MCP server reports the same ids). **Manual** means a person checks it, so the Inspector cannot prove it.
+
+#### Required to publish
+
+| Jest launch requirement | What to do in Yes2SDK | Checked |
+|---|---|---|
+| SDK initializes, no SDK errors | `initializeAsync()` first, before any other call. Handle errors from every call | Auto: U-001, U-003 |
+| Loads in under 10 seconds | `setLoadingProgress(0..100)` while loading. Keep the first download small and load the rest after `startGameAsync()`. Keep reporting at least every 15 s on long loads | Auto: U-002, J-002 (the 10 s itself: manual) |
+| Game marked loaded | `startGameAsync()` the moment the game is interactive (it calls Jest's `markGameLoaded`) | Auto: J-001 |
+| Save progress for guests | `data.setString` / `player.setDataAsync` as a guest, before any registration prompt | Auto: J-005 |
+| Save when the player leaves | Save synchronously in `Yes2SDK.on('exitRequested', fn)` (Defold `on_exit_requested`) | Auto: J-014 |
+| Prompt guests to register | `auth.isAuthenticated()`, then `auth.showRegistrationPrompt({ message, data, onClose })`. Show it to guests only | Auto: J-005, J-006 |
+| Registration message | Exactly one `{{registrationCode}}`, 140 characters or fewer, one SMS. Avoid `^ { } \ [ ] ~ | €` | Manual |
+| One login prompt at a time | If the game draws its own registration screen, tell the Yes2Games team so Jest's Automatic login reminders are turned off | Manual |
+| D1 to D7 notifications | `notifications.scheduleAsync({ id, title, body, scheduledInDays, imageAssetId })`, at least one per day for 7 days, once the player is registered. Use stable ids (`retention_d1` ...) | Auto: J-009 |
+| No notifications for guests | Check `auth.isAuthenticated()` first. A guest call returns `PLAYER_NOT_AUTHENTICATED` | Auto: J-007 |
+| Every notification has an image | `imageAssetId` (an image already approved on Jest, which the Yes2Games team uploads for you) or `imageDataUrl` (at most 2 MiB), not both | Auto: J-010 |
+| In-app purchases: catalog and checkout | `iap.getCatalogAsync()`, `iap.purchaseAsync()` | Manual |
+| In-app purchases: recover incomplete ones at startup | `iap.getPurchasesAsync()` before any new purchase. Repeat until a round consumes nothing (Jest returns at most 50 per call) | Auto: J-011 |
+| In-app purchases: complete what you recover | Grant and save, then `iap.consumePurchaseAsync(token)`. Every purchase is consumed, including ones you treat as permanent | Auto: J-012 |
+| Verify purchases on your server | Send `purchase.signedRequest` to the verify and claim endpoints before granting (see Server Verification) | Manual |
+| Subscriptions: read entitlement | `iap.getSubscriptionsAsync()` before gating content (empty for guests) | Manual |
+| Subscriptions: offer, never re-offer | `iap.subscribeAsync()` only when `isActive` is false, and never for a guest | Auto: J-008, J-013 |
+| Launch data | Read `session.getEntryPointData()`, never URL query parameters | Manual |
+| No ads or ad-revenue mechanics | Do not request rewarded, interstitial or banner ads. Calls are safe but report no-fill | Auto: J-003 (fail), J-004 |
+| Nothing points outside Jest | No external links, install banners, calls to action or outside sign-up prompts | Manual |
+| No vibration | Remove any haptics (`performHapticFeedback()` is already a no-op on Jest) | Manual |
+| Mobile web readiness | Stable after 10+ minutes. About 5 MB for web-native engines, about 20 MB for Unity | Manual |
+| Relative asset paths | `index.html` at the zip root, no `/assets/...` paths. The dashboard also refuses root-absolute paths at upload | Manual |
+
+#### Jest Fund (not required, recommended)
+
+These do not block publishing. They are what Jest asks for the Jest Fund, and they are good practice on Jest in any case.
+
+| Jest Fund requirement | What to do in Yes2SDK | Checked |
+|---|---|---|
+| Registration at contextual moments | Show the prompt after a meaningful moment (a win, a save point), not on a timer | Manual |
+| At least two different notification bodies | Vary the copy from day to day | Manual (Jest) |
+| Bodies 100 characters or fewer, each with an approved image | `body` length, `imageAssetId` | Manual (J-010 covers the image) |
+| Copy tied to a real mechanic or reward | Name the reward in the text | Manual |
+| Sell at least one product or subscription, all paths work | The IAP calls above | Manual |
+| Screenshot capture on key screens | Not covered by a Yes2SDK call. The Yes2Games team arranges it | Manual |
+
+#### Recommended
+
+| Jest recommendation | What to do in Yes2SDK |
+|---|---|
+| Signed player, if your backend owns identity or progress | `player.getSignedPlayerInfoAsync()`, then verify with `kind: "player"` |
+| Reschedule notifications as the player progresses | Call `scheduleAsync` again with an id you already used |
+| Outside-network virality | `referrals.shareAsync()`, or `context.shareAsync({ image })`. Jest counts an invited player once they finish registration. Do not use `game.inviteLink()` |
 
 ### Engine differences on Jest
 
@@ -322,21 +359,9 @@ You don't upload to Jest yourself. The Yes2Games team handles everything on the 
 
 If reviewers send back changes, upload a new build and request publish again on that build.
 
-### What Yes2Games reviewers check before submitting to Jest
-
-- [ ] Game loads in under 10 seconds
-- [ ] `startGameAsync()` runs the moment the game is interactive
-- [ ] A guest can play, save and come back to the same progress
-- [ ] The registration prompt appears for guests only, and never on top of Jest's own reminder
-- [ ] A registered player gets a D1 to D7 notification sequence with images
-- [ ] A guest triggers no unhandled notification or subscription errors
-- [ ] An interrupted purchase is granted on the next launch, exactly once
-- [ ] A subscription the player holds is never offered again
-- [ ] Progress is saved when the player leaves
-- [ ] No ads, no links or prompts that lead outside Jest, no vibrations
-- [ ] Relative asset paths only
-
 ## Common Rejection Reasons
+
+The symptoms Jest and our reviewers send back, with the fix. The [launch checklist](#launch-checklist-what-to-call) has the full list.
 
 | Issue | Fix |
 |-------|-----|
