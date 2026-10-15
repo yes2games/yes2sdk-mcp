@@ -39,3 +39,16 @@ export type SupportedPlatform = (typeof SUPPORTED_PLATFORMS)[number];
 export function isSupportedPlatform(value: string): value is SupportedPlatform {
   return (SUPPORTED_PLATFORMS as readonly string[]).includes(value);
 }
+
+/**
+ * Surfaces that appear as a column in the support matrix but are not platforms
+ * a game is submitted to: no quickstart, no compliance rules, no inspector
+ * entry. Only the capabilities tool accepts them, which is why they are kept out
+ * of `SUPPORTED_PLATFORMS`, the list every other tool builds its enum from.
+ */
+export const CAPABILITY_ONLY_PLATFORMS = ["portal"] as const;
+
+/** Every id the capabilities tool accepts: target platforms plus capability-only surfaces. */
+export const CAPABILITY_PLATFORMS = [...SUPPORTED_PLATFORMS, ...CAPABILITY_ONLY_PLATFORMS] as const;
+
+export type CapabilityPlatformId = (typeof CAPABILITY_PLATFORMS)[number];
