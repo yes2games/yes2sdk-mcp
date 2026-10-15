@@ -35,20 +35,20 @@ In-app purchases: read the product catalog, initiate a purchase, restore and con
 
 ## Platform support
 
-| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Jest |
-|--------|:----:|:----------------:|:----------:|:------:|:-------:|:----:|
-| `getCatalogAsync` | None | None | None | Ready | None | Ready² |
-| `getProductAsync` | None | None | None | Ready | None | Ready² |
-| `purchaseAsync` | None | None | None | Ready | None | Ready³ |
-| `getPurchasesAsync` | None | None | None | Ready | None | Ready⁴ |
-| `consumePurchaseAsync` | None | None | None | Ready | None | Ready⁵ |
-| `getSubscriptionStatusAsync` | None | None | None | None¹ | None | Ready⁶ ⁷ |
-| `getSubscriptionsAsync` | None | None | None | None¹ | None | Ready⁶ |
-| `subscribeAsync` | None | None | None | None¹ | None | Ready⁶ |
-| `cancelSubscriptionAsync` | None | None | None | None¹ | None | Ready⁶ |
-| `claimRetentionOfferAsync` | None | None | None | None¹ | None | Ready⁶ |
-| `isSupported` | None | None | None | Ready | None | Ready |
-| `isSubscriptionSupported` | None | None | None | None¹ | None | Ready |
+| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Y2G-Portal | Jest |
+|--------|:----:|:----------------:|:----------:|:------:|:-------:|:------:|:----:|
+| `getCatalogAsync` | None | None | None | Ready | None | None | Ready² |
+| `getProductAsync` | None | None | None | Ready | None | None | Ready² |
+| `purchaseAsync` | None | None | None | Ready | None | None | Ready³ |
+| `getPurchasesAsync` | None | None | None | Ready | None | None | Ready⁴ |
+| `consumePurchaseAsync` | None | None | None | Ready | None | None | Ready⁵ |
+| `getSubscriptionStatusAsync` | None | None | None | None¹ | None | None | Ready⁶ ⁷ |
+| `getSubscriptionsAsync` | None | None | None | None¹ | None | None | Ready⁶ |
+| `subscribeAsync` | None | None | None | None¹ | None | None | Ready⁶ |
+| `cancelSubscriptionAsync` | None | None | None | None¹ | None | None | Ready⁶ |
+| `claimRetentionOfferAsync` | None | None | None | None¹ | None | None | Ready⁶ |
+| `isSupported` | None | None | None | Ready | None | None | Ready |
+| `isSubscriptionSupported` | None | None | None | None¹ | None | None | Ready |
 
 Yandex maps to its native payments API and Jest to Jest payments. On every other platform `isSupported()` returns `false`. Guard your calls with `isSupported()`.
 

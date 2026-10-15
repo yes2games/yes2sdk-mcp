@@ -38,23 +38,23 @@ Player identity, cloud-backed player data, and connected players (friends who al
 
 ## Platform support
 
-| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Jest |
-|--------|:----:|:----------------:|:----------:|:------:|:-------:|:----:|
-| `getPlayer` | None¹ | None¹ | Ready | Ready | None¹ | Ready⁸ |
-| `getUniqueId` | None⁵ | None⁵ | Partial⁷ | Ready | None⁵ | Ready⁸ |
-| `getIDsPerGame` | None⁶ | None⁶ | None⁶ | Ready | None⁶ | None⁶ |
-| `getPayingStatus` | None⁵ | None⁵ | None⁵ | Ready | None⁵ | None⁵ |
-| `getMode` | None⁵ | None⁵ | Partial⁷ | Ready | None⁵ | Ready⁸ |
-| `getPhoto` | None⁵ | None⁵ | Partial⁷ | Ready | None⁵ | Ready⁸ |
-| `getBotAvatarAsync` | None | None | None | None | None | Ready¹¹ |
-| `getConnectedPlayers` | None | None | None | None | None | None |
-| `getDataAsync` | Partial⁴ | Partial⁴ | Ready | Ready | Ready | Ready⁹ |
-| `setDataAsync` | Partial⁴ | Partial⁴ | Ready | Ready | Ready | Ready⁹ |
-| `flushDataAsync` | Partial⁴ | Partial⁴ | None² | Partial² | None² | Ready⁹ |
-| `getSignedPlayerInfoAsync` | None | None | None | Ready³ | None | Ready¹⁰ |
-| `isDataSupported` | Ready⁴ | Ready⁴ | Ready | Ready | Ready | Ready |
-| `isConnectedPlayersSupported` | None | None | None | None | None | None |
-| `isBotAvatarSupported` | None | None | None | None | None | Ready¹¹ |
+| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Y2G-Portal | Jest |
+|--------|:----:|:----------------:|:----------:|:------:|:-------:|:------:|:----:|
+| `getPlayer` | None¹ | None¹ | Ready | Ready | None¹ | Partial¹² | Ready⁸ |
+| `getUniqueId` | None⁵ | None⁵ | Partial⁷ | Ready | None⁵ | Partial¹² | Ready⁸ |
+| `getIDsPerGame` | None⁶ | None⁶ | None⁶ | Ready | None⁶ | None⁶ | None⁶ |
+| `getPayingStatus` | None⁵ | None⁵ | None⁵ | Ready | None⁵ | None⁵ | None⁵ |
+| `getMode` | None⁵ | None⁵ | Partial⁷ | Ready | None⁵ | None⁵ | Ready⁸ |
+| `getPhoto` | None⁵ | None⁵ | Partial⁷ | Ready | None⁵ | None⁵ | Ready⁸ |
+| `getBotAvatarAsync` | None | None | None | None | None | None | Ready¹¹ |
+| `getConnectedPlayers` | None | None | None | None | None | None | None |
+| `getDataAsync` | Partial⁴ | Partial⁴ | Ready | Ready | Ready | None | Ready⁹ |
+| `setDataAsync` | Partial⁴ | Partial⁴ | Ready | Ready | Ready | None | Ready⁹ |
+| `flushDataAsync` | Partial⁴ | Partial⁴ | None² | Partial² | None² | None | Ready⁹ |
+| `getSignedPlayerInfoAsync` | None | None | None | Ready³ | None | None | Ready¹⁰ |
+| `isDataSupported` | Ready⁴ | Ready⁴ | Ready | Ready | Ready | None | Ready |
+| `isConnectedPlayersSupported` | None | None | None | None | None | None | None |
+| `isBotAvatarSupported` | None | None | None | None | None | None | Ready¹¹ |
 
 ¹ Returns a hardcoded anonymous player (`{ id: "anonymous", name: null, photo: null }`).
 ² Auto-flush platforms: `flushDataAsync` is a no-op (CrazyGames, YouTube) or relies on `setData(flush=true)` (Yandex).
@@ -67,6 +67,7 @@ Player identity, cloud-backed player data, and connected players (friends who al
 ⁹ Jest stores player data in the Jest player store, which persists across sessions and devices. The `data` module uses the same store, so the two share one budget of 1 MB per game per player. `setDataAsync` merges the keys you pass into the store. It does not check the size first, and a write past the limit fails on Jest's side, possibly without an error. Keep player data well under 1 MB, or use `data.setStringAsync`, which checks the limit and resolves `false`. `flushDataAsync` waits until Jest acknowledges the pending writes. Yes2SDK also flushes on pause and right after the `exitRequested` event.
 ¹⁰ Jest returns `{ playerId, signature }`, where `signature` is Jest's signed player payload (an HS256 JWS signed with your game's shared secret). It works for guests too. The `payload` argument is ignored on Jest. See [Signed player info on Jest](#signed-player-info-on-jest).
 ¹¹ Jest generates bot avatars at 64, 256 or 1000 pixels (`small`, `medium`, `large`). `isBotAvatarSupported()` is `false` on the other five platforms, and `getBotAvatarAsync` rejects with `FEATURE_NOT_SUPPORTED` there. See [Bot avatars](#bot-avatars).
+¹² Y2G-Portal gives each visit an anonymous guest id (`portal-guest-…`) with no name or photo. It is not kept between visits. Use the [data](data.md) module to save progress.
 
 **Connected players** isn't offered by the live platforms yet. **Player identity** (`getPlayer`) is anonymous on Poki and GameDistribution, though player saved-data still persists locally there.
 

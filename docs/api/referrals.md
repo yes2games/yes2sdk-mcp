@@ -24,11 +24,11 @@ Let a player invite others with a share link, then read back who joined. Each in
 
 ## Platform support
 
-| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Jest |
-|--------|:----:|:----------------:|:----------:|:------:|:-------:|:----:|
-| `shareAsync` | None | None | None | None | None | Ready¹ |
-| `listAsync` | None | None | None | None | None | Ready² |
-| `isSupported` | None | None | None | None | None | Ready |
+| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Y2G-Portal | Jest |
+|--------|:----:|:----------------:|:----------:|:------:|:-------:|:------:|:----:|
+| `shareAsync` | None | None | None | None | None | None | Ready¹ |
+| `listAsync` | None | None | None | None | None | None | Ready² |
+| `isSupported` | None | None | None | None | None | None | Ready |
 
 ¹ Opens Jest's referral share flow. The promise resolves when the dialog closes, which does not prove the player shared; `canceled: true` means they dismissed it. Works for guests and registered players. The image size and type are checked by Jest, not by the SDK. Any platform failure rejects with `PLATFORM_ERROR`.
 ² Jest only counts an invited player once they complete registration. `signedRequest` is Jest's signed referrals payload; verify it on your server before granting a reward.

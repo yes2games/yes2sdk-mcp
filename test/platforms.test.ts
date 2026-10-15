@@ -46,6 +46,14 @@ function matrixColumnsFromMarkdown(md: string): string[] {
     .filter((cell) => cell.length > 0);
 }
 
+/**
+ * Matrix columns that are deliberately not target platforms: a first-party
+ * surface a game does not submit to, so it has no quickstart, no compliance
+ * rules and no inspector entry. Normalised the way the columns are read below
+ * ("Y2G-Portal" becomes "ygportal").
+ */
+const NON_TARGET_COLUMNS: readonly string[] = ["ygportal"];
+
 describe("SUPPORTED_PLATFORMS", () => {
   it("has no duplicate ids", () => {
     expect(sorted(SUPPORTED_PLATFORMS)).toEqual(sorted([...new Set(SUPPORTED_PLATFORMS)]));
@@ -67,7 +75,7 @@ describe("SUPPORTED_PLATFORMS agrees with the api/overview support matrix", () =
     const md = readDocBySlug("api/overview");
     expect(md, "api/overview doc must be present for this check to mean anything").not.toBeNull();
 
-    const columns = matrixColumnsFromMarkdown(md as string);
+    const columns = matrixColumnsFromMarkdown(md as string).filter((c) => !NON_TARGET_COLUMNS.includes(c));
     expect(columns.length, "the matrix parsed to zero columns, so the check is vacuous").toBeGreaterThan(0);
 
     const known: readonly string[] = SUPPORTED_PLATFORMS;

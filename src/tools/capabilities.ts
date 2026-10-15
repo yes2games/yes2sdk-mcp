@@ -63,10 +63,13 @@ export function parseCapabilityMatrix(md: string): CapabilityMatrix {
   if (tableLines.length < 2) return { platforms: [], rows: [], footnotes: [] };
 
   const header = splitRow(tableLines[0] ?? "");
-  const platforms = header
-    .slice(1)
-    .map(platformKey)
-    .filter((p): p is CapabilityPlatform => p !== null);
+  // Keep each platform's own column index. A column that is not a target
+  // platform (for example Y2G-Portal, a first-party surface) is skipped, and
+  // must not shift the cells of the platforms after it.
+  const columns = header
+    .map((h, index) => ({ key: index === 0 ? null : platformKey(h), index }))
+    .filter((c): c is { key: CapabilityPlatform; index: number } => c.key !== null);
+  const platforms = columns.map((c) => c.key);
 
   const rows: CapabilityRow[] = [];
   // Skip header (0) and the |---|---| separator (1).
@@ -75,9 +78,9 @@ export function parseCapabilityMatrix(md: string): CapabilityMatrix {
     const module = cells[0] ?? "";
     if (!module) continue;
     const support = {} as Record<CapabilityPlatform, string>;
-    platforms.forEach((p, i) => {
-      support[p] = cleanStatus(cells[i + 1] ?? "");
-    });
+    for (const { key, index } of columns) {
+      support[key] = cleanStatus(cells[index] ?? "");
+    }
     rows.push({ module, support });
   }
 
