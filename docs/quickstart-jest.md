@@ -362,7 +362,7 @@ If reviewers send back changes, upload a new build and request publish again on 
 - **Subscriptions:** `subscribeAsync` resolves `{ status: "cancelled" }` when the player closes the checkout. Guests get no subscriptions.
 - **Exit:** async work started in the `exitRequested` handler is not awaited. Save synchronously.
 - **Gameplay events:** keep calling `game.gameplayStart()` and `game.gameplayStop()`. They do nothing on Jest, but the same code then works on the other platforms.
-- **Analytics, audio, haptics:** `analytics.log*` is not forwarded to Jest. `session.isAudioEnabled()` is always `true`. Haptic feedback does nothing.
+- **Analytics, audio, haptics:** `analytics.log*` is not forwarded to Jest. With a recent SDK build it is recorded as a player event instead, shown on your game page in the Dashboard (see [Analytics](/docs/api/analytics#player-events)). `session.isAudioEnabled()` is always `true`. Haptic feedback does nothing.
 - **Invites:** use Referrals, not `game.inviteLink()`. Jest only counts invited players who complete registration.
 - **Referral options:** `referrals.shareAsync` also takes `onboardingSlug` (route invited players through an onboarding game first) and `notificationTemplates` (notifications to the referrer as invited players join). See [Referrals](/docs/api/referrals).
 - **Entry point data:** comes only from Jest's entry payload, never from the page URL.

@@ -33,19 +33,19 @@ Information about the current play session: device, locale, country, entry point
 
 ## Platform support
 
-| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Jest |
-|--------|:----:|:----------------:|:----------:|:------:|:-------:|:----:|
-| `getCountry` | None | None | Ready | Ready | None | None |
-| `getLocale` | Partial¹ | Partial¹ | Partial¹ | Ready | Ready² | Partial¹ |
-| `getOrientation` | Partial³ | Partial³ | Partial³ | Partial³ | Partial³ | Partial³ |
-| `getDevice` | Partial³ | Partial³ | Ready | Partial³ | Partial³ | Partial³ |
-| `getDeviceInfo` | Partial³ | Partial³ | Ready⁷ | Ready⁸ | Partial³ | Partial³ |
-| `getEntryPointAsync` | Ready | Partial | Ready | None | None | Partial⁹ |
-| `getEntryPointData` | Partial | Partial | Ready | Ready | None | Ready¹⁰ |
-| `getTrafficSource` | Ready | Partial | Ready | Partial⁴ | Partial⁴ | Partial⁴ |
-| `getPlatform` | Ready | Ready | Ready | Ready | Ready | Ready |
-| `getSDKVersion` | None⁵ | None⁵ | None⁵ | None⁵ | None⁵ | None⁵ |
-| `isAudioEnabled` | None⁶ | None⁶ | None⁶ | None⁶ | Ready² | None⁶ |
+| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Y2G-Portal | Jest |
+|--------|:----:|:----------------:|:----------:|:------:|:-------:|:------:|:----:|
+| `getCountry` | None | None | Ready | Ready | None | None | None |
+| `getLocale` | Partial¹ | Partial¹ | Partial¹ | Ready | Ready² | Partial¹ | Partial¹ |
+| `getOrientation` | Partial³ | Partial³ | Partial³ | Partial³ | Partial³ | Partial³ | Partial³ |
+| `getDevice` | Partial³ | Partial³ | Ready | Partial³ | Partial³ | Partial³ | Partial³ |
+| `getDeviceInfo` | Partial³ | Partial³ | Ready⁷ | Ready⁸ | Partial³ | Partial³ | Partial³ |
+| `getEntryPointAsync` | Ready | Partial | Ready | None | None | Partial | Partial⁹ |
+| `getEntryPointData` | Partial | Partial | Ready | Ready | None | Partial | Ready¹⁰ |
+| `getTrafficSource` | Ready | Partial | Ready | Partial⁴ | Partial⁴ | Partial | Partial⁴ |
+| `getPlatform` | Ready | Ready | Ready | Ready | Ready | Ready | Ready |
+| `getSDKVersion` | None⁵ | None⁵ | None⁵ | None⁵ | None⁵ | None⁵ | None⁵ |
+| `isAudioEnabled` | None⁶ | None⁶ | None⁶ | None⁶ | Ready² | None⁶ | None⁶ |
 
 ¹ Locale is derived, not from a dedicated locale API: Poki prefers `PokiSDK.getLanguage()`; CrazyGames uses the system **country code** (`getSystemInfo().countryCode`), not a language; GameDistribution and Jest use the browser. All fall back to `navigator.language` (Jest falls back to `"en"` when the browser gives none).
 ² From `ytgame.system.getLanguage()` / `ytgame.system.isAudioEnabled()`.

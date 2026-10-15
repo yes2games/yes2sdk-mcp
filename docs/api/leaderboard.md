@@ -25,14 +25,14 @@ Named leaderboards: submit scores, read top/ranked entries, and fetch the curren
 
 ## Platform support
 
-| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Jest |
-|--------|:----:|:----------------:|:----------:|:------:|:-------:|:----:|
-| `getLeaderboardAsync` | None | None | None | Ready | None | None¹ |
-| `setScoreAsync` | None | None | None | Ready | None | None¹ |
-| `getEntriesAsync` | None | None | None | Ready | None | None¹ |
-| `getPlayerEntryAsync` | None | None | None | Ready | None | None¹ |
-| `getConnectedPlayerEntriesAsync` | None | None | None | Ready | None | None¹ |
-| `isSupported` | None | None | None | Ready | None | None |
+| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Y2G-Portal | Jest |
+|--------|:----:|:----------------:|:----------:|:------:|:-------:|:------:|:----:|
+| `getLeaderboardAsync` | None | None | None | Ready | None | None | None¹ |
+| `setScoreAsync` | None | None | None | Ready | None | None | None¹ |
+| `getEntriesAsync` | None | None | None | Ready | None | None | None¹ |
+| `getPlayerEntryAsync` | None | None | None | Ready | None | None | None¹ |
+| `getConnectedPlayerEntriesAsync` | None | None | None | Ready | None | None | None¹ |
+| `isSupported` | None | None | None | Ready | None | None | None |
 
 Yandex maps to its native leaderboards API. On every other platform `isSupported()` returns `false`. Guard your calls with `isSupported()`.
 
