@@ -34,11 +34,11 @@ PlayerPrefs-style typed key-value storage. Works before init via a `yes2sdk_`-pr
 
 The Data module is functional on every platform. The distinction is **storage backing**.
 
-| Capability | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Jest |
-|------------|:----:|:----------------:|:----------:|:------:|:-------:|:----:|
-| Read/write (`getInt`/`setInt`/…) | Partial | Partial | Ready | Ready | Ready | Ready |
-| Backing store | localStorage | localStorage | CrazyGames native | Cloud (`player.getData/setData`) | Cloud (`ytgame.game.load/saveData`) | Cloud (Jest player store) |
-| Cross-device sync | No | No | Yes | Yes | Yes | Yes |
+| Capability | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Y2G-Portal | Jest |
+|------------|:----:|:----------------:|:----------:|:------:|:-------:|:------:|:----:|
+| Read/write (`getInt`/`setInt`/…) | Partial | Partial | Ready | Ready | Ready | Partial | Ready |
+| Backing store | localStorage | localStorage | CrazyGames native | Cloud (`player.getData/setData`) | Cloud (`ytgame.game.load/saveData`) | localStorage | Cloud (Jest player store) |
+| Cross-device sync | No | No | Yes | Yes | Yes | No | Yes |
 
 On the cloud platforms (Yandex, YouTube), synchronous setters are **write-behind**: they update an in-memory cache immediately and flush to the cloud on a debounce and on platform pause. The async setters (`set*Async`) await the cloud write and return success.
 

@@ -38,17 +38,17 @@ Unified interface for interstitial, rewarded, and banner ads. Interstitials run 
 
 ## Platform support
 
-| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Jest |
-|--------|:----:|:----------------:|:----------:|:------:|:-------:|:----:|
-| `showInterstitial` | Ready | Ready | Ready | Ready | Ready | None³ |
-| `showRewarded` | Ready | Ready | Ready | Ready | Ready | None³ |
-| `showBanner` | None | None | Ready | Ready | None | None⁴ |
-| `hideBanner` | None | None | Ready | Ready | None | None |
-| `isInterstitialSupported` | Ready | Ready | Ready | Ready | Ready | None⁵ |
-| `isRewardedSupported` | Ready | Ready | Ready | Ready | Ready | None⁵ |
-| `isBannerSupported` | None | None | Ready | Ready | None | None⁵ |
-| `isRewardedAdAvailable` | Partial | Partial | Partial | Partial | Partial | None⁵ |
-| `isAdBlocked` | Ready¹ | None | None² | None | None | None |
+| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Y2G-Portal | Jest |
+|--------|:----:|:----------------:|:----------:|:------:|:-------:|:------:|:----:|
+| `showInterstitial` | Ready | Ready | Ready | Ready | Ready | Ready | None³ |
+| `showRewarded` | Ready | Ready | Ready | Ready | Ready | Ready | None³ |
+| `showBanner` | None | None | Ready | Ready | None | None | None⁴ |
+| `hideBanner` | None | None | Ready | Ready | None | None | None |
+| `isInterstitialSupported` | Ready | Ready | Ready | Ready | Ready | Ready | None⁵ |
+| `isRewardedSupported` | Ready | Ready | Ready | Ready | Ready | Ready | None⁵ |
+| `isBannerSupported` | None | None | Ready | Ready | None | None | None⁵ |
+| `isRewardedAdAvailable` | Partial | Partial | Partial | Partial | Partial | Partial | None⁵ |
+| `isAdBlocked` | Ready¹ | None | None² | None | None | None | None |
 
 **Platform mapping:**
 - **Poki:** `PokiSDK.commercialBreak` / `rewardedBreak`. No banner. ¹ `isAdBlocked` calls `PokiSDK.isAdBlocked()` if present.

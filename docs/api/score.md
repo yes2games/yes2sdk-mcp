@@ -20,11 +20,11 @@ Score submission, including an encrypted/signed variant for anti-cheat. Supporte
 
 ## Platform support
 
-| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Jest |
-|--------|:----:|:----------------:|:----------:|:------:|:-------:|:----:|
-| `addScore` | None¹ | None¹ | Ready² | None¹ | Ready³ | None¹ |
-| `submitScore` | None¹ | None¹ | Ready² | None¹ | Partial⁴ | None¹ |
-| `isSupported` | None | None | Ready | None | Ready | None |
+| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Y2G-Portal | Jest |
+|--------|:----:|:----------------:|:----------:|:------:|:-------:|:------:|:----:|
+| `addScore` | None¹ | None¹ | Ready² | None¹ | Ready³ | None¹ | None¹ |
+| `submitScore` | None¹ | None¹ | Ready² | None¹ | Partial⁴ | None¹ | None¹ |
+| `isSupported` | None | None | Ready | None | Ready | None | None |
 
 ¹ Recorded locally; the platform doesn't offer a score API yet.
 ² CrazyGames `sdk.user.addScore`/`submitScore` if the SDK version exposes them (warns otherwise).

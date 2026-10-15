@@ -33,16 +33,16 @@ Authentication and account linking. Optional. Guard with `isSupported()`.
 
 ## Platform support
 
-| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Jest |
-|--------|:----:|:----------------:|:----------:|:------:|:-------:|:----:|
-| `getCurrentUser` | None | None | Ready | Ready | None | Ready⁸ |
-| `signInAsync` | None | None | Ready¹ | Ready² | None | Ready⁹ |
-| `signOutAsync` | None | None | None³ | None³ | None | None³ |
-| `getTokenAsync` | None | None | Ready⁴ | Ready⁵ | None | Ready¹⁰ |
-| `linkAccountAsync` | None | None | Ready⁶ | None | None | None |
-| `showRegistrationPrompt` | None | None | None | None | None | Ready¹¹ |
-| `isAuthenticated` | None | None | Ready | Ready | None | Ready¹² |
-| `isSupported` | None | None | Ready⁷ | Ready | None | Ready |
+| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Y2G-Portal | Jest |
+|--------|:----:|:----------------:|:----------:|:------:|:-------:|:------:|:----:|
+| `getCurrentUser` | None | None | Ready | Ready | None | None | Ready⁸ |
+| `signInAsync` | None | None | Ready¹ | Ready² | None | None | Ready⁹ |
+| `signOutAsync` | None | None | None³ | None³ | None | None | None³ |
+| `getTokenAsync` | None | None | Ready⁴ | Ready⁵ | None | None | Ready¹⁰ |
+| `linkAccountAsync` | None | None | Ready⁶ | None | None | None | None |
+| `showRegistrationPrompt` | None | None | None | None | None | None | Ready¹¹ |
+| `isAuthenticated` | None | None | Ready | Ready | None | None | Ready¹² |
+| `isSupported` | None | None | Ready⁷ | Ready | None | None | Ready |
 
 ¹ `sdk.user.showAuthPrompt()`.  ² `ysdk.auth.openAuthDialog()` then re-fetches the player.  ³ No platform sign-out API.  ⁴ `sdk.user.getUserToken()` (1h local expiry).  ⁵ Signed player info (`getPlayer({signed:true})` → signature).  ⁶ `sdk.user.showAccountLinkPrompt()`.  ⁷ Delegates to `sdk.user.isUserAccountAvailable()`.  ⁸ Returns the Jest player for guests too, with `isAuthenticated: false` until the player registers.  ⁹ Opens Jest's login popup. Jest finishes registration over SMS and brings the player back with a fresh page load, so the call usually rejects with `PLAYER_NOT_AUTHENTICATED` when the popup closes. Check `isAuthenticated()` on the next launch instead of waiting on this promise.  ¹⁰ Jest's signed player payload (an HS256 JWS) as `accessToken`, with a 24h local expiry. Verify it on your server.  ¹¹ Guests only. A registered player gets `INVALID_OPERATION`.  ¹² `true` once the player has registered with Jest; `false` for a guest.
 

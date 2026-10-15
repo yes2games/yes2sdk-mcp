@@ -44,6 +44,21 @@ describe("parseCapabilityMatrix", () => {
   });
 });
 
+describe("parseCapabilityMatrix with a non-target column", () => {
+  it("skips the column without shifting the platforms after it", () => {
+    const md = [
+      "## Platform support matrix",
+      "",
+      "| Module | Poki | Y2G-Portal | Jest |",
+      "|--------|:----:|:----------:|:----:|",
+      "| Ads | Ready | Partial | None¹ |",
+    ].join("\n");
+    const { platforms, rows } = parseCapabilityMatrix(md);
+    expect(platforms).toEqual(["poki", "jest"]);
+    expect(rows[0]?.support).toEqual({ poki: "Ready", jest: "None" });
+  });
+});
+
 describe("get_platform_capabilities", () => {
   it("returns the full matrix with a legend", async () => {
     const res = await client.callTool({ name: "get_platform_capabilities", arguments: {} });
