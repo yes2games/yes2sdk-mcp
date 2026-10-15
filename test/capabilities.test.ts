@@ -32,7 +32,7 @@ describe("parseCapabilityMatrix", () => {
     const md = readDocBySlug("api/overview");
     expect(md).not.toBeNull();
     const { platforms, rows } = parseCapabilityMatrix(md as string);
-    expect(platforms).toEqual(["poki", "gamedistribution", "crazygames", "yandex", "youtube", "jest"]);
+    expect(platforms).toEqual(["poki", "gamedistribution", "crazygames", "yandex", "youtube", "portal", "jest"]);
     const adsBanner = rows.find((r) => r.module.includes("banner"));
     expect(adsBanner).toBeDefined();
     // Ads: banner: only CrazyGames and Yandex.
@@ -44,8 +44,8 @@ describe("parseCapabilityMatrix", () => {
   });
 });
 
-describe("parseCapabilityMatrix with a non-target column", () => {
-  it("skips the column without shifting the platforms after it", () => {
+describe("parseCapabilityMatrix with the Y2G-Portal column", () => {
+  it("maps the Y2G-Portal column to portal without shifting the platforms after it", () => {
     const md = [
       "## Platform support matrix",
       "",
@@ -54,8 +54,22 @@ describe("parseCapabilityMatrix with a non-target column", () => {
       "| Ads | Ready | Partial | None¹ |",
     ].join("\n");
     const { platforms, rows } = parseCapabilityMatrix(md);
-    expect(platforms).toEqual(["poki", "jest"]);
-    expect(rows[0]?.support).toEqual({ poki: "Ready", jest: "None" });
+    expect(platforms).toEqual(["poki", "portal", "jest"]);
+    expect(rows[0]?.support).toEqual({ poki: "Ready", portal: "Partial", jest: "None" });
+  });
+});
+
+describe("get_platform_capabilities for portal", () => {
+  it("returns the portal column", async () => {
+    const text = textOf(await client.callTool({ name: "get_platform_capabilities", arguments: { platform: "portal" } }));
+    expect(text).toContain("# Yes2SDK support on portal");
+    expect(text).toContain("- Ads: interstitial & rewarded: Ready");
+    expect(text).toContain("- IAP: None");
+  });
+
+  it("includes portal in the full matrix", async () => {
+    const text = textOf(await client.callTool({ name: "get_platform_capabilities", arguments: {} }));
+    expect(text).toMatch(/Module \|.*portal/);
   });
 });
 
