@@ -21,12 +21,12 @@ Numeric player statistics: read, set, and atomically increment named counters (m
 
 ## Platform support
 
-| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Jest |
-|--------|:----:|:----------------:|:----------:|:------:|:-------:|:----:|
-| `getStatsAsync` | None | None | None | Ready | None | None¹ |
-| `setStatsAsync` | None | None | None | Ready | None | None¹ |
-| `incrementStatsAsync` | None | None | None | Ready | None | None¹ |
-| `isSupported` | None | None | None | Ready | None | None |
+| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Y2G-Portal | Jest |
+|--------|:----:|:----------------:|:----------:|:------:|:-------:|:------:|:----:|
+| `getStatsAsync` | None | None | None | Ready | None | None | None¹ |
+| `setStatsAsync` | None | None | None | Ready | None | None | None¹ |
+| `incrementStatsAsync` | None | None | None | Ready | None | None | None¹ |
+| `isSupported` | None | None | None | Ready | None | None | None |
 
 Yandex maps to its native stats API. On every other platform `isSupported()` returns `false`. Guard your calls with `isSupported()`.
 

@@ -27,14 +27,14 @@ Documented sizes: `"300x250" | "728x90" | "320x50" | "468x60" | "160x600"` (the 
 
 ## Platform support
 
-| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Jest |
-|--------|:----:|:----------------:|:----------:|:------:|:-------:|:----:|
-| `showBanner` | None | None | Ready | Ready¹ | None | None⁶ |
-| `hideBanner` | None | None | Ready | Ready¹ | None | None |
-| `hideAllBanners` | None | None | Ready | Ready | None | None |
-| `refreshBanners` | None | None | Ready² | Partial³ | None | None |
-| `getBannerStatusAsync` | None | None | Partial⁴ | Ready⁵ | None | None⁷ |
-| `isSupported` | None | None | Ready | Ready | None | None |
+| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Y2G-Portal | Jest |
+|--------|:----:|:----------------:|:----------:|:------:|:-------:|:------:|:----:|
+| `showBanner` | None | None | Ready | Ready¹ | None | None | None⁶ |
+| `hideBanner` | None | None | Ready | Ready¹ | None | None | None |
+| `hideAllBanners` | None | None | Ready | Ready | None | None | None |
+| `refreshBanners` | None | None | Ready² | Partial³ | None | None | None |
+| `getBannerStatusAsync` | None | None | Partial⁴ | Ready⁵ | None | None | None⁷ |
+| `isSupported` | None | None | Ready | Ready | None | None | None |
 
 ¹ Yandex maps to a single sticky banner (`ysdk.adv.showBannerAdv`); `id`/`size` are ignored.
 ² CrazyGames `refreshBanners` if the SDK version exposes it (warns otherwise).

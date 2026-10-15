@@ -19,10 +19,10 @@ Paginated list of the player's friends who also play this game. Available on **C
 
 ## Platform support
 
-| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Jest |
-|--------|:----:|:----------------:|:----------:|:------:|:-------:|:----:|
-| `listFriendsAsync` | None | None | Ready¹ | None | None | None² |
-| `isSupported` | None | None | Ready | None | None | None |
+| Method | Poki | GameDistribution | CrazyGames | Yandex | YouTube | Y2G-Portal | Jest |
+|--------|:----:|:----------------:|:----------:|:------:|:-------:|:------:|:----:|
+| `listFriendsAsync` | None | None | Ready¹ | None | None | None | None² |
+| `isSupported` | None | None | Ready | None | None | None | None |
 
 ¹ CrazyGames `sdk.user.getMyFriends()`, paginated in memory. Throws `FEATURE_NOT_SUPPORTED` only if the SDK version lacks the method.
 ² Jest has no friends list: `listFriendsAsync` rejects with `FEATURE_NOT_SUPPORTED`. Guard with `isSupported()`. To bring friends in on Jest, use [referrals](referrals.md).
