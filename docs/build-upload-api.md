@@ -1,6 +1,6 @@
 # Build Upload API
 
-> Create and read games, set their icon and banner, and upload versioned builds from CI with a team API key, instead of clicking through the dashboard.
+> Create and read games, set their icon and banner, and upload versioned builds from CI with an API key, instead of clicking through the dashboard.
 
 Every action here has an equivalent in the dashboard UI. Use this API when a build should be uploaded by a pipeline: a tagged release, a nightly job, an engine build step. Interactive uploads keep working exactly as before and are unaffected by anything on this page.
 
@@ -12,27 +12,48 @@ https://dashboard.yes2games.com/api/v1
 
 ## Authentication
 
-Every request carries a team API key as a bearer token:
+Every request carries an API key (a team key or a personal key) as a bearer token:
 
 ```
 Authorization: Bearer y2g_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-A key belongs to a **team**, not to a person. It can only reach games owned by that team, and it grants nothing outside the endpoints on this page. A dashboard login token is not accepted here, and a key is not accepted on the dashboard's own routes.
+Every key belongs to one studio. It can only reach games owned by that studio, and it grants nothing outside the endpoints on this page. A dashboard login token is not accepted here, and a key is not accepted on the dashboard's own routes.
 
-### Creating a key
+There are two kinds of key. Both reach the same endpoints and only the games of their studio. They differ in who they are shown as, and in how long they live.
+
+| | Team key | Personal key |
+|---|---|---|
+| Created by | Owners and managers, on the **Team** page | Any owner, manager or developer, in **Settings** |
+| Copy again later | Any member except a viewer, with **Copy key** on the **Team** page | Its holder only, with **Reveal** in **Settings**, while the key is active |
+| Revoked by | An owner or manager, on the **Team** page | Its holder, in **Settings** |
+| Uploads show as | `System · <key name>`, never a person | The holder's name and email |
+| Stops working when | It is revoked. It keeps working after its creator leaves the studio. | It is revoked, or the holder leaves the studio, is removed, is demoted to viewer (this includes being made a client contact) or is banned. The next request answers `401` with `INVALID_API_KEY`. |
+| Limit | None | 5 per person per studio |
+
+Owners and managers never see, reveal or revoke a member's personal key, but they do get a bell notification, with the key's name and holder and never the key or its prefix, when one is created. The holder manages it in **Settings**. A key whose holder has lost upload rights is still listed, with `active: false` and an **Inactive** badge, so the holder can revoke it. It answers `401` until the holder regains those rights.
+
+### Creating a team key
 
 1. Open the **Team** page in the dashboard.
-2. In **API Keys**, click **Create key** and give it a name that says where it will run, for example `github-actions`.
-3. Copy the key immediately. It is shown **once** and never again. Afterwards only its prefix is visible, so you can tell keys apart without being able to read them.
+2. In **Team keys**, click **Create key** and give it a name that says where it will run, for example `github-actions`.
+3. Copy the key. Any member of the studio except a viewer can copy it again later with **Copy key** on the same page. The list shows only the key's prefix, so you can tell keys apart without reading them.
 
-Only a team **owner** or **manager** can create, list, or revoke keys.
+### Creating a personal key
+
+1. Click your avatar in the top bar to open **Settings**.
+2. In **Personal API keys**, click **Create personal key** and give it a name, for example `my-laptop`.
+3. Copy the key. You can reveal it again later from **Settings** while the key is active.
+
+Uploads with a personal key show your name on the build card in Google Chat. The key stops working when you leave the studio or lose upload rights.
+
+Only a studio **owner** or **manager** can create or revoke team keys. Any member except a viewer can copy one. Only the holder of a personal key can create, reveal or revoke it.
 
 Store the key as a secret in your CI provider. It is a credential: treat it like a deploy token, never commit it, never print it in build logs.
 
 ### Revoking a key
 
-Click **Revoke** next to the key on the Team page. Revocation takes effect immediately and cannot be undone. A revoked key answers `401` on its next request. Revoke and create a fresh key whenever one may have been exposed.
+Revoke a team key with **Revoke** next to it on the **Team** page (owners and managers). Revoke a personal key with **Revoke** next to it in **Settings** (the holder). Revocation takes effect immediately and cannot be undone. A revoked key answers `401` on its next request. Revoke and create a fresh key whenever one may have been exposed.
 
 ---
 
@@ -322,7 +343,7 @@ Every failure answers with `{"success": false, "error": "..."}`, plus a `code` w
 
 | Status | `code` | Meaning |
 |---|---|---|
-| `401` | `INVALID_API_KEY` | Missing, malformed, revoked, or unknown key |
+| `401` | `INVALID_API_KEY` | Missing, malformed, revoked, or unknown key. Also a personal key whose holder lost upload rights |
 | `403` | | The key's team does not own this game. Returned by the endpoints that change a game |
 | `404` | | `Game not found` from a read endpoint. See [Read games and builds](#read-games-and-builds) |
 | `400` | | `dataUrl` is missing, or is not a PNG, JPEG, or WebP base64 data URL |
