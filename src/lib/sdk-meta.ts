@@ -38,12 +38,12 @@ export const SDK_META: Record<Engine, EngineMeta> = {
     "engine": "unity",
     "displayName": "Unity",
     "packageName": "com.yes2games.yes2sdk",
-    "version": "2.12.0",
+    "version": "2.13.0",
     "repoUrl": "https://github.com/yes2games/yes2sdk-unity",
     "installSteps": [
       "In the Unity menu bar choose Window > Package Manager.",
       "Click the + button (top-left) and choose \"Add package from git URL…\".",
-      "Enter: https://github.com/yes2games/yes2sdk-unity.git#v2.12.0  (the #v2.12.0 tag pins this release; drop the tag only to track main).",
+      "Enter: https://github.com/yes2games/yes2sdk-unity.git#v2.13.0  (the #v2.13.0 tag pins this release; drop the tag only to track main).",
       "Wait for Package Manager to resolve and import com.yes2games.yes2sdk."
     ],
     "postInstallSteps": [
@@ -80,11 +80,11 @@ export const SDK_META: Record<Engine, EngineMeta> = {
     "engine": "js",
     "displayName": "TypeScript / JavaScript (HTML5)",
     "packageName": "@yes2games/js",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "repoUrl": "https://github.com/yes2games/yes2sdk-js",
     "docsUrl": "https://developer.yes2games.com/docs/javascript",
     "installSteps": [
-      "Install the wrapper package:  npm i @yes2games/js@0.1.0  (installs this release; add --save-exact to keep package.json on exactly this version). It holds the runtime helpers, the engine helpers, the TypeScript types and the local-dev mock — it does NOT contain the SDK.",
+      "Install the wrapper package:  npm i @yes2games/js@0.1.1  (installs this release; add --save-exact to keep package.json on exactly this version). It holds the runtime helpers, the engine helpers, the TypeScript types and the local-dev mock — it does NOT contain the SDK.",
       "Code against window.Yes2SDK. The Yes2Games dashboard injects the real SDK into your build at upload, before your first <script> tag. Never bundle or add a <script> for yes2sdk.umd.js yourself.",
       "Install the mock for local development only, so window.Yes2SDK exists under your dev server:  if (import.meta.env.DEV) { (await import(\"@yes2games/js/mock\")).installYes2SDKMock(); }  then get the SDK with requireSdk() from \"@yes2games/js\". Vite drops the DEV branch from production builds, so the mock never ships.",
       "TypeScript: importing \"@yes2games/js\" brings the window.Yes2SDK / Yes2SDK global types; or add \"types\": [\"@yes2games/js\"] to tsconfig.json."
