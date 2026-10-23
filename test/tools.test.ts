@@ -11,6 +11,8 @@ const GOODBUILD = path.join(HERE, "fixtures", "goodbuild");
 
 let client: Client;
 
+const DASHBOARD_TOOLS = new Set(["list_games", "create_game", "prepare_upload", "finalize_upload", "get_build_status"]);
+
 /** Collapse a tool result's text content blocks into a single string. */
 function textOf(res: Awaited<ReturnType<Client["callTool"]>>): string {
   const content = (res as { content?: Array<{ type: string; text?: string }> }).content ?? [];
@@ -71,19 +73,24 @@ afterAll(async () => {
 });
 
 describe("listTools", () => {
-  it("returns exactly the 11 registered tools", async () => {
+  it("returns exactly the 16 registered tools", async () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
       [
+        "create_game",
         "detect_sdk",
+        "finalize_upload",
         "get_api_reference",
+        "get_build_status",
         "get_compliance_rule",
         "get_install_instructions",
         "get_platform_capabilities",
         "get_platform_requirements",
         "get_quickstart",
+        "list_games",
         "list_sdk_modules",
+        "prepare_upload",
         "search_docs",
         "troubleshoot",
         "validate_integration",
@@ -91,9 +98,11 @@ describe("listTools", () => {
     );
   });
 
-  it("marks every tool read-only (none mutate the consumer FS or network)", async () => {
+  // The dashboard tools call the dashboard with the caller's key, so they are
+  // open-world by design and carry their own hints (test/dashboard.test.ts).
+  it("marks every docs tool read-only (none mutate the consumer FS or network)", async () => {
     const { tools } = await client.listTools();
-    for (const t of tools) {
+    for (const t of tools.filter((tool) => !DASHBOARD_TOOLS.has(tool.name))) {
       expect(t.annotations?.readOnlyHint, `${t.name} should be readOnlyHint:true`).toBe(true);
       expect(t.annotations?.openWorldHint, `${t.name} should be openWorldHint:false`).toBe(false);
       expect(t.annotations?.idempotentHint, `${t.name} should be idempotentHint:true`).toBe(true);

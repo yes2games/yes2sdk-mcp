@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { execSync, spawn, type ChildProcess } from "node:child_process";
+import { createServer as createHttpServer, type Server, type IncomingMessage } from "node:http";
+import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -15,14 +17,37 @@ const DENIED_ORIGIN = "https://evil.test";
 const CHALLENGE_TOKEN = "test-openai-apps-challenge-token";
 const CHALLENGE_PATH = "/.well-known/openai-apps-challenge";
 
+const API_KEY = "y2g_HttpTestKey_42";
+
 let child: ChildProcess;
+let childStderr = "";
+
+// A stand-in dashboard: records what the MCP server forwards and answers
+// GET /games with one game.
+let stubDashboard: Server;
+let stubUrl = "";
+const stubRequests: Array<{ method: string; url: string; headers: IncomingMessage["headers"] }> = [];
 
 beforeAll(async () => {
+  stubDashboard = createHttpServer((req, res) => {
+    stubRequests.push({ method: req.method ?? "", url: req.url ?? "", headers: req.headers });
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ success: true, data: [{ id: "g-stub", name: "Stub Game", engine: "unity" }] }));
+  });
+  await new Promise<void>((resolve) => stubDashboard.listen(0, "127.0.0.1", resolve));
+  stubUrl = `http://127.0.0.1:${(stubDashboard.address() as AddressInfo).port}/api/v1`;
+
   // Build dist/http.js so we test the real shipped artifact.
   execSync("npm run build", { cwd: REPO, stdio: "inherit", timeout: 120_000 });
 
   child = spawn(process.execPath, ["dist/http.js"], {
-    env: { ...process.env, PORT: String(PORT), MCP_ALLOWED_ORIGINS: ALLOWED_ORIGIN, OPENAI_APPS_CHALLENGE: `  ${CHALLENGE_TOKEN}\n` },
+    env: {
+      ...process.env,
+      PORT: String(PORT),
+      MCP_ALLOWED_ORIGINS: ALLOWED_ORIGIN,
+      OPENAI_APPS_CHALLENGE: `  ${CHALLENGE_TOKEN}\n`,
+      DASHBOARD_API_URL: stubUrl,
+    },
     cwd: REPO,
   });
 
@@ -36,6 +61,7 @@ beforeAll(async () => {
 
     child.stderr?.on("data", (chunk: Buffer) => {
       stderrBuf += chunk.toString();
+      childStderr += chunk.toString();
       if (stderrBuf.includes(READY_MSG)) {
         clearTimeout(timer);
         resolve();
@@ -59,6 +85,7 @@ afterAll(async () => {
     child.kill();
     await new Promise<void>((resolve) => child.on("exit", resolve));
   }
+  await new Promise<void>((resolve) => stubDashboard.close(() => resolve()));
 });
 
 describe("GET /health", () => {
@@ -180,6 +207,8 @@ describe("CORS preflight advertises only what the stateless server serves", () =
     const allowed = res.headers.get("access-control-allow-headers") ?? "";
     expect(allowed).toMatch(/content-type/i);
     expect(allowed).toMatch(/mcp-protocol-version/i);
+    // The upload tools read the caller's dashboard key from Authorization.
+    expect(allowed).toMatch(/authorization/i);
     expect(res.headers.get("access-control-allow-methods")).toMatch(/post/i);
   }, 10_000);
 
@@ -218,4 +247,59 @@ describe("Origin validation", () => {
     const res = await fetch(`${BASE}/health`, { headers: { Origin: DENIED_ORIGIN } });
     expect(res.status).toBe(403);
   }, 10_000);
+});
+
+// The container has 192 MB of RAM; an unbounded body buffer is a cheap way to
+// knock it over.
+describe("request body cap", () => {
+  it("answers 413 for a body over 1 MB", async () => {
+    const res = await fetch(`${BASE}/mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: { pad: "x".repeat(2 * 1024 * 1024) } }),
+    });
+    expect(res.status).toBe(413);
+    const body = await res.json();
+    expect(body.error.message).toMatch(/exceeds/);
+  }, 20_000);
+
+  it("still serves a normal-sized request afterwards", async () => {
+    const res = await fetch(`${BASE}/health`);
+    expect(res.status).toBe(200);
+  }, 10_000);
+});
+
+describe("dashboard tools over HTTP", () => {
+  it("forward the request's own key to the dashboard and keep it out of output and logs", async () => {
+    stubRequests.length = 0;
+    const client = new Client({ name: "http-auth-test", version: "0" });
+    const transport = new StreamableHTTPClientTransport(new URL(`${BASE}/mcp`), {
+      requestInit: { headers: { Authorization: `Bearer ${API_KEY}` } },
+    });
+    await client.connect(transport);
+    const res = await client.callTool({ name: "list_games", arguments: {} });
+    await client.close();
+
+    const text = JSON.stringify(res);
+    expect(text).toContain("Stub Game");
+    expect(text).not.toContain(API_KEY);
+    expect(stubRequests).toHaveLength(1);
+    expect(stubRequests[0].url).toBe("/api/v1/games");
+    expect(stubRequests[0].headers.authorization).toBe(`Bearer ${API_KEY}`);
+    expect(stubRequests[0].headers["x-yes2-client"]).toBe("mcp");
+    expect(childStderr).not.toContain(API_KEY);
+  }, 30_000);
+
+  it("do not carry one request's key into the next", async () => {
+    stubRequests.length = 0;
+    const client = new Client({ name: "http-nokey-test", version: "0" });
+    const transport = new StreamableHTTPClientTransport(new URL(`${BASE}/mcp`));
+    await client.connect(transport);
+    const res = await client.callTool({ name: "list_games", arguments: {} });
+    await client.close();
+
+    expect((res as { isError?: boolean }).isError).toBe(true);
+    expect(JSON.stringify(res)).toContain("YES2_API_KEY");
+    expect(stubRequests).toHaveLength(0);
+  }, 30_000);
 });
