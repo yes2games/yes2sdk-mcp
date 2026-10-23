@@ -38,6 +38,7 @@ describe("isAllowed", () => {
     expect(isAllowed("generated/upload-requirements-poki.md")).toBe(true);
     expect(isAllowed("quickstart-poki.md")).toBe(true);
     expect(isAllowed("unity-webgl-build-settings.md")).toBe(true);
+    expect(isAllowed("javascript-phaser.md")).toBe(true);
   });
 
   it("rejects internal doc trees", () => {

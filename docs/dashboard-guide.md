@@ -20,6 +20,8 @@ The minimum to register a game: a **title** and a **validated build zip**.
 
 If the SDK isn't integrated yet, the upload is rejected and you'll be pointed at the integration guide for your engine. Fix the build, then try again. We never leave half-created games behind.
 
+**JavaScript / TypeScript builds** are detected as **HTML5 / JavaScript**. Build with Vite's `base: './'` so every asset path is relative, and zip the contents of `dist/`. The dashboard warns about root-absolute paths (`/assets/...`): they 404 in the Inspector and on platforms that serve games from a sub-path, and on Jest a root-absolute path in `index.html` blocks the bundle. Add no SDK `<script>` tags; the dashboard injects the SDK. See [Vite Build Settings](/docs/javascript-vite-build).
+
 You can upload new builds any time from the **Versions** tab on the game page.
 
 ### Stage 2: Game Profile
@@ -167,6 +169,8 @@ Every teammate sees the same games, but what they can do depends on their role.
 
 **Inspector can't load the game.** Try the **Restart** button. If that doesn't help, check the event log for loading errors or network failures, then re-upload the build.
 
-**Blank or transparent screenshots.** Make sure the game is fully loaded and actively rendering before you capture. Loading screens with transparent canvases sometimes don't capture cleanly. Grab your screenshots during actual gameplay.
+**Game loads a blank page, with 404s in the network log.** The build probably uses root-absolute paths (`/assets/index.js`). Check the warning on the build row, and for a Vite build set `base: './'` in `vite.config` and rebuild.
+
+**Blank or transparent screenshots.** If your page has more than one canvas, mark the game canvas with `data-yes2-canvas` so capture picks the right one. Make sure the game is fully loaded and actively rendering before you capture. Loading screens with transparent canvases sometimes don't capture cleanly. Grab your screenshots during actual gameplay.
 
 **Icon or banner not updating after upload.** The dashboard cache-busts automatically; a hard refresh (Cmd/Ctrl + Shift + R) clears any local browser cache if needed.
