@@ -70,7 +70,7 @@ The new game is owned by the key's team.
 |---|---|---|---|
 | `name` | string | yes | Cannot be blank |
 | `description` | string or null | no | |
-| `engine` | string or null | no | One of `unity`, `defold`, `playcanvas`, `cocos`, `vanilla`, `other`. A rejected value returns the accepted list in the error |
+| `engine` | string or null | no | One of `unity`, `defold`, `playcanvas`, `cocos`, `vanilla`, `other`. Use `vanilla` for a JavaScript or TypeScript game (plain JS, Phaser, three.js); the dashboard shows it as HTML5 / JavaScript. A rejected value returns the accepted list in the error |
 | `category` | string or null | no | Up to 100 characters |
 | `tags` | string[] | no | Up to 20 tags, each up to 50 characters |
 | `orientation` | string | no | `portrait`, `landscape`, or `both`. Defaults to `both` |
@@ -360,7 +360,7 @@ Every failure answers with `{"success": false, "error": "..."}`, plus a `code` w
 | `400` | | A field failed validation. The message names the field |
 | `500` | | Server error. Safe to retry |
 
-`SDK_NOT_INTEGRATED` is the one worth handling explicitly: it means the build itself is wrong, not the request, so retrying it will fail identically. See the engine guides for what the check looks for.
+`SDK_NOT_INTEGRATED` is the one worth handling explicitly: it means the build itself is wrong, not the request, so retrying it will fail identically. See the engine guides ([Unity](/docs/unity), [Defold](/docs/defold), [JavaScript / TypeScript](/docs/javascript-vite-build#what-the-dashboard-does-with-the-upload)) for what the check looks for.
 
 ---
 

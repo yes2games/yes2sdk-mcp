@@ -11,10 +11,11 @@ Start here for the support matrix and the status legend, then open any module pa
 | Surface | Import / access | Async style |
 |---------|-----------------|-------------|
 | **Core (TS/JS)** | `import Yes2SDK from '@yes2sdk/core'` → singleton. Modules via getters: `Yes2SDK.ads`, `Yes2SDK.player`, … | `Promise` / `async`; resolves with results, rejects with a structured `ErrorMessage` |
+| **JavaScript runtime** | `npm i @yes2games/js`. Your game reads the injected `window.Yes2SDK` (the dashboard adds it when it bundles your build); the package adds its types, an ad wrapper (`import { ads } from '@yes2games/js'`), lifecycle helpers and a local mock. See [JavaScript / TypeScript Integration](/docs/javascript) | Same as Core; the `ads` wrapper resolves an outcome and never rejects |
 | **Unity (C#)** | `using Yes2SDK;` → static class. Modules via static props: `Yes2SDK.Ads`, `Yes2SDK.Player`, … | Callback overloads **and** `Task` + `CancellationToken` overloads (Task surfaces failures as `Yes2SDKException`) |
 | **Defold (Lua)** | `local yes2sdk = require "yes2sdk.yes2sdk"` → flat module. Functions are prefixed: `yes2sdk.ads_show_interstitial(...)`, `yes2sdk.data_get_int(...)` | Last-argument callbacks `(self, success, payload)` |
 
-All three bundle the **same Core SDK** and select the host platform automatically at runtime. Each platform adapter loads only that platform's own SDK from its CDN. Write your game once; it runs everywhere Yes2SDK ships.
+Every surface runs on the **same Core SDK** (the JavaScript runtime drives the copy the dashboard injects as `window.Yes2SDK`) and selects the host platform automatically at runtime. Each platform adapter loads only that platform's own SDK from its CDN. Write your game once; it runs everywhere Yes2SDK ships.
 
 ---
 
@@ -147,6 +148,7 @@ Full signatures and the rollout picture are in [upcoming.md](upcoming.md). These
 | Core (TS) | `2.11.0` | UMD bundle, injected by the dashboard build pipeline |
 | Unity | `2.12.0` | Unity 2021.3+; WebGL build target |
 | Defold | `1.9.0` | Defold 1.10.2+; HTML5 build target |
+| JavaScript runtime | `0.1.0` | `@yes2games/js` on npm. Types generated from Core 2.12.0; the SDK itself is injected by the dashboard |
 
 Live platforms across all surfaces: **Poki, CrazyGames, Yandex Games, GameDistribution, YouTube Playables, [Jest](/docs/jest)**.
 

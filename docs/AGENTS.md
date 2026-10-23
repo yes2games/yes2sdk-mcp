@@ -14,6 +14,16 @@ methods. When unsure, fetch the full corpus.
 - API reference: `/docs/raw/api/<module>` (overview, lifecycle, ads, game, session,
   data, player, auth, banners, friends, score, analytics, errors, leaderboard,
   stats, iap, referrals, config, review)
+- Engine guides: `/docs/unity`, `/docs/defold`, `/docs/javascript`, plus
+  `/docs/raw/javascript-<topic>` (phaser, threejs, mock, ads-runtime, vite-build)
+
+## Install
+
+- JavaScript / TypeScript: `npm i @yes2games/js` (types, ad runtime, lifecycle
+  helpers, local mock). Do not bundle or `<script>`-tag the SDK itself: the
+  Dashboard injects `window.Yes2SDK` when it bundles the build.
+- Unity: UPM git URL `https://github.com/yes2games/yes2sdk-unity.git#<version>`.
+- Defold: add the release archive to `game.project` `[project]` dependencies.
 
 ## The unified API
 
@@ -22,7 +32,9 @@ calls map to each platform's native SDK under the hood — you never call the
 platform SDK directly. Only the method-naming convention differs per engine:
 
 - TypeScript / JavaScript: `Yes2SDK.*` (e.g. `Yes2SDK.ads.showInterstitial(...)`,
-  `Yes2SDK.game.gameplayStart()`)
+  `Yes2SDK.game.gameplayStart()`). With `@yes2games/js`, show ads through its
+  `ads` wrapper (`import { ads } from "@yes2games/js"`), which adds one ad at a
+  time and a watchdog.
 - Unity (C#): `Yes2SDK.Yes2SDK.*` (e.g. `Yes2SDK.Yes2SDK.Ads.ShowInterstitial(...)`)
 - Defold (Lua): `yes2sdk.*` (e.g. `yes2sdk.ads_show_interstitial(...)`,
   `yes2sdk.session_gameplay_start()`)
@@ -54,6 +66,19 @@ platform SDK directly. Only the method-naming convention differs per engine:
 6. **No external scripts.** All platforms sandbox/strip external
    `<script src="http...">`. All third-party code must be inlined or bundled; the
    Yes2SDK Dashboard bundles the SDK into your build.
+
+## JavaScript / TypeScript rules
+
+- Install the mock only for local runs:
+  `if (import.meta.env.DEV) (await import("@yes2games/js/mock")).installYes2SDKMock()`.
+  It stands down when the real SDK is on the page.
+- Build with Vite `base: './'`. Root-absolute paths (`/assets/...`) 404 on
+  platforms that serve from a sub-path; Jest blocks them in `index.html`.
+- Mark the game canvas with `data-yes2-canvas` (screenshot capture picks it).
+- Report loading with `createLoadingProgressReporter()` (or
+  `setLoadingProgress`). Jest in Manual loading mode sends the player home
+  after 15 seconds without progress.
+- No-fill is `noFill` then `afterAd`: resume in `afterAd` only.
 
 ## Per-platform gotchas
 
