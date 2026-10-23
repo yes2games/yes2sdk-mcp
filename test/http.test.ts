@@ -209,6 +209,7 @@ describe("CORS preflight advertises only what the stateless server serves", () =
     expect(allowed).toMatch(/mcp-protocol-version/i);
     // The upload tools read the caller's dashboard key from Authorization.
     expect(allowed).toMatch(/authorization/i);
+    expect(allowed).toMatch(/x-yes2-api-key/i);
     expect(res.headers.get("access-control-allow-methods")).toMatch(/post/i);
   }, 10_000);
 

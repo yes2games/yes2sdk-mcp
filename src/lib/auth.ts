@@ -23,12 +23,27 @@ const RAW_KEY = /^y2g_[A-Za-z0-9_-]+$/;
 
 export const NO_KEY: ApiKeyAuth = { status: "missing" };
 
-/** Auth for one HTTP request, from its `Authorization` header. */
-export function authFromHeader(header: string | string[] | undefined): ApiKeyAuth {
-  const value = Array.isArray(header) ? header[0] : header;
-  if (value === undefined || value.trim() === "") return NO_KEY;
-  const match = BEARER_KEY.exec(value.trim());
-  return match ? { status: "ok", apiKey: match[1] } : { status: "malformed", source: "header" };
+/**
+ * Auth for one HTTP request, from its `Authorization` header or, failing that,
+ * its `X-Yes2-Api-Key` header (the bare key). The second exists for clients
+ * that can map an env var straight onto a header but cannot add the `Bearer `
+ * prefix (Codex's `env_http_headers`, which also skips an unset variable rather
+ * than failing to start). A bare `Bearer` with no token, which is what
+ * `Bearer ${YES2_API_KEY:-}` expands to when the variable is unset, counts as
+ * no key rather than a malformed one.
+ */
+export function authFromHeaders(
+  authorization: string | string[] | undefined,
+  apiKeyHeader?: string | string[] | undefined,
+): ApiKeyAuth {
+  const value = (Array.isArray(authorization) ? authorization[0] : authorization)?.trim() ?? "";
+  if (value !== "" && value !== "Bearer") {
+    const match = BEARER_KEY.exec(value);
+    return match ? { status: "ok", apiKey: match[1] } : { status: "malformed", source: "header" };
+  }
+  const raw = (Array.isArray(apiKeyHeader) ? apiKeyHeader[0] : apiKeyHeader)?.trim() ?? "";
+  if (raw === "") return NO_KEY;
+  return RAW_KEY.test(raw) ? { status: "ok", apiKey: raw } : { status: "malformed", source: "header" };
 }
 
 /**

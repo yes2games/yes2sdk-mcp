@@ -60,17 +60,22 @@ and export it as `YES2_API_KEY`. Then hand it to the server:
 - Claude Code, hosted, in `.mcp.json`:
   ```json
   { "mcpServers": { "yes2sdk": { "type": "http", "url": "https://mcp.yes2games.com/mcp",
-    "headers": { "Authorization": "Bearer ${YES2_API_KEY}" } } } }
+    "headers": { "Authorization": "Bearer ${YES2_API_KEY:-}" } } } }
   ```
+  The `:-` default keeps the server starting when the variable is unset; an empty `Bearer` is
+  treated as no key, so the docs tools keep working.
 - Codex, in `~/.codex/config.toml`:
   ```toml
   [mcp_servers.yes2sdk]
   url = "https://mcp.yes2games.com/mcp"
-  bearer_token_env_var = "YES2_API_KEY"
+  env_http_headers = { "X-Yes2-Api-Key" = "YES2_API_KEY" }
   ```
+  `X-Yes2-Api-Key` carries the bare key, for clients that can map an env var onto a header but
+  cannot add a `Bearer ` prefix. Codex skips the header when the variable is unset, so the
+  server still starts. `Authorization` wins when both are sent.
 - Local stdio: put `YES2_API_KEY` in the server entry's `env`.
 
-Over HTTP the key arrives as `Authorization: Bearer y2g_…` on each request and is forwarded to
+Over HTTP the key arrives as `Authorization: Bearer y2g_…` (or `X-Yes2-Api-Key: y2g_…`) on each request and is forwarded to
 the dashboard for that request only. It is never stored, logged or returned in tool output. The
 Claude connector cannot send a key yet (OAuth sign-in is planned), so the dashboard tools there
 return the setup steps.
@@ -361,7 +366,7 @@ consumer: CLI MCP hosts and server-side `fetch` do not send one. Only browser-ba
 clients need an entry in `MCP_ALLOWED_ORIGINS`.
 
 CORS advertises only what is served — `GET,POST,OPTIONS` and
-`Content-Type, Mcp-Protocol-Version, Authorization` (the last carries the caller's dashboard key). The server is stateless, so it never mints or
+`Content-Type, Mcp-Protocol-Version, Authorization, X-Yes2-Api-Key` (the last two carry the caller's dashboard key). The server is stateless, so it never mints or
 echoes `Mcp-Session-Id`.
 
 ### Security note: docs stay unauthenticated, uploads use the caller's key

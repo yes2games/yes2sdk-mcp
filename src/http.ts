@@ -2,7 +2,7 @@
 import { createServer as createHttpServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createServer } from "./server.js";
-import { authFromHeader } from "./lib/auth.js";
+import { authFromHeaders } from "./lib/auth.js";
 
 /**
  * Streamable HTTP entry point for the Yes2SDK MCP server. Served at
@@ -103,8 +103,9 @@ function applyCors(req: IncomingMessage, res: ServerResponse): void {
   // The advertised methods and headers are exactly what this server serves:
   // POST /mcp, GET /health, and the OPTIONS preflight. Being stateless it never
   // mints or echoes a session id, so Mcp-Session-Id and DELETE are omitted
-  // rather than advertised into a guaranteed 405. Authorization carries the
-  // caller's own dashboard API key for the upload tools.
+  // rather than advertised into a guaranteed 405. Authorization (or
+  // X-Yes2-Api-Key) carries the caller's own dashboard API key for the upload
+  // tools.
   const origin = req.headers.origin;
   if (origin === undefined) {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -113,7 +114,7 @@ function applyCors(req: IncomingMessage, res: ServerResponse): void {
   }
   res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Mcp-Protocol-Version, Authorization");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Mcp-Protocol-Version, Authorization, X-Yes2-Api-Key");
 }
 
 function readBody(req: IncomingMessage): Promise<unknown> {
@@ -174,7 +175,7 @@ async function handleMcpPost(req: IncomingMessage, res: ServerResponse): Promise
 
   // Stateless: one server + one transport per request, torn down on close. The
   // key, if any, is bound to this request's server and dies with it.
-  const server = createServer({ auth: authFromHeader(req.headers.authorization) });
+  const server = createServer({ auth: authFromHeaders(req.headers.authorization, req.headers["x-yes2-api-key"]) });
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableDnsRebindingProtection: true,

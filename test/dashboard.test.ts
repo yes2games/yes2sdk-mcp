@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createServer } from "../src/server.js";
-import { authFromEnv, authFromHeader, NO_KEY, type ApiKeyAuth } from "../src/lib/auth.js";
+import { authFromEnv, authFromHeaders, NO_KEY, type ApiKeyAuth } from "../src/lib/auth.js";
 import { createDashboardClient, DashboardError, resolveDashboardUrl, DEFAULT_DASHBOARD_API_URL } from "../src/lib/dashboard.js";
 
 const KEY = "y2g_TestKey_abc-123";
@@ -80,17 +80,34 @@ const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
 
 describe("auth parsing", () => {
   it("accepts a y2g_ bearer header", () => {
-    expect(authFromHeader(`Bearer ${KEY}`)).toEqual({ status: "ok", apiKey: KEY });
+    expect(authFromHeaders(`Bearer ${KEY}`)).toEqual({ status: "ok", apiKey: KEY });
   });
 
   it("treats an absent or blank header as no key", () => {
-    expect(authFromHeader(undefined)).toEqual(NO_KEY);
-    expect(authFromHeader("  ")).toEqual(NO_KEY);
+    expect(authFromHeaders(undefined)).toEqual(NO_KEY);
+    expect(authFromHeaders("  ")).toEqual(NO_KEY);
+  });
+
+  it("treats an empty Bearer (an unset ${YES2_API_KEY:-}) as no key", () => {
+    expect(authFromHeaders("Bearer")).toEqual(NO_KEY);
+    expect(authFromHeaders("Bearer ")).toEqual(NO_KEY);
+  });
+
+  it("falls back to a bare key in X-Yes2-Api-Key", () => {
+    expect(authFromHeaders(undefined, KEY)).toEqual({ status: "ok", apiKey: KEY });
+    expect(authFromHeaders("Bearer", KEY)).toEqual({ status: "ok", apiKey: KEY });
+    expect(authFromHeaders(undefined, "")).toEqual(NO_KEY);
+    expect(authFromHeaders(undefined, `Bearer ${KEY}`)).toEqual({ status: "malformed", source: "header" });
+  });
+
+  it("prefers Authorization over X-Yes2-Api-Key", () => {
+    const other = "y2g_other";
+    expect(authFromHeaders(`Bearer ${KEY}`, other)).toEqual({ status: "ok", apiKey: KEY });
   });
 
   it("rejects anything that is not Bearer y2g_…", () => {
     for (const bad of [KEY, `Basic ${KEY}`, "Bearer sk-ant-xyz", "Bearer y2g_has space", "Bearer y2g_"]) {
-      expect(authFromHeader(bad), bad).toEqual({ status: "malformed", source: "header" });
+      expect(authFromHeaders(bad), bad).toEqual({ status: "malformed", source: "header" });
     }
   });
 
@@ -130,7 +147,7 @@ describe("dashboard tools without a key", () => {
     expect(text).toMatch(/Settings/);
     expect(text).toMatch(/Claude Code/);
     expect(text).toMatch(/Codex/);
-    expect(text).toContain("bearer_token_env_var");
+    expect(text).toContain("X-Yes2-Api-Key");
     expect(calls).toHaveLength(0);
   });
 

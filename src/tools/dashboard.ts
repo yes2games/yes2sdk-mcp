@@ -37,7 +37,7 @@ const FLOW =
   "(4) finalize_upload; (5) get_build_status every few seconds until the status is ready or failed.";
 
 const AUTH_NOTE =
-  "Acts with the caller's own Yes2 dashboard API key (a y2g_ personal key from Dashboard → Settings), sent as the Authorization: Bearer header or, for the local stdio server, the YES2_API_KEY env var. The key is passed through to the dashboard and never stored. Without a key it returns the setup steps instead.";
+  "Acts with the caller's own Yes2 dashboard API key (a y2g_ personal key from Dashboard → Settings), sent as the Authorization: Bearer header (or the bare key in X-Yes2-Api-Key) or, for the local stdio server, the YES2_API_KEY env var. The key is passed through to the dashboard and never stored. Without a key it returns the setup steps instead.";
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: true };
 
@@ -62,9 +62,9 @@ export function missingKeyText(auth: ApiKeyAuth): string {
     "1. Create a personal key in the dashboard: avatar → Settings → Personal API keys → Create personal key. Copy it.",
     "2. Export it in the shell that starts the client: `export YES2_API_KEY=y2g_…`",
     "3. Pass it to this server:",
-    "   - Claude Code (hosted server), in .mcp.json: `\"yes2sdk\": { \"type\": \"http\", \"url\": \"https://mcp.yes2games.com/mcp\", \"headers\": { \"Authorization\": \"Bearer ${YES2_API_KEY}\" } }`",
+    "   - Claude Code (hosted server), in .mcp.json: `\"yes2sdk\": { \"type\": \"http\", \"url\": \"https://mcp.yes2games.com/mcp\", \"headers\": { \"Authorization\": \"Bearer ${YES2_API_KEY:-}\" } }`",
     "     or from the CLI: `claude mcp add --transport http yes2sdk https://mcp.yes2games.com/mcp --header \"Authorization: Bearer $YES2_API_KEY\"`",
-    "   - Codex, in ~/.codex/config.toml: `[mcp_servers.yes2sdk]` with `url = \"https://mcp.yes2games.com/mcp\"` and `bearer_token_env_var = \"YES2_API_KEY\"`",
+    "   - Codex, in ~/.codex/config.toml: `[mcp_servers.yes2sdk]` with `url = \"https://mcp.yes2games.com/mcp\"` and `env_http_headers = { \"X-Yes2-Api-Key\" = \"YES2_API_KEY\" }` (the yes2sdk Codex plugin already sends this)",
     "   - Local stdio server (`npx -y @yes2games/yes2sdk-mcp`): add `\"env\": { \"YES2_API_KEY\": \"y2g_…\" }` to its entry.",
     "4. Restart the client so it reconnects with the key.",
     "",
