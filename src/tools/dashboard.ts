@@ -362,6 +362,10 @@ export function registerDashboardTools(server: McpServer, ctx: DashboardToolCont
             lines.push("Yes2SDK was not detected in the build, so uploading the same zip again fails the same way. validate_integration on the build output shows what is missing.");
           } else if (code === "VERSION_EXISTS") {
             lines.push("This game already has a build at that version; prepare_upload with a new version.");
+          } else if (code === "UPLOAD_EXPIRED") {
+            lines.push("The zip was not uploaded and finalized within the hour; start again with prepare_upload.");
+          } else if (code === "PROCESSING_INTERRUPTED" || code === "PROCESSING_FAILED") {
+            lines.push("The dashboard failed while processing the build, not because of the zip itself as far as it knows; prepare_upload again to retry.");
           } else {
             lines.push("A fixed zip goes through prepare_upload again, with a new uploadId.");
           }

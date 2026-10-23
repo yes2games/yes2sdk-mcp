@@ -78,6 +78,14 @@ function describeFailure(status: number, code: string | undefined, error: string
       return `The dashboard is rate limiting this key${tag}${detail}. Retry ${retryAfter ? `after ${retryAfter} seconds` : "in a minute"}.`;
     case "SDK_NOT_INTEGRATED":
       return `Yes2SDK was not detected in the build${tag}${detail}. Retrying the same zip fails the same way; check the integration with validate_integration first.`;
+    case "UPLOAD_NOT_RECEIVED":
+      return `The dashboard has not received the zip yet${tag}${detail}. Run (or finish) the curl PUT from prepare_upload, then call finalize_upload again with the same uploadId.`;
+    case "IDEMPOTENCY_CONFLICT":
+      return `That idempotency key was already used with different details${tag}${detail}. Prepare the upload again without reusing it.`;
+    case "UPLOAD_NOT_PENDING":
+      return `That upload was already finalized${tag}${detail}. Use get_build_status with its uploadId to follow it.`;
+    case "R2_NOT_ENABLED":
+      return `This dashboard is not set up for direct uploads${tag}${detail}. Upload through the dashboard instead.`;
     default:
       break;
   }

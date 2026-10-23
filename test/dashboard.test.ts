@@ -350,6 +350,12 @@ describe("error mapping", () => {
     expect(text).toMatch(/new version/);
   });
 
+  it("409 UPLOAD_NOT_RECEIVED sends the agent back to the curl PUT", async () => {
+    const text = await errorFor(() => fail(409, "not received", "UPLOAD_NOT_RECEIVED"));
+    expect(text).toContain("UPLOAD_NOT_RECEIVED");
+    expect(text).toMatch(/curl PUT/);
+  });
+
   it("413 FILE_TOO_LARGE names the cap", async () => {
     expect(await errorFor(() => fail(413, "too big", "FILE_TOO_LARGE"))).toContain("500 MB");
   });
