@@ -6,6 +6,7 @@
 
 - **Unity:** UPM git URL `https://github.com/yes2games/yes2sdk-unity.git#<version>`, then `Yes2SDK > Build Window > Install Template`.
 - **Defold:** add the release archive to `game.project` `[project]` dependencies, then Project > Fetch Libraries.
+- **JavaScript / TypeScript:** `npm i @yes2games/js` for the `window.Yes2SDK` types, the ad runtime and the local-development mock. You never bundle the SDK itself: the dashboard injects it when it bundles your build. See [JavaScript / TypeScript Integration](/docs/javascript).
 
 If you use the Yes2SDK MCP, call `get_install_instructions` for exact pinned steps and `detect_sdk` to confirm the SDK is installed before generating any code.
 
@@ -36,6 +37,42 @@ The Yes2SDK methods below cover every Yandex-platform call you need. The middle 
 > Yandex serves multiple countries (Russia, Turkey, Kazakhstan, etc.). Always read `session.getLocale()` and adapt your UI strings. `ru`, `en`, `tr`, `uk`, `be`, `kk` are the common values.
 
 ## Step-by-Step Integration
+
+### TypeScript / JavaScript
+
+With `@yes2games/js`, show ads through its `ads` wrapper (`import { ads } from "@yes2games/js"`) or a lifecycle helper instead of `Yes2SDK.ads`. The calls and callbacks are the same, and it adds one ad at a time and a watchdog. See [Ad Runtime & Engine Parity](/docs/javascript-ads-runtime).
+
+```typescript
+// Initialize
+await Yes2SDK.initializeAsync();
+
+// Required on Yandex: pause and mute on the platform's pause events
+Yes2SDK.on('pause', () => pauseGame());
+Yes2SDK.on('resume', () => resumeGame());
+
+await Yes2SDK.startGameAsync(); // dismisses the Yandex loading screen
+
+// Get locale for translations
+const locale = Yes2SDK.session.getLocale(); // "ru", "en", "tr", etc.
+
+// Show interstitial between levels
+Yes2SDK.game.gameplayStop();
+await Yes2SDK.ads.showInterstitial('level-complete', {
+    beforeAd: () => pauseGame(),
+    afterAd: () => {
+        // also runs after a no-fill
+        resumeGame();
+        Yes2SDK.game.gameplayStart();
+    }
+});
+
+// Save data (uses Yandex cloud storage)
+Yes2SDK.data.setInt('highscore', 1000);
+Yes2SDK.data.setString('playerName', 'Player1');
+
+// Load data
+const score = Yes2SDK.data.getInt('highscore', 0);
+```
 
 ### Unity (C#)
 
@@ -117,7 +154,7 @@ Player identity extras (`player.getUniqueId()`, `getPayingStatus()`, `getMode()`
 
 You don't upload to Yandex Games yourself. The Yes2Games team handles platform submission.
 
-1. Build your game (Unity WebGL or Defold HTML5) and zip the output
+1. Build your game (Unity WebGL, Defold HTML5, or a JavaScript / TypeScript build with relative paths) and zip the output
 2. Upload the zip on your game page (**Onboarding → Stage 1**)
 3. Fill in title, description, icon, and screenshots on the **Game Profile** stage (**Onboarding → Stage 2**). Yandex requires all of these
 4. Test the build in the Inspector (**Onboarding → Stage 3**)
