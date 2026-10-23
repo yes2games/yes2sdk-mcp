@@ -3,6 +3,21 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { readDocBySlug, searchDocs } from "../lib/docs.js";
 import { readOnlyTool } from "../lib/annotations.js";
 import { SUPPORTED_PLATFORMS } from "../lib/platforms.js";
+import { SDK_META } from "../lib/sdk-meta.js";
+
+/** Queries about setting up a JS/TS game (rather than an SDK call) get pointed at the JS engine setup. */
+const JS_ENGINE_QUERY = /phaser|\bthree(?:\.?js)?\b|\bvite\b|javascript|typescript|@yes2games\/js|\bmock\b|data-yes2-canvas|yes2-?runtime/i;
+
+/** Where JS/TS engine setup lives: the pinned install steps and the developer docs page. */
+export function jsEngineFooter(): string {
+  const js = SDK_META.js;
+  return (
+    `JavaScript/TypeScript setup (${js.packageName}@${js.version}: plain canvas, Phaser, three.js, local-dev mock, Vite base: './', data-yes2-canvas): ` +
+    `get_install_instructions("js")` +
+    (js.docsUrl ? `, docs ${js.docsUrl}` : "") +
+    "."
+  );
+}
 
 /** API reference modules under docs/api/. */
 export const API_MODULES = [
@@ -46,12 +61,13 @@ export function registerDocsTools(server: McpServer): void {
     },
     async ({ query }) => {
       const hits = searchDocs(query, 5);
+      const jsFooter = JS_ENGINE_QUERY.test(query) ? `\n\n${jsEngineFooter()}` : "";
       if (hits.length === 0) {
         return {
           content: [
             {
               type: "text" as const,
-              text: `No documentation sections matched "${query}". Try broader keywords, or call get_quickstart(platform) / get_api_reference(module) directly.`,
+              text: `No documentation sections matched "${query}". Try broader keywords, or call get_quickstart(platform) / get_api_reference(module) directly.${jsFooter}`,
             },
           ],
         };
@@ -66,7 +82,7 @@ export function registerDocsTools(server: McpServer): void {
         content: [
           {
             type: "text" as const,
-            text: `Top ${hits.length} matches for "${query}":\n\n${body}\n\nFull docs: get_quickstart(platform) or get_api_reference(module).`,
+            text: `Top ${hits.length} matches for "${query}":\n\n${body}\n\nFull docs: get_quickstart(platform) or get_api_reference(module).${jsFooter}`,
           },
         ],
       };
@@ -79,7 +95,7 @@ export function registerDocsTools(server: McpServer): void {
       ...readOnlyTool("Get a Yes2SDK platform quickstart"),
       description:
         `The full quickstart integration guide for one target platform (${SUPPORTED_PLATFORMS.join(", ")}): mandatory call sequence, per-engine examples, critical rules, and the common rejection reasons. ` +
-        "The starting point for a new integration, before the first SDK call is written.",
+        "The starting point for a new integration, before the first SDK call is written. The TypeScript/JavaScript examples apply to any JS game; engine setup (Phaser, three.js, the local-dev mock) is in get_install_instructions(\"js\").",
       inputSchema: { platform: z.enum(SUPPORTED_PLATFORMS).describe("Target platform.") },
       
     },
@@ -92,7 +108,7 @@ export function registerDocsTools(server: McpServer): void {
           isError: true,
         };
       }
-      return { content: [{ type: "text" as const, text: content }] };
+      return { content: [{ type: "text" as const, text: `${content}\n\n---\n\n${jsEngineFooter()}` }] };
     }
   );
 

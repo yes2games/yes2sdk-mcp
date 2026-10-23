@@ -18,8 +18,8 @@ All tools are read-only (`readOnlyHint`); none write to the consumer filesystem 
 
 | Tool | Input | What it does |
 |------|-------|--------------|
-| `get_install_instructions` | `{ engine, platform? }` | Version-pinned install + post-install steps for `unity` \| `defold` \| `js`, plus how to verify the SDK is importable. Call before generating any SDK code. |
-| `detect_sdk` | `{ projectPath }` or `{ files }` | Inspect a project (read-only): engine, whether the SDK is installed, the version, and any install steps still required. `projectPath` reads disk (local stdio only); `files` takes the engine-marker files inline, which is how the hosted server sees a project. |
+| `get_install_instructions` | `{ engine, platform? }` | Version-pinned install + post-install steps for `unity` \| `defold` \| `js`, plus how to verify the SDK is importable. For `js` that is the `@yes2games/js` npm package, the dev-only mock, the Phaser and three.js helpers, the no-build classic-script path, Vite `base: './'` and `data-yes2-canvas`. Call before generating any SDK code. |
+| `detect_sdk` | `{ projectPath }` or `{ files }` | Inspect a project (read-only): engine, whether the SDK is installed, the version, and any install steps still required. For JS it reads the `@yes2games/js` dependency (version from the lockfile), detects Phaser, three.js and Vite, and lists what is still missing (mock, Vite base, canvas marker, loading progress, engine helpers); a `package.json` without the package reports `js` with the package not installed. `projectPath` reads disk (local stdio only); `files` takes the engine-marker files inline, which is how the hosted server sees a project. |
 | `search_docs` | `{ query }` | Keyword search across all bundled docs; returns top sections with their doc slug. |
 | `get_quickstart` | `{ platform }` | Full quickstart guide for `poki` \| `crazygames` \| `yandex` \| `gamedistribution` \| `youtube` \| `jest`. |
 | `get_api_reference` | `{ module }` | Full API reference for one module (`overview`, `lifecycle`, `ads`, `analytics`, `auth`, `banners`, `data`, `errors`, `friends`, `game`, `player`, `score`, `session`, `referrals`, `upcoming`). |
@@ -36,10 +36,17 @@ All tools are read-only (`readOnlyHint`); none write to the consumer filesystem 
    *already-extracted* build folder, local stdio only) or inline as `indexHtml`, `fileList`
    and `jsContents`, which is what the hosted server needs. `jsContents` is what makes the
    bundling check possible; without it that one check is skipped. Checks:
-   - Yes2SDK is bundled into the game JS (scans `.js`, `.js.br`, `.js.gz`).
+   - The engine the dashboard would record (`vanilla` is "HTML5 / JavaScript").
+   - The game's own code calls the SDK (scans `.js`, `.mjs`, inline scripts, `.js.br`, `.js.gz`
+     with the dashboard's marker rules; `yes2-runtime.js` and the mock do not count).
    - No external `<script src="http…">` tags in `index.html` (platforms block them → **FAIL**).
    - `index.html` entry file present (Poki also needs `index.json`).
    - Responsive full-viewport canvas heuristic (`width/height:100%`, `100vw/100vh`).
+   - Root-absolute paths in `index.html` and emitted JS (**WARN**, as the dashboard's upload
+     warning; **FAIL** for Jest on `index.html`, as its Jest bundle gate).
+   - JavaScript/TypeScript builds only, all **WARN** because the dashboard handles them rather
+     than rejecting: a copy of `yes2sdk.umd.js` in the build, the `@yes2games/js` mock in a
+     production build, and no `data-yes2-canvas` marker.
 2. **Behavioral compliance checks** — pass `eventLogJson`: a JSON string of an **exported
    Yes2SDK Inspector event log** (an array of `LogEntry`). Runs the platform's compliance
    rules (e.g. `gameplayStop` before ads, reward only on `adViewed`, no ads in the first
@@ -173,7 +180,7 @@ that own them:
 ```bash
 npm run sync-docs        # copies ../../yes2sdk-www/content/docs/**/*.md -> ./docs
 npm run sync-compliance  # copies compliance-rules.ts + inspector types -> src/lib
-npm run sync-sdk-meta    # copies engine package versions + install steps -> src/lib
+npm run sync-sdk-meta    # engine package versions + install steps (unity, defold, js) -> src/lib
 ```
 
 The docs corpus is owned by the documentation site, so what ships here is what a
@@ -193,7 +200,7 @@ npm run check:sdk-meta   # exit 0 in sync, 1 on drift, 2 when the sibling repos 
 ```
 
 Run it after every engine SDK release, and before committing a change to either side.
-It reads `../../yes2sdk-unity` and `../../yes2sdk-defold` and never clones them
+It reads `../../yes2sdk-unity`, `../../yes2sdk-defold` and `../../yes2sdk-js` and never clones them
 (ADR-0010), so CI cannot run it — an isolated runner has no access to those private
 repos. This is a local gate by design.
 

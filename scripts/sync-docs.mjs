@@ -38,10 +38,10 @@ const ALLOW_EXACT = new Set([
 ]);
 
 // Path prefixes cleared to ship. `api/` and `generated/` are whole directories
-// of public SDK reference; `quickstart-` and `unity-` are root-level filename
+// of public SDK reference; `quickstart-`, `unity-` and `javascript-` are root-level filename
 // prefixes. A prefix admits future upstream additions under it by design --
 // keep prefixes narrow enough that that stays true.
-const ALLOW_PREFIXES = ["api/", "generated/", "quickstart-", "unity-"];
+const ALLOW_PREFIXES = ["api/", "generated/", "quickstart-", "unity-", "javascript-"];
 
 /** @param {string} rel posix-form path relative to the docs dir */
 export function isAllowed(rel) {

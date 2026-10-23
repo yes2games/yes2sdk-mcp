@@ -47,7 +47,7 @@ export function registerIntegratePrompts(server: McpServer): void {
             type: "text",
             text: [
               `Set up a new ${engine} project integrating the Yes2SDK for ${platform}.`,
-              `Step 1 — install: call get_install_instructions for "${engine}" and walk through the install + post-install steps (e.g. Unity's required WebGL template). The Yes2SDK namespace/module does not exist until this is done, so do not generate SDK code yet.`,
+              `Step 1 — install: call get_install_instructions for "${engine}" and walk through the install + post-install steps (e.g. Unity's required WebGL template, or for js the @yes2games/js package, the dev-only mock, Vite base: './' and data-yes2-canvas). The Yes2SDK namespace/module does not exist until this is done, so do not generate SDK code yet.`,
               `Step 2 — read: call get_quickstart for "${platform}" for the mandatory call sequence and rules.`,
               `Step 3 — code: scaffold init + the ad loop with isSupported() guards, then run validate_integration.`,
             ].join("\n"),

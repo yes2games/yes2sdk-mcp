@@ -6,6 +6,7 @@
 
 - **Unity:** UPM git URL `https://github.com/yes2games/yes2sdk-unity.git#<version>`, then `Yes2SDK > Build Window > Install Template`.
 - **Defold:** add the release archive to `game.project` `[project]` dependencies, then Project > Fetch Libraries.
+- **JavaScript / TypeScript:** `npm i @yes2games/js` for the `window.Yes2SDK` types, the ad runtime and the local-development mock. You never bundle the SDK itself: the dashboard injects it when it bundles your build. See [JavaScript / TypeScript Integration](/docs/javascript).
 
 If you use the Yes2SDK MCP, call `get_install_instructions` for exact pinned steps and `detect_sdk` to confirm the SDK is installed before generating any code.
 
@@ -60,6 +61,8 @@ The Yes2SDK methods below cover every Poki-platform call you need. The middle co
 ## Integration Example
 
 ### TypeScript / JavaScript
+
+With `@yes2games/js`, show ads through its `ads` wrapper (`import { ads } from "@yes2games/js"`) or a lifecycle helper instead of `Yes2SDK.ads`. The calls and callbacks are the same, and it adds one ad at a time and a watchdog. See [Ad Runtime & Engine Parity](/docs/javascript-ads-runtime).
 
 ```typescript
 // Initialize

@@ -88,7 +88,8 @@ export function registerValidateTool(server: McpServer): void {
         "1) STATIC build checks — two ways to supply the build:\n" +
         "   a) `buildPath`: absolute path to an ALREADY-EXTRACTED build folder, available when this server runs LOCALLY over stdio; the HOSTED/sandboxed server has no disk access.\n" +
         "   b) INLINE content for the hosted server: `indexHtml` (the index.html text), `fileList` (file paths in the build) and/or `jsContents` (the build's JS file contents). Bundling is verifiable only when `jsContents` is present.\n" +
-        "   Covered: Yes2SDK bundled into the JS, no external <script src=\"http...\"> tags (platforms block them), index.html present (Poki also needs index.json), and a responsive full-viewport canvas heuristic.\n\n" +
+        "   Covered: the engine the dashboard would detect, the game's own JS calling the SDK, no external <script src=\"http...\"> tags (platforms block them), index.html present (Poki also needs index.json), a responsive full-viewport canvas heuristic, and root-absolute paths (a warning; FAIL for Jest on index.html, as the dashboard's Jest gate).\n" +
+        "   JavaScript/TypeScript builds (engine vanilla, \"HTML5 / JavaScript\") also get warnings mirroring what the dashboard does with them: a copy of yes2sdk.umd.js in the build, the @yes2games/js mock in a production build, and no data-yes2-canvas marker.\n\n" +
         "2) BEHAVIORAL compliance checks, from `eventLogJson`: a JSON string of an exported Yes2SDK Inspector event log (LogEntry objects with type, method, params, success). Covers the platform's runtime rules such as gameplayStop before ads, reward only on adViewed, and no ads in the first 30s. These rules need a real run in the QA Inspector; static files cannot produce them.\n\n" +
         "Jest runs its automated rules J-001 to J-014 alongside the universal ones; its remaining launch checklist items are manual, and the verdict points at them. A platform with no automated rules of its own runs only the universal rules and the verdict says so.",
       inputSchema: {
@@ -104,11 +105,11 @@ export function registerValidateTool(server: McpServer): void {
         fileList: z
           .array(z.string())
           .optional()
-          .describe("Inline static mode: a flat list of file paths in the build (used for the Poki index.json check)."),
+          .describe("Inline static mode: a flat list of file paths in the build, relative to index.html (engine detection, the Poki index.json check, and matching root-absolute paths in jsContents)."),
         jsContents: z
           .array(z.string())
           .optional()
-          .describe("Inline static mode: the contents of the build's JavaScript files. Required to verify Yes2SDK bundling inline."),
+          .describe("Inline static mode: the contents of the build's JavaScript files. Required to verify SDK integration inline; also scanned for a bundled SDK copy, a bundled mock, the canvas marker and root-absolute paths."),
         eventLogJson: z
           .string()
           .optional()

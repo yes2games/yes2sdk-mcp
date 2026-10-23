@@ -68,6 +68,31 @@ Unified interface for interstitial, rewarded, and banner ads. Interstitials run 
 
 ---
 
+## JavaScript runtime helpers (`@yes2games/js`)
+
+JavaScript and TypeScript games show ads through the `ads` wrapper in `@yes2games/js` (or a lifecycle helper built on it) rather than `Yes2SDK.ads` directly. It takes the same `placement` and `AdCallbacks`, and adds:
+
+- **One ad at a time.** `ads.isAdShowing()` is `true` from a `show*` call until its ad is released. A second call in that window gets `noFill` only, with no `afterAd`.
+- **A watchdog.** 30 s to reach `beforeAd`, then 180 s to `afterAd`, counted in animation-frame time.
+- **Stale callbacks dropped**, and each of your callbacks isolated in its own try/catch.
+- **A promise that never rejects**, resolving `"shown"`, `"viewed"`, `"dismissed"` or `"noFill"`.
+
+No-fill is `noFill` then `afterAd`, the same as Core. The support checks (`ads.isInterstitialSupported()` and the rest) return `false` instead of throwing on an older or missing runtime.
+
+```ts
+import { ads } from "@yes2games/js";
+
+const outcome = await ads.showRewarded("extra-life", {
+    beforeAd: () => pauseGame(),
+    afterAd: () => resumeGame(),
+    adViewed: () => grantReward(),
+});
+```
+
+See [Ad Runtime & Engine Parity](/docs/javascript-ads-runtime) for the full guarantees and a comparison with Unity and Defold.
+
+---
+
 ## Unity (C#)
 
 `Yes2SDK.Yes2SDK.Ads` (`Yes2SDKAds`). Banner uses a `BannerPosition` enum (`Top`, `Bottom`).

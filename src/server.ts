@@ -27,11 +27,11 @@ export function createServer(): McpServer {
     {
       instructions: [
         DESCRIPTION,
-        "Yes2SDK engines: TypeScript/JavaScript, Unity, and Defold — HTML5/WebGL only.",
+        "Yes2SDK engines: TypeScript/JavaScript (the @yes2games/js npm package: plain canvas, Phaser, three.js; the dashboard injects the SDK at upload), Unity, and Defold — HTML5/WebGL only.",
         "",
         "Modules: ads, analytics, auth, banners, data, errors, friends, game, player, score, session, lifecycle, iap, notifications, referrals.",
         "",
-        "Install before code: this server reports whether a project can compile SDK references at all. detect_sdk(projectPath) returns the engine, install state and remaining steps; get_install_instructions(engine) returns the version-pinned steps. Code referencing the Yes2SDK namespace (Unity), the yes2sdk module (Defold) or window.Yes2SDK (JS) will not compile or resolve until the package is installed.",
+        "Install before code: this server reports whether a project can compile SDK references at all. detect_sdk(projectPath) returns the engine, install state and remaining steps; get_install_instructions(engine) returns the version-pinned steps. Code referencing the Yes2SDK namespace (Unity), the yes2sdk module (Defold) or window.Yes2SDK (JS) will not compile or resolve until the package is installed. For JS, install @yes2games/js (types, runtime helpers, local-dev mock), never bundle yes2sdk.umd.js, build with Vite base: './', and mark the game canvas data-yes2-canvas.",
         "",
         "Typical flow: 1) detect_sdk(projectPath) / get_install_instructions(engine) to ensure the SDK is installed, 2) get_quickstart for the target platform, 3) get_api_reference per module, 4) search_docs for specifics, 5) validate_integration against the built WebGL output or a captured Inspector event log.",
         "validate_integration checks both static build output (buildPath) and behavioral compliance (eventLogJson) against real platform rejection rules.",

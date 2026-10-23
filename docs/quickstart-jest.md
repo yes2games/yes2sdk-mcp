@@ -6,6 +6,7 @@
 
 - **Unity:** UPM git URL `https://github.com/yes2games/yes2sdk-unity.git#<version>`, then `Yes2SDK > Build Window > Install Template`.
 - **Defold:** add the release archive to `game.project` `[project]` dependencies, then Project > Fetch Libraries.
+- **JavaScript / TypeScript:** `npm i @yes2games/js` for the `window.Yes2SDK` types, the ad runtime and the local-development mock. You never bundle the SDK itself: the dashboard injects it when it bundles your build. See [JavaScript / TypeScript Integration](/docs/javascript).
 
 Jest needs at least Core 2.10.0, Unity 2.10.0 (2.11.0 for `Platform.Jest`) or Defold 1.8.0.
 
@@ -122,6 +123,8 @@ These do not block publishing. They are what Jest asks for the Jest Fund, and th
 ## Integration Example
 
 ### TypeScript / JavaScript
+
+With `@yes2games/js`, show ads through its `ads` wrapper (`import { ads } from "@yes2games/js"`) or a lifecycle helper instead of `Yes2SDK.ads`. The calls and callbacks are the same, and it adds one ad at a time and a watchdog. See [Ad Runtime & Engine Parity](/docs/javascript-ads-runtime).
 
 ```typescript
 // Initialize and report loading progress (0 to 100)
@@ -344,6 +347,7 @@ Errors return `{ "success": false, "error": "<text>", "code": "<code>" }`:
 - **Local.** Open the game with `?yes2sdk_platform=jest` to run Yes2SDK against the Jest adapter. The Jest SDK loads from Jest's CDN, so the page needs network access. Jest's SDK gives you a debug menu to change the player's state.
 - **Inspector.** Upload a build on your game page and test it in the Yes2SDK dashboard Inspector.
 - **Unity Play Mode.** Exercise subscriptions, notifications, the registration prompt, referrals, image sharing and the exit request with the mocks under **Yes2SDK > Build Window > Play Mode Testing**.
+- **JavaScript / TypeScript mock.** The `@yes2games/js` mock runs ads, saves, IAP and simulated `pause`, `resume` and `exitRequested` events locally (`Yes2SDKMock.simulate("exitRequested")`). It reports notifications and referrals as unsupported, so test those against the Jest adapter or in the Inspector. See [Testing with the Mock](/docs/javascript-mock).
 
 The Yes2Games team runs the Jest Simulator and sandbox checks before submitting.
 

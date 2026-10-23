@@ -92,6 +92,8 @@ Yes2SDK.on("exitRequested", () => {
 });
 ```
 
+**JavaScript runtime helpers.** `@yes2games/js` wraps the lifecycle calls for JavaScript and TypeScript games. `createLoadingProgressReporter()` forwards `.fraction(0..1)` or `.percent(0..100)` to `setLoadingProgress` only when the integer percentage changes. `createGameLifecycle({ onPause, onResume, onMuteChange, audioContext })` (and the Phaser and three.js variants) subscribes to `pause`, `resume` and `audioEnabledChange`, reads `session.isAudioEnabled()` when attached, and pauses and mutes around ads too. It does not handle `accountDialogOpen` / `accountDialogClose` or `exitRequested`; subscribe to those yourself. See [JavaScript / TypeScript Integration](/docs/javascript).
+
 ### Unity (C#)
 
 Static events on `Yes2SDK`. Subscribe **after** `InitializeAsync` succeeds.
