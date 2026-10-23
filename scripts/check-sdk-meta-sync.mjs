@@ -26,18 +26,18 @@ if (!sourcesExist()) {
   process.exit(2);
 }
 
-const { out, unityVersion, defoldVersion } = generate();
+const { out, unityVersion, defoldVersion, jsVersion } = generate();
 const have = fs.existsSync(DESTINATION) ? fs.readFileSync(DESTINATION, "utf-8") : "";
 
 if (lf(have) !== lf(out)) {
   console.error(`[check-sdk-meta-sync] STALE: ${DESTINATION}`);
   console.error(
-    `[check-sdk-meta-sync] engine SDK sources are at unity v${unityVersion}, defold v${defoldVersion}.`,
+    `[check-sdk-meta-sync] engine SDK sources are at unity v${unityVersion}, defold v${defoldVersion}, js v${jsVersion}.`,
   );
   console.error("[check-sdk-meta-sync] run `npm run sync-sdk-meta` and commit the result.");
   process.exit(1);
 }
 
 console.log(
-  `[check-sdk-meta-sync] OK — sdk-meta.ts matches unity v${unityVersion}, defold v${defoldVersion}.`,
+  `[check-sdk-meta-sync] OK — sdk-meta.ts matches unity v${unityVersion}, defold v${defoldVersion}, js v${jsVersion}.`,
 );

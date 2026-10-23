@@ -45,12 +45,55 @@ export const SYMPTOMS: Symptom[] = [
   {
     id: "js-window-undefined",
     title: "JS/HTML5: window.Yes2SDK is undefined",
-    keywords: ["window.yes2sdk", "undefined", "is not defined", "cannot read", "runtime not loaded", "sdk undefined"],
-    cause: "The web runtime is injected by the Yes2Games dashboard at upload time. It is not present when running the build locally or before upload.",
+    keywords: ["window.yes2sdk", "undefined", "is not defined", "cannot read", "runtime not loaded", "sdk undefined", "requiresdk"],
+    cause: "The Yes2SDK itself is injected by the Yes2Games dashboard at upload, before your first <script>. Under a local dev server nothing provides it unless the @yes2games/js mock is installed.",
     fix: [
-      "Do not import a package at build time — there is none. See get_install_instructions('js').",
-      "Upload the build to the dashboard; the runtime is injected before your game scripts.",
-      "Guard calls behind a feature check (e.g. if (window.Yes2SDK) { ... }) so local runs do not crash.",
+      "Run detect_sdk(projectPath) to see whether @yes2games/js and the mock are set up; get_install_instructions('js') has the pinned steps.",
+      "Install the mock in development only: if (import.meta.env.DEV) { (await import(\"@yes2games/js/mock\")).installYes2SDKMock(); } before requireSdk(). Without a bundler, load <script src=\"yes2sdk-mock.js\"> before your game scripts.",
+      "Do not add yes2sdk.umd.js yourself. In an uploaded build the dashboard provides window.Yes2SDK; check the Inspector if it is missing there.",
+    ],
+  },
+  {
+    id: "js-root-absolute-404",
+    title: "JS/HTML5: assets 404 after upload / blank screen in the Inspector (/assets/… paths)",
+    keywords: ["404", "/assets/", "root-absolute", "absolute path", "base:", "vite base", "blank screen", "relative path", "sub-path", "relativepaths"],
+    cause: "The build references files from the host root (/assets/index.js). The Inspector and several platforms serve games from a sub-path, so those requests 404. Vite's default base: '/' is the usual cause; the dashboard warns on upload and Jest blocks the bundle.",
+    fix: [
+      "Set base: './' in vite.config so every emitted path is relative, then rebuild.",
+      "Replace any hand-written \"/x\" asset URLs in index.html or code with relative ones (\"./x\").",
+      "Run validate_integration(platform, buildPath) on the build; its relative-paths finding lists what is left.",
+    ],
+  },
+  {
+    id: "js-mock-in-production",
+    title: "JS/HTML5: fake ad overlay or \"[Yes2SDK] Mock:\" logs in a built game",
+    keywords: ["mock", "yes2sdkmock", "[yes2sdk] mock", "fake ad", "ismock", "yes2sdk-mock", "installyes2sdkmock"],
+    cause: "The @yes2games/js mock is meant for local development. A static import compiles it into the production JS, where the dashboard cannot strip it (it only removes the yes2sdk-mock.js tag and file). It refuses to install over the injected SDK, so on the platform it is dead code; locally, a built game without the dashboard still runs against it.",
+    fix: [
+      "Import it only in dev: if (import.meta.env.DEV) { (await import(\"@yes2games/js/mock\")).installYes2SDKMock(); }",
+      "For the no-build template the <script src=\"yes2sdk-mock.js\"> tag may stay: the dashboard removes it when bundling.",
+      "Check with validate_integration on the build: the mock-in-build finding says which case applies.",
+    ],
+  },
+  {
+    id: "js-wrong-canvas-captured",
+    title: "JS/HTML5: dashboard screenshots show the wrong canvas (UI overlay, blank or tiny canvas)",
+    keywords: ["screenshot", "wrong canvas", "capture", "data-yes2-canvas", "overlay canvas", "blank screenshot"],
+    cause: "The dashboard captures from [data-yes2-canvas], then #unity-canvas, then the largest visible canvas. A game with a second canvas (UI, debug overlay) and no marker can be captured from the wrong one.",
+    fix: [
+      "Add data-yes2-canvas to the game's <canvas> (or a wrapper element around it).",
+      "Phaser: pass that canvas to new Phaser.Game({ type: Phaser.WEBGL, canvas }). three.js: new THREE.WebGLRenderer({ canvas }).",
+    ],
+  },
+  {
+    id: "js-audio-after-ad",
+    title: "JS/HTML5: game stays silent or keeps running during/after an ad (Phaser, three.js, WebAudio)",
+    keywords: ["silent after ad", "no sound after", "audio after ad", "audiocontext", "suspended", "sound stays muted", "phaser sound", "three audio", "keeps running during ad"],
+    cause: "Browsers suspend the AudioContext around ads and platform pauses, and the game loop keeps ticking unless something pauses it. Hand-rolled pause/mute often reads the mute state back while the context is suspended and restores the wrong value.",
+    fix: [
+      "Phaser: createPhaserLifecycle(game).attach() from \"@yes2games/js/phaser\" (in callbacks.preBoot), then show ads through lifecycle.showInterstitial / showRewarded.",
+      "three.js: createThreeLifecycle({ listener, onPauseChange }).attach() from \"@yes2games/js/three\".",
+      "Plain JS: createGameLifecycle({ onPause, onResume, onMuteChange, audioContext }).attach() from \"@yes2games/js\". All three resume the AudioContext after every ad.",
     ],
   },
   {
@@ -97,11 +140,12 @@ export const SYMPTOMS: Symptom[] = [
   {
     id: "sdk-not-bundled",
     title: "Build rejected: Yes2SDK not bundled / external <script> tags",
-    keywords: ["not bundled", "external script", "script src", "cdn", "http script", "build rejected"],
-    cause: "Platforms block builds that load external scripts or do not bundle the SDK into the JS.",
+    keywords: ["not bundled", "external script", "script src", "cdn", "http script", "build rejected", "yes2sdk.umd.js"],
+    cause: "Platforms block builds that load external scripts. Unity and Defold builds must carry the SDK in their own JS; a JavaScript/TypeScript build must call window.Yes2SDK from its own code, and the dashboard injects the SDK itself.",
     fix: [
       "Run validate_integration(platform, buildPath) on the extracted build to list the offending files.",
-      "Ensure the SDK and all dependencies are bundled; remove <script src=\"http...\"> tags.",
+      "Bundle all dependencies and remove <script src=\"http...\"> tags.",
+      "JS/TS: never bundle yes2sdk.umd.js or add a tag for it. The sdk-copy finding flags one; the dashboard injects the SDK per platform at upload.",
     ],
   },
   {
@@ -202,7 +246,7 @@ export function registerTroubleshootTool(server: McpServer): void {
       ...readOnlyTool("Troubleshoot a Yes2SDK symptom"),
       description:
         "The likely cause and ordered fix for a reported Yes2SDK integration symptom, given an error string or a plain-language description. " +
-        "Covers the common failures: missing namespace or module (SDK not installed), window.Yes2SDK undefined, Unity build-guard and template problems, Defold editor no-ops, rewards not granted, platform rejections such as ads without gameplayStop or an unbundled SDK, and Jest specifics (ads that always report no fill, saving on exit, the loading timeout, launch data, the registration prompt). " +
+        "Covers the common failures: missing namespace or module (SDK not installed), window.Yes2SDK undefined (the JS local-dev mock), JS builds with root-absolute /assets paths, the mock in a production build, the wrong canvas captured, audio after ads in Phaser or three.js, Unity build-guard and template problems, Defold editor no-ops, rewards not granted, platform rejections such as ads without gameplayStop or an unbundled SDK, and Jest specifics (ads that always report no fill, saving on exit, the loading timeout, launch data, the registration prompt). " +
         "Each answer points at the tool that resolves it (detect_sdk, get_install_instructions, get_compliance_rule, validate_integration), or at where to look next when nothing matches.",
       inputSchema: {
         symptom: z

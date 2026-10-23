@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { getEngineMeta, type Engine } from "../lib/sdk-meta.js";
 import { readOnlyTool } from "../lib/annotations.js";
+import { analyzeJsProject, type ProjectFiles } from "../lib/js-project.js";
 
 interface DetectResult {
   engine: Engine | "unknown";
@@ -14,18 +15,48 @@ interface DetectResult {
   expectedVersion: string | null;
   /** Install + post-install steps still needed (empty when installed). */
   missingSteps: string[];
+  /** Project-specific integration steps still missing (JS only), shown even when installed. */
+  remainingSteps: string[];
   notes: string[];
 }
 
 /**
  * A read-only view of a project's files. `read` returns the contents of a
  * repo-relative file or null when it does not exist; `exists` reports whether a
- * file OR directory is present at a repo-relative path. Two implementations:
- * disk-backed (from projectPath) and map-backed (from inline `files`).
+ * file OR directory is present at a repo-relative path; `list` returns the
+ * project's own files. Two implementations: disk-backed (from projectPath) and
+ * map-backed (from inline `files`).
  */
-interface FileAccessor {
-  read(relPath: string): string | null;
-  exists(relPath: string): boolean;
+type FileAccessor = ProjectFiles;
+
+/** Folders that hold dependencies, VCS data or build output, never project sources. */
+const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "out", ".vite", ".next", "coverage", "Library", "Temp", ".cache"]);
+const MAX_LISTED_FILES = 5000;
+const MAX_LIST_DEPTH = 8;
+
+/** Repo-relative posix paths under `root`, bounded so a huge tree cannot stall the tool. */
+function listDisk(root: string): string[] {
+  const out: string[] = [];
+  const walk = (dir: string, rel: string, depth: number): void => {
+    if (depth > MAX_LIST_DEPTH || out.length >= MAX_LISTED_FILES) return;
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (out.length >= MAX_LISTED_FILES) return;
+      const childRel = rel ? `${rel}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        if (!SKIP_DIRS.has(entry.name)) walk(path.join(dir, entry.name), childRel, depth + 1);
+      } else if (entry.isFile()) {
+        out.push(childRel);
+      }
+    }
+  };
+  walk(root, "", 0);
+  return out;
 }
 
 /** Normalize a repo-relative path to forward slashes, no leading "./". */
@@ -45,6 +76,9 @@ function diskAccessor(root: string): FileAccessor {
     },
     exists(relPath: string): boolean {
       return fs.existsSync(path.join(root, relPath));
+    },
+    list(): string[] {
+      return listDisk(root);
     },
   };
 }
@@ -68,6 +102,9 @@ function mapAccessor(files: Record<string, string>): FileAccessor {
       }
       return false;
     },
+    list(): string[] {
+      return [...map.keys()].filter((k) => !k.split("/").some((part) => SKIP_DIRS.has(part)));
+    },
   };
 }
 
@@ -77,6 +114,8 @@ function detectEngine(fa: FileAccessor): Engine | "unknown" {
   }
   if (fa.exists("game.project")) return "defold";
   if (fa.exists("package.json")) return "js";
+  // A no-build HTML5 game (index.html + classic scripts) has no package.json.
+  if (fa.exists("index.html")) return "js";
   return "unknown";
 }
 
@@ -127,7 +166,11 @@ function render(result: DetectResult, pathLabel: string): string {
   if (!result.installed && result.missingSteps.length > 0) {
     lines.push("", "## Required before generating SDK code");
     result.missingSteps.forEach((s, i) => lines.push(`${i + 1}. ${s}`));
-    lines.push("", "Run get_install_instructions(engine) for the full, formatted steps.");
+    lines.push("", `Run get_install_instructions("${result.engine}") for the full, formatted steps.`);
+  }
+  if (result.remainingSteps.length > 0) {
+    lines.push("", "## Remaining integration steps for this project");
+    result.remainingSteps.forEach((s, i) => lines.push(`${i + 1}. ${s}`));
   }
   return lines.join("\n");
 }
@@ -141,12 +184,13 @@ function runDetect(fa: FileAccessor, pathLabel: string): string {
     installedVersion: null,
     expectedVersion: null,
     missingSteps: [],
+    remainingSteps: [],
     notes: [],
   };
 
   if (engine === "unknown") {
     result.notes.push(
-      "Could not identify the engine (no Unity ProjectSettings/ + Packages/manifest.json, Defold game.project, or package.json found)."
+      "Could not identify the engine (no Unity ProjectSettings/ + Packages/manifest.json, Defold game.project, package.json or index.html found)."
     );
     return render(result, pathLabel);
   }
@@ -163,10 +207,20 @@ function runDetect(fa: FileAccessor, pathLabel: string): string {
     result.installed = d.installed;
     result.installedVersion = d.version;
   } else {
-    // js: the web runtime is injected by the dashboard at upload, not installed at dev-time.
-    result.notes.push(
-      "JS/HTML5 projects do not install a dev-time package — the runtime is injected by the dashboard at upload. 'installed: no' is expected here."
-    );
+    // js: @yes2games/js is the dev-time package; the SDK itself is injected by the dashboard at upload.
+    const js = analyzeJsProject(fa);
+    result.installed = js.installed;
+    result.installedVersion = js.installedVersion;
+    const used = [js.frameworks.phaser && "Phaser", js.frameworks.three && "three.js", js.frameworks.vite && "Vite"].filter(Boolean);
+    if (used.length > 0) result.notes.push(`Detected: ${used.join(", ")}.`);
+    if (js.evidence) result.notes.push(`Package evidence: ${js.evidence}.`);
+    result.notes.push(...js.notes);
+    result.remainingSteps = js.remainingSteps;
+    if (js.installed && js.remainingSteps.length === 0) {
+      result.notes.push(
+        "No missing integration steps found (mock, Vite base, data-yes2-canvas, loading progress, engine helpers). Next: build, then validate_integration on the build folder."
+      );
+    }
   }
 
   if (!result.installed && meta) {
@@ -195,6 +249,7 @@ export function registerDetectTool(server: McpServer): void {
         "Two input modes, exactly one per request:\n" +
         "  - `projectPath`: absolute path to the project root, available when this server runs LOCALLY over stdio and can read the disk.\n" +
         "  - `files`: inline map of repo-relative path → contents, keyed on \"game.project\", \"Packages/manifest.json\" or \"package.json\" — the mode for the HOSTED/sandboxed server, which has no disk access.\n" +
+        "For JS/TS projects it reads the @yes2games/js dependency (version from the lockfile when present), detects Phaser, three.js and Vite, and lists the integration steps still missing (local-dev mock, Vite base: './', data-yes2-canvas, setLoadingProgress, engine helpers). A package.json without @yes2games/js is reported as engine js with the package not installed.\n" +
         "Project files are inspected, never modified.",
       inputSchema: {
         projectPath: z
@@ -206,7 +261,7 @@ export function registerDetectTool(server: McpServer): void {
           .record(z.string())
           .optional()
           .describe(
-            "Inline map of repo-relative path → file contents for hosted/sandboxed use. Include at least the engine-marker files: game.project (Defold), ProjectSettings/* and Packages/manifest.json (Unity), or package.json (JS)."
+            "Inline map of repo-relative path → file contents for hosted/sandboxed use. Include at least the engine-marker files: game.project (Defold), ProjectSettings/* and Packages/manifest.json (Unity), or package.json (JS). For JS also include the lockfile, vite.config.*, index.html and the entry sources so the remaining steps can be tailored."
           ),
       },
       

@@ -22,9 +22,11 @@ function renderInstructions(meta: EngineMeta): string {
     versionLine,
     meta.minEngineVersion ? `Requires engine version: ${meta.minEngineVersion}+` : "",
     `Repo: ${meta.repoUrl}`,
+    meta.docsUrl ? `Docs: ${meta.docsUrl}` : "",
     "",
     renderSteps("## Install", meta.installSteps),
     renderSteps("## After installing", meta.postInstallSteps),
+    ...meta.extraSections.map((section) => renderSteps(`## ${section.title}`, section.steps)),
     `## Verify the SDK is available\n${meta.verify}`,
     "",
     "Do not write SDK code that references the Yes2SDK namespace/module until the steps above are done and verification passes — otherwise the code will not compile/resolve.",
@@ -44,13 +46,13 @@ export function registerInstallTool(server: McpServer): void {
     {
       ...readOnlyTool("Get Yes2SDK install instructions"),
       description:
-        "Version-pinned steps for adding the Yes2SDK to a Unity, Defold, or JavaScript game, including post-install setup such as Unity's required WebGL template, and a check that confirms the SDK resolves. " +
+        "Version-pinned steps for adding the Yes2SDK to a Unity, Defold, or JavaScript/TypeScript game (Phaser, three.js, plain canvas), including post-install setup such as Unity's required WebGL template or the JS local-dev mock and Vite base: './', and a check that confirms the SDK resolves. " +
         "Answers \"how do I add the Yes2SDK to this project?\" — until these steps complete, code referencing the Yes2SDK namespace (Unity), the yes2sdk module (Defold), or window.Yes2SDK (JS) will not compile. " +
         "Returns text; the project is never modified, and what is already installed is reported by detect_sdk instead.",
       inputSchema: {
         engine: z
           .enum(ENGINES)
-          .describe("Target engine: 'unity' (UPM package), 'defold' (native extension), or 'js' (HTML5 runtime injected by the dashboard)."),
+          .describe("Target engine: 'unity' (UPM package), 'defold' (native extension), or 'js' (any HTML5 JavaScript/TypeScript game, including Phaser and three.js: the @yes2games/js npm package, with the SDK itself injected by the dashboard at upload)."),
         platform: z
           .enum(SUPPORTED_PLATFORMS)
           .optional()

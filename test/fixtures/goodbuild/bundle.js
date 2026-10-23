@@ -1,4 +1,5 @@
-// Bundled game including the Yes2SDK.
-// The string "Yes2SDK" below is what detectSDKIntegration() looks for.
-var __sdk = "Yes2SDK";
-console.log("game bundle with", __sdk, "integrated");
+// Bundled game that integrates the Yes2SDK. The dashboard injects the SDK;
+// the game's own code calls window.Yes2SDK, which is what detectSDKIntegration() looks for.
+window.Yes2SDK.initializeAsync().then(function () {
+  return window.Yes2SDK.startGameAsync();
+});
