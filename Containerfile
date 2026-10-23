@@ -2,7 +2,7 @@
 # Multi-stage build for the Yes2SDK MCP remote HTTP server (mcp.yes2games.com).
 # Build stage compiles TS -> dist/; runtime stage ships prod deps + dist/ + docs/.
 
-FROM node:24.22.1-alpine AS build
+FROM node:26.12.1-alpine AS build
 WORKDIR /app
 # Install all deps (incl. dev). --ignore-scripts skips the `prepare` tsc, which
 # would run before sources are copied; the explicit build below compiles TS.
@@ -12,7 +12,7 @@ COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
 
-FROM node:24.22.1-alpine AS runtime
+FROM node:26.12.1-alpine AS runtime
 # MCP_ALLOWED_ORIGINS admits browser-based MCP clients through the Origin check
 # in src/http.ts. CLI hosts and server-side fetch send no Origin and never
 # needed it; a claude.ai / claude.com connector running in the page does. Both
