@@ -84,6 +84,18 @@ the dashboard for that request only. It is never stored, logged or returned in t
 Claude connector cannot send a key yet (OAuth sign-in is planned), so the dashboard tools there
 return the setup steps.
 
+**Sign-in (coming soon, behind the `MCP_OAUTH_ENABLED` flag, off in production).** Once it is on,
+the hosted server asks you to sign in to Yes2 the first time a dashboard tool runs, and only then:
+the docs and validation tools stay anonymous in every client.
+
+- Claude Code: run `/mcp`, pick the server, choose **Authenticate**.
+- Codex: `codex mcp login yes2sdk`.
+- claude.ai: click the **Connect** card that appears on the first dashboard tool call.
+
+API keys keep working unchanged. To keep Claude Code's sign-in available alongside a key, send the
+key as `X-Yes2-Api-Key` rather than `Authorization` (a configured `Authorization` header turns
+Claude Code's OAuth off). The local stdio server only ever uses `YES2_API_KEY`.
+
 ### `validate_integration` — two modes
 
 1. **Static build checks** — give it the build, either as `buildPath` (absolute path to an

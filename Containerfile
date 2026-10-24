@@ -21,9 +21,15 @@ FROM node:26.12.1-alpine AS runtime
 # request and never stored (the container holds no secrets), so admitting them
 # grants no capability a plain curl did not already have.
 # Override at the unit level to change the list.
+# MCP_OAUTH_ENABLED turns on lazy OAuth sign-in for the dashboard tools
+# (src/lib/oauth.ts): a 401 challenge on a dashboard tools/call without a usable
+# credential, plus the protected resource metadata routes. It is config, not a
+# secret. Off ships phase 1 unchanged; flip it to 1 only once the dashboard's
+# authorization server is live (dashboard OAUTH_ENABLED=1).
 ENV NODE_ENV=production \
     PORT=8091 \
-    MCP_ALLOWED_ORIGINS=https://claude.ai,https://claude.com
+    MCP_ALLOWED_ORIGINS=https://claude.ai,https://claude.com \
+    MCP_OAUTH_ENABLED=0
 WORKDIR /app
 # curl is used by the Quadlet healthcheck (HealthCmd hits /health).
 RUN apk add --no-cache curl

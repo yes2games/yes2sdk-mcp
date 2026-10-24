@@ -27,7 +27,25 @@ export interface ServerOptions {
   dashboardApiUrl?: string;
   /** Injected fetch for tests. */
   fetch?: FetchLike;
+  /**
+   * MCP_OAUTH_ENABLED, for the hosted HTTP server only (stdio never sets it).
+   * On, the instructions and dashboard tool texts say "sign in or provide an
+   * API key"; off, every text is exactly phase 1.
+   */
+  oauth?: boolean;
 }
+
+const UPLOAD_INSTRUCTIONS_KEY =
+  "Uploading a build to the Yes2 dashboard (needs the user's own dashboard API key, sent as Authorization: Bearer y2g_… or the YES2_API_KEY env var; without one these tools return the setup steps): list_games or create_game for the gameId; zip the built game with index.html at the zip root; prepare_upload(gameId, version, size in bytes) returns an uploadId and a curl PUT command that sends the zip from the user's machine straight to storage (this server never handles the file); after the PUT, finalize_upload(gameId, uploadId); then get_build_status(gameId, uploadId) every few seconds until ready or failed. When ready, show the user the inspectorUrl and any uploadWarnings.";
+
+const EDIT_INSTRUCTIONS_KEY =
+  "Editing a game with the same key: update_game(gameId, fields) changes name, description, engine, category, tags, orientation, yandexMetricaCounterId or jestAutoLoginReminders; set_game_image(gameId, kind: icon | banner, imagePath?) returns a curl command for the user's machine that posts the image and reads the key from the user's shell as $YES2_API_KEY, so never paste the key into it (remove: true deletes the image instead); rename_build(gameId, buildId, name) sets a build's display name, null clears it.";
+
+const EDIT_INSTRUCTIONS_OAUTH =
+  "Editing a game with the same sign-in or key: update_game(gameId, fields) changes name, description, engine, category, tags, orientation, yandexMetricaCounterId or jestAutoLoginReminders; set_game_image(gameId, kind: icon | banner, imagePath?) returns a curl command for the user's machine that posts the image and reads a y2g_ API key from the user's shell as $YES2_API_KEY (needed for this command even when signed in), so never paste the key into it (remove: true deletes the image instead); rename_build(gameId, buildId, name) sets a build's display name, null clears it.";
+
+const UPLOAD_INSTRUCTIONS_OAUTH =
+  "Uploading a build to the Yes2 dashboard (the user must sign in or provide an API key: the first dashboard tool call asks the client to sign in — Claude Code /mcp → Authenticate, Codex `codex mcp login yes2sdk`, the claude.ai Connect card — or a y2g_ API key can be sent as X-Yes2-Api-Key; every other tool works without either): list_games or create_game for the gameId; zip the built game with index.html at the zip root; prepare_upload(gameId, version, size in bytes) returns an uploadId and a curl PUT command that sends the zip from the user's machine straight to storage (this server never handles the file); after the PUT, finalize_upload(gameId, uploadId); then get_build_status(gameId, uploadId) every few seconds until ready or failed. When ready, show the user the inspectorUrl and any uploadWarnings.";
 
 /**
  * Build and configure the Yes2SDK MCP server with all tools registered.
@@ -54,8 +72,8 @@ export function createServer(options: ServerOptions = {}): McpServer {
         "Typical flow: 1) detect_sdk(projectPath) / get_install_instructions(engine) to ensure the SDK is installed, 2) get_quickstart for the target platform, 3) get_api_reference per module, 4) search_docs for specifics, 5) validate_integration against the built WebGL output or a captured Inspector event log.",
         "validate_integration checks both static build output (buildPath) and behavioral compliance (eventLogJson) against real platform rejection rules.",
         "",
-        "Uploading a build to the Yes2 dashboard (needs the user's own dashboard API key, sent as Authorization: Bearer y2g_… or the YES2_API_KEY env var; without one these tools return the setup steps): list_games or create_game for the gameId; zip the built game with index.html at the zip root; prepare_upload(gameId, version, size in bytes) returns an uploadId and a curl PUT command that sends the zip from the user's machine straight to storage (this server never handles the file); after the PUT, finalize_upload(gameId, uploadId); then get_build_status(gameId, uploadId) every few seconds until ready or failed. When ready, show the user the inspectorUrl and any uploadWarnings.",
-        "Editing a game with the same key: update_game(gameId, fields) changes name, description, engine, category, tags, orientation, yandexMetricaCounterId or jestAutoLoginReminders; set_game_image(gameId, kind: icon | banner, imagePath?) returns a curl command for the user's machine that posts the image and reads the key from the user's shell as $YES2_API_KEY, so never paste the key into it (remove: true deletes the image instead); rename_build(gameId, buildId, name) sets a build's display name, null clears it.",
+        options.oauth === true ? UPLOAD_INSTRUCTIONS_OAUTH : UPLOAD_INSTRUCTIONS_KEY,
+        options.oauth === true ? EDIT_INSTRUCTIONS_OAUTH : EDIT_INSTRUCTIONS_KEY,
       ].join("\n"),
     }
   );
@@ -72,6 +90,7 @@ export function createServer(options: ServerOptions = {}): McpServer {
     auth: options.auth ?? NO_KEY,
     baseUrl: resolveDashboardUrl(options.dashboardApiUrl ?? process.env.DASHBOARD_API_URL),
     fetch: options.fetch,
+    oauth: options.oauth === true,
   });
   registerModuleResources(server);
   registerIntegratePrompts(server);

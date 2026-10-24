@@ -1,5 +1,6 @@
 // One-off smoke test: spawn dist/index.js, drive the stdio JSON-RPC handshake
-// (newline-delimited), and confirm tools/list returns the expected tools.
+// (newline-delimited), and confirm tools/list returns the expected tools. Then
+// spawn dist/http.js and check the OAuth protected resource metadata.
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -81,9 +82,86 @@ const expected = [
   "rename_build",
 ];
 const names = tools.map((t) => t.name).sort();
-const ok = expected.every((e) => names.includes(e)) && names.length === expected.length;
-console.log(`\nRESULT: ${ok ? "PASS" : "FAIL"} (expected ${expected.length} tools, got ${names.length})`);
+const toolsOk = expected.every((e) => names.includes(e)) && names.length === expected.length;
+console.log(`\ntools: ${toolsOk ? "PASS" : "FAIL"} (expected ${expected.length} tools, got ${names.length})`);
 
 child.stdin.end();
 child.kill();
+
+// Lazy OAuth (MCP_OAUTH_ENABLED): the built HTTP entry serves the protected
+// resource metadata and challenges only dashboard tools. With the flag off the
+// metadata route does not exist.
+const HTTP_ENTRY = path.resolve(__dirname, "..", "dist", "http.js");
+const EXPECTED_PRM = {
+  resource: "https://mcp.yes2games.com/mcp",
+  authorization_servers: ["https://dashboard.yes2games.com"],
+  scopes_supported: ["games:read", "games:write", "builds:write"],
+  bearer_methods_supported: ["header"],
+  resource_name: "Yes2 dashboard",
+};
+
+async function withHttp(port, env, fn) {
+  const http = spawn("node", [HTTP_ENTRY], { env: { ...process.env, PORT: String(port), ...env }, stdio: ["ignore", "ignore", "pipe"] });
+  try {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`http entry on ${port} did not start`)), 15_000);
+      let err = "";
+      http.stderr.on("data", (c) => {
+        err += c.toString();
+        if (err.includes(`listening on 0.0.0.0:${port}`)) {
+          clearTimeout(timer);
+          resolve();
+        }
+      });
+      http.on("exit", (code) => {
+        clearTimeout(timer);
+        reject(new Error(`http entry exited with ${code}: ${err}`));
+      });
+    });
+    return await fn(`http://127.0.0.1:${port}`);
+  } finally {
+    http.kill();
+  }
+}
+
+const mcpPost = (base, body) =>
+  fetch(`${base}/mcp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+    body: JSON.stringify(body),
+  });
+
+const oauthOk = await withHttp(8089, { MCP_OAUTH_ENABLED: "1" }, async (base) => {
+  let pass = true;
+  for (const prmPath of ["/.well-known/oauth-protected-resource/mcp", "/.well-known/oauth-protected-resource"]) {
+    const res = await fetch(`${base}${prmPath}`);
+    const body = await res.json().catch(() => null);
+    const good =
+      res.status === 200 &&
+      JSON.stringify(body) === JSON.stringify(EXPECTED_PRM) &&
+      res.headers.get("access-control-allow-origin") === "*" &&
+      res.headers.get("cache-control") === "max-age=300";
+    console.log(`PRM ${prmPath} -> ${res.status} ${good ? "ok" : "WRONG"}`);
+    pass &&= good;
+  }
+  const gated = await mcpPost(base, { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "list_games", arguments: {} } });
+  const challenge = gated.headers.get("www-authenticate") ?? "";
+  const gatedOk = gated.status === 401 && challenge.includes('resource_metadata="https://mcp.yes2games.com/.well-known/oauth-protected-resource/mcp"');
+  console.log(`list_games without auth -> ${gated.status} ${gatedOk ? "ok" : "WRONG"}`);
+  const open = await mcpPost(base, { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "search_docs", arguments: { query: "ads" } } });
+  const openOk = open.status === 200 && open.headers.get("www-authenticate") === null;
+  console.log(`search_docs without auth -> ${open.status} ${openOk ? "ok" : "WRONG"}`);
+  await gated.text();
+  await open.text();
+  return pass && gatedOk && openOk;
+});
+
+const flagOffOk = await withHttp(8088, { MCP_OAUTH_ENABLED: "0" }, async (base) => {
+  const res = await fetch(`${base}/.well-known/oauth-protected-resource/mcp`);
+  console.log(`flag off: PRM -> ${res.status} ${res.status === 404 ? "ok" : "WRONG"}`);
+  return res.status === 404;
+});
+
+const ok = toolsOk && oauthOk && flagOffOk;
+console.log(`\nRESULT: ${ok ? "PASS" : "FAIL"}`);
 process.exit(ok ? 0 : 1);

@@ -77,7 +77,7 @@ function textOf(res: CallResult): string {
 
 const isError = (res: CallResult): boolean => (res as { isError?: boolean }).isError === true;
 
-const withKey: ApiKeyAuth = { status: "ok", apiKey: KEY };
+const withKey: ApiKeyAuth = { status: "ok", kind: "key", credential: KEY };
 
 const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
   list_games: {},
@@ -92,7 +92,7 @@ const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
 
 describe("auth parsing", () => {
   it("accepts a y2g_ bearer header", () => {
-    expect(authFromHeaders(`Bearer ${KEY}`)).toEqual({ status: "ok", apiKey: KEY });
+    expect(authFromHeaders(`Bearer ${KEY}`)).toEqual({ status: "ok", kind: "key", credential: KEY });
   });
 
   it("treats an absent or blank header as no key", () => {
@@ -106,15 +106,15 @@ describe("auth parsing", () => {
   });
 
   it("falls back to a bare key in X-Yes2-Api-Key", () => {
-    expect(authFromHeaders(undefined, KEY)).toEqual({ status: "ok", apiKey: KEY });
-    expect(authFromHeaders("Bearer", KEY)).toEqual({ status: "ok", apiKey: KEY });
+    expect(authFromHeaders(undefined, KEY)).toEqual({ status: "ok", kind: "key", credential: KEY });
+    expect(authFromHeaders("Bearer", KEY)).toEqual({ status: "ok", kind: "key", credential: KEY });
     expect(authFromHeaders(undefined, "")).toEqual(NO_KEY);
     expect(authFromHeaders(undefined, `Bearer ${KEY}`)).toEqual({ status: "malformed", source: "header" });
   });
 
   it("prefers Authorization over X-Yes2-Api-Key", () => {
     const other = "y2g_other";
-    expect(authFromHeaders(`Bearer ${KEY}`, other)).toEqual({ status: "ok", apiKey: KEY });
+    expect(authFromHeaders(`Bearer ${KEY}`, other)).toEqual({ status: "ok", kind: "key", credential: KEY });
   });
 
   it("rejects anything that is not Bearer y2g_…", () => {
@@ -124,8 +124,8 @@ describe("auth parsing", () => {
   });
 
   it("reads YES2_API_KEY bare or with a pasted Bearer prefix", () => {
-    expect(authFromEnv(KEY)).toEqual({ status: "ok", apiKey: KEY });
-    expect(authFromEnv(`Bearer ${KEY}`)).toEqual({ status: "ok", apiKey: KEY });
+    expect(authFromEnv(KEY)).toEqual({ status: "ok", kind: "key", credential: KEY });
+    expect(authFromEnv(`Bearer ${KEY}`)).toEqual({ status: "ok", kind: "key", credential: KEY });
     expect(authFromEnv(undefined)).toEqual(NO_KEY);
     expect(authFromEnv("not-a-key")).toEqual({ status: "malformed", source: "env" });
   });
@@ -654,7 +654,7 @@ describe("error mapping", () => {
 
   it("times out instead of hanging", async () => {
     const client = createDashboardClient({
-      apiKey: KEY,
+      credential: KEY,
       baseUrl: BASE,
       timeoutMs: 20,
       fetch: (_input, init) =>

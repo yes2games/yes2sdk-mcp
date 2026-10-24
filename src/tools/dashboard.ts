@@ -27,6 +27,11 @@ export interface DashboardToolContext {
   auth: ApiKeyAuth;
   baseUrl: string;
   fetch?: FetchLike;
+  /**
+   * MCP_OAUTH_ENABLED (hosted HTTP server only). On, the descriptions and help
+   * texts lead with signing in; off keeps every phase 1 text unchanged.
+   */
+  oauth?: boolean;
 }
 
 export const ENGINES = ["unity", "defold", "playcanvas", "cocos", "vanilla", "other"] as const;
@@ -58,6 +63,9 @@ const FLOW =
 const AUTH_NOTE =
   "Acts with the caller's own Yes2 dashboard API key (a y2g_ personal key from Dashboard → Settings), sent as the Authorization: Bearer header (or the bare key in X-Yes2-Api-Key) or, for the local stdio server, the YES2_API_KEY env var. The key is passed through to the dashboard and never stored. Without a key it returns the setup steps instead.";
 
+const AUTH_NOTE_OAUTH =
+  "Acts as the signed-in Yes2 dashboard user: sign in when the client asks (Claude Code /mcp → Authenticate, Codex `codex mcp login yes2sdk`, the claude.ai Connect card), or provide an API key instead (a y2g_ personal key from Dashboard → Settings, sent as the bare key in X-Yes2-Api-Key or as Authorization: Bearer, or for the local stdio server the YES2_API_KEY env var). The credential is passed through to the dashboard and never stored.";
+
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: true };
 
 function result(text: string, isError = false): ToolResult {
@@ -67,8 +75,14 @@ function result(text: string, isError = false): ToolResult {
   return { content: [{ type: "text" as const, text: safe }], ...(isError ? { isError: true as const } : {}) };
 }
 
-/** The actionable error every dashboard tool returns when no usable key arrived. */
-export function missingKeyText(auth: ApiKeyAuth): string {
+/**
+ * The actionable error every dashboard tool returns when no usable key arrived.
+ * With `oauth` (the hosted server with MCP_OAUTH_ENABLED=1) the gate answers a
+ * missing credential with a 401 before any tool runs, so this is only reached
+ * for a malformed X-Yes2-Api-Key; it leads with signing in.
+ */
+export function missingKeyText(auth: ApiKeyAuth, oauth = false): string {
+  if (oauth) return missingCredentialText(auth);
   const lead =
     auth.status === "malformed"
       ? auth.source === "header"
@@ -91,9 +105,38 @@ export function missingKeyText(auth: ApiKeyAuth): string {
   ].join("\n");
 }
 
+function missingCredentialText(auth: ApiKeyAuth): string {
+  const lead =
+    auth.status === "malformed"
+      ? "The X-Yes2-Api-Key header sent to this server is not a Yes2 dashboard API key (expected `y2g_…`)."
+      : auth.status === "foreign"
+        ? "The Authorization header sent to this server is not a Yes2 sign-in or API key."
+        : "This tool needs you to sign in to Yes2 or to provide a dashboard API key, and neither reached the server.";
+  return [
+    lead,
+    "",
+    "Sign in (recommended):",
+    "- Claude Code: run /mcp, pick this server and choose Authenticate.",
+    "- Codex: run `codex mcp login yes2sdk`.",
+    "- claude.ai: use the Connect card shown for this tool.",
+    "",
+    "Or use an API key:",
+    "1. Create a personal key in the dashboard: avatar → Settings → Personal API keys → Create personal key. Copy it.",
+    "2. Export it in the shell that starts the client: `export YES2_API_KEY=y2g_…`",
+    "3. Send it as the bare key in the `X-Yes2-Api-Key` header (Claude Code .mcp.json: `\"headers\": { \"X-Yes2-Api-Key\": \"${YES2_API_KEY:-}\" }`; Codex: `env_http_headers = { \"X-Yes2-Api-Key\" = \"YES2_API_KEY\" }`), then restart the client.",
+    "",
+    "The docs and validation tools keep working without signing in.",
+  ].join("\n");
+}
+
 async function run(ctx: DashboardToolContext, body: (client: DashboardClient) => Promise<string>): Promise<ToolResult> {
-  if (ctx.auth.status !== "ok") return result(missingKeyText(ctx.auth), true);
-  const client = createDashboardClient({ apiKey: ctx.auth.apiKey, baseUrl: ctx.baseUrl, fetch: ctx.fetch });
+  if (ctx.auth.status !== "ok") return result(missingKeyText(ctx.auth, ctx.oauth === true), true);
+  const client = createDashboardClient({
+    credential: ctx.auth.credential,
+    baseUrl: ctx.baseUrl,
+    fetch: ctx.fetch,
+    signInHelp: ctx.oauth === true,
+  });
   try {
     return result(await body(client));
   } catch (err) {
@@ -242,6 +285,7 @@ export function imageCurlCommand(baseUrl: string, gameId: string, kind: ImageKin
 }
 
 export function registerDashboardTools(server: McpServer, ctx: DashboardToolContext): void {
+  const authNote = ctx.oauth === true ? AUTH_NOTE_OAUTH : AUTH_NOTE;
   server.registerTool(
     "list_games",
     {
@@ -249,7 +293,7 @@ export function registerDashboardTools(server: McpServer, ctx: DashboardToolCont
       description:
         "The games in the caller's studio on the Yes2 dashboard, newest first, with each game's id, engine and build count. " +
         "The id is the gameId that prepare_upload, finalize_upload and get_build_status take; a game that is not listed yet comes from create_game. " +
-        AUTH_NOTE,
+        authNote,
       inputSchema: {},
     },
     async () =>
@@ -274,7 +318,7 @@ export function registerDashboardTools(server: McpServer, ctx: DashboardToolCont
       description:
         "Creates a game in the caller's studio on the Yes2 dashboard and returns its id, the gameId for uploading builds. " +
         "Each call makes a new game, so list_games is the way to check whether it already exists. " +
-        AUTH_NOTE,
+        authNote,
       inputSchema: {
         name: z.string().trim().min(1).max(200).describe("Game name as studios and reviewers will see it."),
         engine: z
@@ -313,7 +357,7 @@ export function registerDashboardTools(server: McpServer, ctx: DashboardToolCont
         "This server never reads the zip; the curl command runs on the user's machine. " +
         FLOW +
         " " +
-        AUTH_NOTE,
+        authNote,
       inputSchema: {
         gameId: z.string().trim().min(1).describe("Game id from list_games or create_game."),
         version: z.string().trim().min(1).max(100).describe("Build version, free-form (e.g. '1.4.2' or '2026.10.23-nightly'). Unique per game."),
@@ -362,7 +406,7 @@ export function registerDashboardTools(server: McpServer, ctx: DashboardToolCont
         "Processing continues after this returns, and calling it again is safe and reports the current status. " +
         FLOW +
         " " +
-        AUTH_NOTE,
+        authNote,
       inputSchema: {
         gameId: z.string().trim().min(1).describe("Game id the upload was prepared for."),
         uploadId: z.string().trim().min(1).describe("uploadId returned by prepare_upload."),
@@ -391,7 +435,7 @@ export function registerDashboardTools(server: McpServer, ctx: DashboardToolCont
         "While processing, polling every few seconds is expected. " +
         FLOW +
         " " +
-        AUTH_NOTE,
+        authNote,
       inputSchema: {
         gameId: z.string().trim().min(1).describe("Game id."),
         uploadId: z.string().trim().min(1).optional().describe("uploadId from prepare_upload. Give this or buildId."),
@@ -457,7 +501,7 @@ export function registerDashboardTools(server: McpServer, ctx: DashboardToolCont
         "Changes a game's details on the Yes2 dashboard: name, description, engine, category, tags, orientation, the Yandex Metrica counter and the Jest auto-login reminders. " +
         "Only the fields given are touched, and at least one is required. null clears description, engine, category or yandexMetricaCounterId; tags replaces the whole list ([] clears it). " +
         "The icon and banner are set with set_game_image, a build's display name with rename_build. " +
-        AUTH_NOTE,
+        authNote,
       inputSchema: {
         gameId: z.string().trim().min(1).describe("Game id from list_games or create_game."),
         name: z.string().trim().min(1).optional().describe("New game name. Cannot be blank."),
@@ -521,7 +565,7 @@ export function registerDashboardTools(server: McpServer, ctx: DashboardToolCont
         "The command reads the key from the user's shell as $YES2_API_KEY, so the key never appears in the chat; it needs `export YES2_API_KEY=y2g_…` in that shell. " +
         "PNG, JPEG or WebP, under about 15 MB (the request is capped at 20 MB after base64); no dimensions are enforced; an upload replaces the current image. " +
         "With remove: true it deletes the current image directly instead. " +
-        AUTH_NOTE,
+        authNote,
       inputSchema: {
         gameId: z.string().trim().min(1).describe("Game id from list_games or create_game."),
         kind: z.enum(IMAGE_KINDS).describe("'icon' or 'banner'."),
@@ -576,7 +620,7 @@ export function registerDashboardTools(server: McpServer, ctx: DashboardToolCont
       description:
         "Sets a build's display name on the Yes2 dashboard, the label shown instead of the zip file name. " +
         "Up to 100 characters, trimmed; null or a blank name clears it back to the zip file name. " +
-        AUTH_NOTE,
+        authNote,
       inputSchema: {
         gameId: z.string().trim().min(1).describe("Game id the build belongs to."),
         buildId: z.string().trim().min(1).describe("Build id, from get_build_status once an upload is ready."),

@@ -3,6 +3,8 @@ import { createServer as createHttpServer, type IncomingMessage, type ServerResp
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createServer } from "./server.js";
 import { authFromHeaders } from "./lib/auth.js";
+import { resolveDashboardUrl } from "./lib/dashboard.js";
+import { gate, oauthEnabled, PRM, PRM_PATH, PRM_ROOT_PATH, type Challenge } from "./lib/oauth.js";
 
 /**
  * Streamable HTTP entry point for the Yes2SDK MCP server. Served at
@@ -16,8 +18,18 @@ import { authFromHeaders } from "./lib/auth.js";
  * The caller's dashboard API key (`Authorization: Bearer y2g_…`) is read from
  * each request and handed to that request's server only. It is never kept in
  * module state and never logged; the container itself holds no secrets.
+ *
+ * With MCP_OAUTH_ENABLED=1 a `Bearer y2a_…` OAuth access token is accepted the
+ * same way, and a dashboard tools/call without a usable credential gets a 401
+ * sign-in challenge (src/lib/oauth.ts). Nothing else is ever gated.
  */
 const PORT = Number(process.env.PORT ?? 8091);
+
+// Lazy OAuth sign-in for the dashboard tools (src/lib/oauth.ts). Config, not a
+// secret. Off (the default) is phase 1 byte for byte: no gate, no protected
+// resource metadata routes, and every text unchanged.
+const OAUTH_ENABLED = oauthEnabled(process.env.MCP_OAUTH_ENABLED);
+const DASHBOARD_API_URL = resolveDashboardUrl(process.env.DASHBOARD_API_URL);
 
 // DNS-rebinding protection allowlist. The public hostname plus the loopback
 // authority the container healthcheck uses. /health is served OUTSIDE the
@@ -156,6 +168,38 @@ function readBody(req: IncomingMessage): Promise<unknown> {
   });
 }
 
+function sendChallenge(res: ServerResponse, challenge: Challenge): void {
+  // A browser-hosted client can only read the challenge cross-origin if the
+  // header is exposed.
+  res.writeHead(challenge.status, { ...challenge.headers, "Access-Control-Expose-Headers": "WWW-Authenticate" });
+  res.end(challenge.body);
+}
+
+const PRM_BODY = JSON.stringify(PRM);
+
+/**
+ * RFC 9728 protected resource metadata, at the path-suffixed location clients
+ * try first for a resource with a path (/mcp) and at the root. Public, static
+ * and readable from any origin, so it is answered before the Origin check.
+ */
+function servePrm(method: string, res: ServerResponse): void {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Mcp-Protocol-Version");
+  if (method === "OPTIONS") {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+  if (method !== "GET" && method !== "HEAD") {
+    res.writeHead(405, { "Content-Type": "application/json", Allow: "GET" });
+    res.end(JSON.stringify({ error: "Method not allowed" }));
+    return;
+  }
+  res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "max-age=300" });
+  res.end(method === "HEAD" ? undefined : PRM_BODY);
+}
+
 async function handleMcpPost(req: IncomingMessage, res: ServerResponse): Promise<void> {
   let body: unknown;
   try {
@@ -173,9 +217,24 @@ async function handleMcpPost(req: IncomingMessage, res: ServerResponse): Promise
     return;
   }
 
+  const auth = OAUTH_ENABLED
+    ? authFromHeaders(req.headers.authorization, req.headers["x-yes2-api-key"], { oauth: true })
+    : authFromHeaders(req.headers.authorization, req.headers["x-yes2-api-key"]);
+
+  // The lazy-auth gate. It must answer before the MCP SDK runs: a tool handler
+  // can only produce a 200, and only an HTTP 401 with WWW-Authenticate makes a
+  // client start sign-in. It refuses nothing but dashboard tools/call bodies.
+  if (OAUTH_ENABLED) {
+    const decision = await gate(body, auth, DASHBOARD_API_URL);
+    if (decision.kind === "refuse") {
+      sendChallenge(res, decision.challenge);
+      return;
+    }
+  }
+
   // Stateless: one server + one transport per request, torn down on close. The
-  // key, if any, is bound to this request's server and dies with it.
-  const server = createServer({ auth: authFromHeaders(req.headers.authorization, req.headers["x-yes2-api-key"]) });
+  // credential, if any, is bound to this request's server and dies with it.
+  const server = OAUTH_ENABLED ? createServer({ auth, oauth: true }) : createServer({ auth });
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableDnsRebindingProtection: true,
@@ -211,6 +270,11 @@ const httpServer = createHttpServer((req: IncomingMessage, res: ServerResponse) 
   const url = req.url ?? "/";
   const method = req.method ?? "GET";
   const path = url.split("?", 1)[0];
+
+  if (OAUTH_ENABLED && (path === PRM_PATH || path === PRM_ROOT_PATH)) {
+    servePrm(method, res);
+    return;
+  }
 
   applyCors(req, res);
 

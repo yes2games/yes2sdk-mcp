@@ -29,7 +29,13 @@ export class DashboardError extends Error {
 }
 
 export interface DashboardClientOptions {
-  apiKey: string;
+  /** A `y2g_` API key or, with MCP_OAUTH_ENABLED, a `y2a_` OAuth access token. */
+  credential: string;
+  /**
+   * MCP_OAUTH_ENABLED: a 401 also explains how to sign in again. Off keeps the
+   * phase 1 text.
+   */
+  signInHelp?: boolean;
   baseUrl: string;
   fetch?: FetchLike;
   timeoutMs?: number;
@@ -64,8 +70,23 @@ export const INVALID_KEY_HELP =
   "The dashboard rejected the API key (INVALID_API_KEY). It is missing, revoked or unknown, or its holder left the studio or lost upload rights. " +
   "Create a personal key in the dashboard (avatar → Settings → Personal API keys → Create personal key), set it as YES2_API_KEY in this MCP server's config, and restart the client.";
 
-function describeFailure(status: number, code: string | undefined, error: string | undefined, retryAfter: string | null): string {
-  if (status === 401 || code === "INVALID_API_KEY") return INVALID_KEY_HELP;
+export const SIGN_IN_AGAIN_HELP =
+  "Sign in again: Claude Code `/mcp` → Authenticate; Codex `codex mcp login yes2sdk`; claude.ai reconnects automatically.";
+
+/** INVALID_KEY_HELP plus how to sign in again, used when MCP_OAUTH_ENABLED is on. */
+export const INVALID_CREDENTIAL_HELP =
+  "The dashboard rejected the sign-in or API key (INVALID_API_KEY). It expired, was revoked or is unknown, or its holder left the studio or lost upload rights. " +
+  `${SIGN_IN_AGAIN_HELP} ` +
+  "With an API key instead: create a personal key in the dashboard (avatar → Settings → Personal API keys → Create personal key), set it as YES2_API_KEY in this MCP server's config, and restart the client.";
+
+function describeFailure(
+  status: number,
+  code: string | undefined,
+  error: string | undefined,
+  retryAfter: string | null,
+  signInHelp: boolean,
+): string {
+  if (status === 401 || code === "INVALID_API_KEY") return signInHelp ? INVALID_CREDENTIAL_HELP : INVALID_KEY_HELP;
 
   // The dashboard's own messages often end in a period, and every template
   // below follows `detail` with its own punctuation: drop the trailing one so
@@ -98,6 +119,12 @@ function describeFailure(status: number, code: string | undefined, error: string
       return `The build name is too long${tag}${detail}. It must be at most 100 characters after trimming.`;
     case "BUILD_NOT_FOUND":
       return `No build with that id belongs to this game${tag}${detail}. A buildId comes from get_build_status once an upload is ready, and belongs to the game it was uploaded to.`;
+    case "game_limit_reached":
+      return `This account has reached its game limit${tag}${detail}. Preview accounts can own up to 3 games; use an existing game from list_games, delete one in the dashboard, or ask to join a studio.`;
+    case "build_limit_reached":
+      return `This game has reached its build limit${tag}${detail}. Preview accounts keep 1 build per game; remove the existing build in the dashboard, or ask to join a studio.`;
+    case "INSUFFICIENT_SCOPE":
+      return `This credential is not allowed to do that${tag}${detail}. Sign in again and allow every requested permission (games:read, games:write, builds:write), or use a personal API key that carries the scope.`;
     case "DISPLAY_NAME_COLUMN_MISSING":
       return `This dashboard cannot rename builds yet${tag}${detail}. Retrying will not help until the dashboard is updated; rename the build in the dashboard UI or ask a Yes2 admin.`;
     default:
@@ -117,7 +144,7 @@ export function createDashboardClient(options: DashboardClientOptions): Dashboar
 
   async function request<T>(method: "GET" | "POST" | "PATCH" | "DELETE", path: string, body?: unknown): Promise<T> {
     const headers: Record<string, string> = {
-      Authorization: `Bearer ${options.apiKey}`,
+      Authorization: `Bearer ${options.credential}`,
       Accept: "application/json",
       [CLIENT_HEADER.name]: CLIENT_HEADER.value,
     };
@@ -157,7 +184,7 @@ export function createDashboardClient(options: DashboardClientOptions): Dashboar
       const message =
         res.ok && envelope === undefined
           ? `The dashboard answered HTTP ${res.status} with a body that is not JSON.`
-          : describeFailure(status, code, error, res.headers.get("retry-after"));
+          : describeFailure(status, code, error, res.headers.get("retry-after"), options.signInHelp === true);
       throw new DashboardError(message, status, code);
     }
     return envelope?.data as T;
