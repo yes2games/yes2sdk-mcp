@@ -4,7 +4,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { createServer } from "./server.js";
 import { authFromHeaders } from "./lib/auth.js";
 import { resolveDashboardUrl } from "./lib/dashboard.js";
-import { gate, oauthEnabled, PRM, PRM_PATH, PRM_ROOT_PATH, type Challenge } from "./lib/oauth.js";
+import { gate, oauthEnabled, PRM, PRM_PATH, PRM_ROOT_PATH, type Challenge, type WhoamiIdentity } from "./lib/oauth.js";
 
 /**
  * Streamable HTTP entry point for the Yes2SDK MCP server. Served at
@@ -20,8 +20,9 @@ import { gate, oauthEnabled, PRM, PRM_PATH, PRM_ROOT_PATH, type Challenge } from
  * module state and never logged; the container itself holds no secrets.
  *
  * With MCP_OAUTH_ENABLED=1 a `Bearer y2a_…` OAuth access token is accepted the
- * same way, and a dashboard tools/call without a usable credential gets a 401
- * sign-in challenge (src/lib/oauth.ts). Nothing else is ever gated.
+ * same way, and sign-in is opt-in through the sign_in tool, which is the only
+ * call answered with a 401 sign-in challenge when no credential is presented
+ * (src/lib/oauth.ts). Docs tools, initialize and tools/list are never gated.
  */
 const PORT = Number(process.env.PORT ?? 8091);
 
@@ -221,20 +222,24 @@ async function handleMcpPost(req: IncomingMessage, res: ServerResponse): Promise
     ? authFromHeaders(req.headers.authorization, req.headers["x-yes2-api-key"], { oauth: true })
     : authFromHeaders(req.headers.authorization, req.headers["x-yes2-api-key"]);
 
-  // The lazy-auth gate. It must answer before the MCP SDK runs: a tool handler
-  // can only produce a 200, and only an HTTP 401 with WWW-Authenticate makes a
-  // client start sign-in. It refuses nothing but dashboard tools/call bodies.
+  // The opt-in sign-in gate. It must answer before the MCP SDK runs: a tool
+  // handler can only produce a 200, and only an HTTP 401 with WWW-Authenticate
+  // makes a client start sign-in. It refuses only sign_in without a valid
+  // credential and a y2a_ token the dashboard rejects (or that lacks a scope);
+  // a dashboard tool with no credential gets a normal "not signed in" result.
+  let identity: WhoamiIdentity | undefined;
   if (OAUTH_ENABLED) {
     const decision = await gate(body, auth, DASHBOARD_API_URL);
     if (decision.kind === "refuse") {
       sendChallenge(res, decision.challenge);
       return;
     }
+    identity = decision.identity;
   }
 
   // Stateless: one server + one transport per request, torn down on close. The
   // credential, if any, is bound to this request's server and dies with it.
-  const server = OAUTH_ENABLED ? createServer({ auth, oauth: true }) : createServer({ auth });
+  const server = OAUTH_ENABLED ? createServer({ auth, oauth: true, identity }) : createServer({ auth });
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableDnsRebindingProtection: true,

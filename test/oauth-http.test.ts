@@ -15,7 +15,7 @@ import {
 } from "./helpers/http-harness.js";
 
 /**
- * The yes2sdk-mcp#108 test matrix, over real HTTP with MCP_OAUTH_ENABLED=1
+ * The yes2sdk-mcp#108 test matrix with opt-in sign-in, over real HTTP with MCP_OAUTH_ENABLED=1
  * against a stub dashboard (the real whoami and y2a_ tokens are not live yet).
  */
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -26,6 +26,9 @@ const EXACT_401_CHALLENGE =
   'Bearer error="invalid_token", error_description="Sign in to Yes2 to use dashboard tools", ' +
   'resource_metadata="https://mcp.yes2games.com/.well-known/oauth-protected-resource/mcp", ' +
   'scope="games:read games:write builds:write"';
+
+const NOT_SIGNED_IN =
+  "You're not signed in to Yes2. To use dashboard tools, sign in: ask me to 'sign in to Yes2' (I'll call the sign_in tool), or in Claude Code run /mcp → Authenticate, or in Codex run `codex mcp login yes2sdk`. Alternatively set YES2_API_KEY (y2g_ key) and send it as X-Yes2-Api-Key.";
 
 const EXPECTED_PRM = {
   resource: "https://mcp.yes2games.com/mcp",
@@ -113,10 +116,84 @@ describe("anonymous calls are never gated", () => {
   });
 });
 
-describe("dashboard tools without a usable credential get the 401 challenge", () => {
-  it("no auth: 401 with the exact header and a body naming every way in", async () => {
+const DASHBOARD_TOOL_NAMES = [
+  "list_games",
+  "create_game",
+  "prepare_upload",
+  "finalize_upload",
+  "get_build_status",
+  "update_game",
+  "set_game_image",
+  "finalize_image_upload",
+  "rename_build",
+];
+
+describe("dashboard tools without a credential answer like phase 1, plus the sign-in hint", () => {
+  it("no auth: 200, isError, the not-signed-in text, no WWW-Authenticate, nothing sent to the dashboard", async () => {
     stub.calls.length = 0;
     const res = await post(callTool("list_games"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("www-authenticate")).toBeNull();
+    const { text, isError } = await toolResult(res);
+    expect(isError).toBe(true);
+    expect(text).toBe(NOT_SIGNED_IN);
+    expect(stub.calls).toHaveLength(0);
+  });
+
+  it("every one of the nine dashboard tools answers 200 with the hint", async () => {
+    for (const name of DASHBOARD_TOOL_NAMES) {
+      const res = await post(callTool(name, {}));
+      expect(res.status, name).toBe(200);
+      expect(res.headers.get("www-authenticate"), name).toBeNull();
+      const { text, isError } = await toolResult(res);
+      expect(isError, name).toBe(true);
+      // Input validation can answer first for tools with required arguments;
+      // whatever answers, it is a 200 tool result, never a challenge.
+      if (name === "list_games") expect(text).toBe(NOT_SIGNED_IN);
+    }
+  });
+
+  it("a foreign bearer: 200 with the hint", async () => {
+    for (const token of ["sk-ant-foreign", "eyJhbGciOiJIUzI1NiJ9.e30.x", "y2r_refreshToken"]) {
+      const res = await post(callTool("list_games"), bearer(token));
+      expect(res.status, token).toBe(200);
+      expect(res.headers.get("www-authenticate")).toBeNull();
+      expect((await toolResult(res)).text, token).toBe(NOT_SIGNED_IN);
+    }
+  });
+
+  it("Authorization wins: a foreign bearer with a valid X-Yes2-Api-Key still gets the hint, not the key", async () => {
+    stub.calls.length = 0;
+    const res = await post(callTool("list_games"), { ...bearer("sk-foreign"), "X-Yes2-Api-Key": CREDS.key });
+    expect(res.status).toBe(200);
+    expect((await toolResult(res)).text).toBe(NOT_SIGNED_IN);
+    expect(stub.calls).toHaveLength(0);
+  });
+
+  it("a batch with a dashboard call and a docs call: 200", async () => {
+    const res = await post([callTool("search_docs", { query: "ads" }), callTool("list_games")]);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("www-authenticate")).toBeNull();
+    await res.text();
+  });
+});
+
+describe("sign_in is the opt-in", () => {
+  it("is listed with the product description", async () => {
+    const res = await post(rpc("tools/list"));
+    const raw = await res.text();
+    const json = raw.startsWith("event:") ? raw.split("\n").find((l) => l.startsWith("data: "))?.slice(6) ?? "" : raw;
+    const tools = (JSON.parse(json) as { result: { tools: Array<{ name: string; description?: string; annotations?: Record<string, unknown> }> } }).result.tools;
+    expect(tools).toHaveLength(21);
+    const signIn = tools.find((t) => t.name === "sign_in");
+    expect(signIn?.description).toMatch(/^Sign in to the Yes2 dashboard so dashboard tools \(upload, edit games\) work; only needed for those tools\./);
+    expect(signIn?.annotations?.readOnlyHint).toBe(true);
+    expect(signIn?.annotations?.idempotentHint).toBe(true);
+  });
+
+  it("no auth: 401 with the exact header", async () => {
+    stub.calls.length = 0;
+    const res = await post(callTool("sign_in"));
     expect(res.status).toBe(401);
     expect(res.headers.get("www-authenticate")).toBe(EXACT_401_CHALLENGE);
     expect(res.headers.get("content-type")).toBe("application/json");
@@ -125,54 +202,72 @@ describe("dashboard tools without a usable credential get the 401 challenge", ()
     expect(body.error).toBe("invalid_token");
     expect(body.error_description).toContain("codex mcp login yes2sdk");
     expect(body.error_description).toContain("or set YES2_API_KEY");
-    expect(body.error_description).toContain("/mcp");
     expect(stub.calls).toHaveLength(0);
   });
 
-  it("every one of the nine dashboard tools is gated", async () => {
-    for (const name of ["list_games", "create_game", "prepare_upload", "finalize_upload", "get_build_status", "update_game", "set_game_image", "finalize_image_upload", "rename_build"]) {
-      const res = await post(callTool(name, {}));
-      expect(res.status, name).toBe(401);
-      await res.text();
-    }
-  });
-
-  it("a foreign bearer: 401", async () => {
-    for (const token of ["sk-ant-foreign", "eyJhbGciOiJIUzI1NiJ9.e30.x", "y2r_refreshToken"]) {
-      const res = await post(callTool("list_games"), bearer(token));
-      expect(res.status, token).toBe(401);
+  it("a foreign bearer or a malformed X-Yes2-Api-Key: 401", async () => {
+    for (const headers of [bearer("sk-ant-foreign"), { "X-Yes2-Api-Key": "nope" }]) {
+      const res = await post(callTool("sign_in"), headers);
+      expect(res.status, JSON.stringify(headers)).toBe(401);
       expect(res.headers.get("www-authenticate")).toBe(EXACT_401_CHALLENGE);
       await res.text();
     }
   });
 
-  it("Authorization wins: a foreign bearer is refused even with a valid X-Yes2-Api-Key", async () => {
-    const res = await post(callTool("list_games"), { ...bearer("sk-foreign"), "X-Yes2-Api-Key": CREDS.key });
+  it("an expired y2a_: 401", async () => {
+    const res = await post(callTool("sign_in"), bearer(CREDS.oauthExpired));
     expect(res.status).toBe(401);
+    expect(res.headers.get("www-authenticate")).toBe(EXACT_401_CHALLENGE);
     await res.text();
   });
 
-  it("a batch with one dashboard call is gated; a docs-only batch is not", async () => {
-    const gated = await post([callTool("search_docs", { query: "ads" }), callTool("list_games")]);
-    expect(gated.status).toBe(401);
-    await gated.text();
-    const open = await post([callTool("search_docs", { query: "ads" }), callTool("list_sdk_modules")]);
-    expect(open.status).toBe(200);
-    await open.text();
+  it("a valid y2a_: the summary, from the gate's single whoami", async () => {
+    stub.calls.length = 0;
+    const res = await post(callTool("sign_in"), bearer(CREDS.oauthValid));
+    expect(res.status).toBe(200);
+    const { text, isError } = await toolResult(res);
+    expect(isError).toBe(false);
+    expect(text).toBe("Signed in to Yes2 as Stub Dev (dev@stub.test) in Stub Studio, via sign-in. Scopes: games:read, games:write, builds:write.");
+    expect(stub.calls.map((c) => c.url)).toEqual(["/api/v1/whoami"]);
   });
 
-  it("docs stay callable right after a 401", async () => {
-    const refused = await post(callTool("list_games"));
+  it("a read-only y2a_ is still signed in: sign_in needs no scope", async () => {
+    const res = await post(callTool("sign_in"), bearer(CREDS.oauthReadOnly));
+    expect(res.status).toBe(200);
+    expect((await toolResult(res)).text).toMatch(/via sign-in\. Scopes: games:read\.$/);
+  });
+
+  it("a y2g_ key: the summary from whoami with the key", async () => {
+    stub.calls.length = 0;
+    const res = await post(callTool("sign_in"), { "X-Yes2-Api-Key": CREDS.key });
+    expect(res.status).toBe(200);
+    const { text, isError } = await toolResult(res);
+    expect(isError).toBe(false);
+    expect(text).toBe("Signed in to Yes2 as Stub Dev (dev@stub.test) in Stub Studio, via API key. Scopes: games:read, games:write, builds:write.");
+    expect(stub.calls.map((c) => `${c.url} ${c.authorization}`)).toEqual([`/api/v1/whoami Bearer ${CREDS.key}`]);
+  });
+
+  it("whoami down for a y2a_: falls through and reports the error as text", async () => {
+    const res = await post(callTool("sign_in"), bearer(CREDS.oauthWhoamiDown));
+    expect(res.status).toBe(200);
+    const { text, isError } = await toolResult(res);
+    expect(isError).toBe(true);
+    expect(text).toMatch(/server error \(HTTP 503\)/);
+  });
+
+  it("docs stay callable right after a sign_in 401", async () => {
+    const refused = await post(callTool("sign_in"));
     expect(refused.status).toBe(401);
     await refused.text();
     const res = await post(callTool("search_docs", { query: "ads" }));
     expect(res.status).toBe(200);
+    expect(res.headers.get("www-authenticate")).toBeNull();
     await res.text();
   });
 });
 
 describe("y2a_ tokens are pre-checked with whoami", () => {
-  it("whoami 401: the 401 challenge", async () => {
+  it("an expired y2a_ on a dashboard tool: the 401 challenge (the user opted in; the client refreshes or re-auths)", async () => {
     stub.calls.length = 0;
     const res = await post(callTool("list_games"), bearer(CREDS.oauthExpired));
     expect(res.status).toBe(401);
@@ -274,13 +369,13 @@ describe("y2g_ keys are unchanged", () => {
     expect(text).toContain("codex mcp login yes2sdk");
   });
 
-  it("a malformed X-Yes2-Api-Key gets the setup text, leading with sign-in", async () => {
+  it("a malformed X-Yes2-Api-Key gets the not-signed-in text, then names the bad header", async () => {
     const res = await post(callTool("list_games"), { "X-Yes2-Api-Key": "nope" });
     expect(res.status).toBe(200);
     const { text, isError } = await toolResult(res);
     expect(isError).toBe(true);
-    expect(text).toMatch(/^The X-Yes2-Api-Key header/);
-    expect(text.indexOf("Sign in")).toBeLessThan(text.indexOf("API key:"));
+    expect(text.startsWith(NOT_SIGNED_IN)).toBe(true);
+    expect(text).toContain("X-Yes2-Api-Key header");
   });
 });
 

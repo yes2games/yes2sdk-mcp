@@ -21,10 +21,10 @@ FROM node:26.12.1-alpine AS runtime
 # request and never stored (the container holds no secrets), so admitting them
 # grants no capability a plain curl did not already have.
 # Override at the unit level to change the list.
-# MCP_OAUTH_ENABLED turns on lazy OAuth sign-in for the dashboard tools
-# (src/lib/oauth.ts): a 401 challenge on a dashboard tools/call without a usable
-# credential, plus the protected resource metadata routes. It is config, not a
-# secret. Off ships phase 1 unchanged; flip it to 1 only once the dashboard's
+# MCP_OAUTH_ENABLED turns on opt-in OAuth sign-in (src/lib/oauth.ts): the
+# sign_in tool (the only call that gets a 401 challenge without a credential),
+# y2a_ tokens on the dashboard tools, and the protected resource metadata
+# routes. Not signing in behaves like phase 1. It is config, not a secret. Off ships phase 1 unchanged; flip it to 1 only once the dashboard's
 # authorization server is live (dashboard OAUTH_ENABLED=1).
 ENV NODE_ENV=production \
     PORT=8091 \

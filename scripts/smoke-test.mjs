@@ -89,9 +89,10 @@ console.log(`\ntools: ${toolsOk ? "PASS" : "FAIL"} (expected ${expected.length} 
 child.stdin.end();
 child.kill();
 
-// Lazy OAuth (MCP_OAUTH_ENABLED): the built HTTP entry serves the protected
-// resource metadata and challenges only dashboard tools. With the flag off the
-// metadata route does not exist.
+// Opt-in OAuth (MCP_OAUTH_ENABLED): the built HTTP entry serves the protected
+// resource metadata, lists sign_in (21 tools), challenges only sign_in without
+// a credential, and answers a dashboard tool without one with a normal result.
+// With the flag off the metadata route does not exist.
 const HTTP_ENTRY = path.resolve(__dirname, "..", "dist", "http.js");
 const EXPECTED_PRM = {
   resource: "https://mcp.yes2games.com/mcp",
@@ -145,15 +146,25 @@ const oauthOk = await withHttp(8089, { MCP_OAUTH_ENABLED: "1" }, async (base) =>
     console.log(`PRM ${prmPath} -> ${res.status} ${good ? "ok" : "WRONG"}`);
     pass &&= good;
   }
-  const gated = await mcpPost(base, { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "list_games", arguments: {} } });
-  const challenge = gated.headers.get("www-authenticate") ?? "";
-  const gatedOk = gated.status === 401 && challenge.includes('resource_metadata="https://mcp.yes2games.com/.well-known/oauth-protected-resource/mcp"');
-  console.log(`list_games without auth -> ${gated.status} ${gatedOk ? "ok" : "WRONG"}`);
-  const open = await mcpPost(base, { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "search_docs", arguments: { query: "ads" } } });
+  const signIn = await mcpPost(base, { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "sign_in", arguments: {} } });
+  const challenge = signIn.headers.get("www-authenticate") ?? "";
+  const gatedOk = signIn.status === 401 && challenge.includes('resource_metadata="https://mcp.yes2games.com/.well-known/oauth-protected-resource/mcp"');
+  console.log(`sign_in without auth -> ${signIn.status} ${gatedOk ? "ok" : "WRONG"}`);
+  const dash = await mcpPost(base, { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "list_games", arguments: {} } });
+  const dashText = await dash.text();
+  const dashOk = dash.status === 200 && dash.headers.get("www-authenticate") === null && dashText.includes("You're not signed in to Yes2");
+  console.log(`list_games without auth -> ${dash.status} ${dashOk ? "ok" : "WRONG"}`);
+  const open = await mcpPost(base, { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "search_docs", arguments: { query: "ads" } } });
   const openOk = open.status === 200 && open.headers.get("www-authenticate") === null;
   console.log(`search_docs without auth -> ${open.status} ${openOk ? "ok" : "WRONG"}`);
-  await gated.text();
+  const list = await mcpPost(base, { jsonrpc: "2.0", id: 4, method: "tools/list", params: {} });
+  const listText = await list.text();
+  const listed = JSON.parse(listText.split("\n").find((l) => l.startsWith("data: "))?.slice(6) ?? listText).result?.tools ?? [];
+  const listOk = listed.length === expected.length + 1 && listed.some((t) => t.name === "sign_in");
+  console.log(`tools/list with the flag on -> ${listed.length} tools ${listOk ? "ok" : "WRONG"}`);
+  await signIn.text();
   await open.text();
+  pass &&= dashOk && listOk;
   return pass && gatedOk && openOk;
 });
 
