@@ -61,6 +61,36 @@ npx -y @yes2games/yes2sdk-mcp
 | `get_platform_requirements` | The compliance rules a build must satisfy for a target platform. |
 | `validate_integration` | Validate a build against real platform rejection rules: static build checks and behavioral (event-log) checks. |
 
+## Upload builds to the dashboard
+
+With your own dashboard API key, your assistant can also put a build on the Yes2 dashboard for you: build, zip, upload, wait for processing, then hand you the Inspector link.
+
+| Tool | What it does |
+|---|---|
+| `list_games` | The games your studio owns. |
+| `create_game` | Create a new game in your studio. |
+| `prepare_upload` | Start an upload for a game and version; returns a command that sends the zip from your machine straight to storage. |
+| `finalize_upload` | Tell the dashboard the zip is uploaded, so it starts processing it. |
+| `get_build_status` | Follow processing until the build is ready, then return its Inspector link and any upload warnings. |
+
+The zip never passes through the MCP server, and the server never stores your key: it is passed through to the dashboard on each request only. Uploading puts a build on the dashboard; publishing it to platforms is still requested on the dashboard and done by a Yes2Games admin.
+
+**Set up the key.** Create a personal key in the dashboard (avatar → **Settings → Personal API keys**) and export it in your shell profile, never in a committed file:
+
+```bash
+export YES2_API_KEY=y2g_...
+```
+
+Then restart your client from a new terminal. The [Claude Code plugin](/docs/claude-code-plugin) and the Codex plugin pick the variable up on their own. For a manual Claude Code setup:
+
+```bash
+claude mcp add --transport http yes2sdk https://mcp.yes2games.com/mcp --header "Authorization: Bearer $YES2_API_KEY"
+```
+
+For other clients, send `Authorization: Bearer y2g_...` (or the bare key in an `X-Yes2-Api-Key` header) to the server. Without a key, every other tool keeps working, and the upload tools reply with these setup steps. The claude.ai connector cannot send a key yet.
+
+The tools use the [Build Upload API](/docs/build-upload-api), which you can also call directly from CI.
+
 ## Next step
 
 For Claude Code users, the [Yes2SDK Claude Code plugin](/docs/claude-code-plugin) wraps this server and adds one-command integrate and verify flows.
