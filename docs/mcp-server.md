@@ -61,9 +61,9 @@ npx -y @yes2games/yes2sdk-mcp
 | `get_platform_requirements` | The compliance rules a build must satisfy for a target platform. |
 | `validate_integration` | Validate a build against real platform rejection rules: static build checks and behavioral (event-log) checks. |
 
-## Upload builds to the dashboard
+## Upload builds and edit games on the dashboard
 
-With your own dashboard API key, your assistant can also put a build on the Yes2 dashboard for you: build, zip, upload, wait for processing, then hand you the Inspector link.
+With your own dashboard API key, your assistant can also work on the Yes2 dashboard for you. It can put a build there (build, zip, upload, wait for processing, then hand you the Inspector link), and it can edit a game's details, icon and banner, and rename a build.
 
 | Tool | What it does |
 |---|---|
@@ -72,8 +72,11 @@ With your own dashboard API key, your assistant can also put a build on the Yes2
 | `prepare_upload` | Start an upload for a game and version; returns a command that sends the zip from your machine straight to storage. |
 | `finalize_upload` | Tell the dashboard the zip is uploaded, so it starts processing it. |
 | `get_build_status` | Follow processing until the build is ready, then return its Inspector link and any upload warnings. |
+| `update_game` | Change a game's name, description, engine, category, tags, orientation, Yandex Metrica counter or Jest auto-login reminders. Only the fields you give change. |
+| `set_game_image` | Set a game's icon or banner; returns a command that sends the image from your machine. PNG, JPEG or WebP, up to about 15 MB. It can also remove the image. |
+| `rename_build` | Give a build a display name, or clear it back to the zip file name. |
 
-The zip never passes through the MCP server, and the server never stores your key: it is passed through to the dashboard on each request only. Uploading puts a build on the dashboard; publishing it to platforms is still requested on the dashboard and done by a Yes2Games admin.
+The zip never passes through the MCP server, and the server never stores your key: it is passed through to the dashboard on each request only. `set_game_image` works the same way: the command it returns reads `$YES2_API_KEY` from your shell, so neither the image nor the key passes through the chat or the MCP server. Uploading puts a build on the dashboard; publishing it to platforms is still requested on the dashboard and done by a Yes2Games admin.
 
 **Set up the key.** Create a personal key in the dashboard (avatar → **Settings → Personal API keys**) and export it in your shell profile, never in a committed file:
 
@@ -87,7 +90,7 @@ Then restart your client from a new terminal. The [Claude Code plugin](/docs/cla
 claude mcp add --transport http yes2sdk https://mcp.yes2games.com/mcp --header "Authorization: Bearer $YES2_API_KEY"
 ```
 
-For other clients, send `Authorization: Bearer y2g_...` (or the bare key in an `X-Yes2-Api-Key` header) to the server. Without a key, every other tool keeps working, and the upload tools reply with these setup steps. The claude.ai connector cannot send a key yet.
+For other clients, send `Authorization: Bearer y2g_...` (or the bare key in an `X-Yes2-Api-Key` header) to the server. Without a key, every other tool keeps working, and the dashboard tools reply with these setup steps. The claude.ai connector cannot send a key yet.
 
 The tools use the [Build Upload API](/docs/build-upload-api), which you can also call directly from CI.
 
