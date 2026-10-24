@@ -55,6 +55,7 @@ export function createServer(options: ServerOptions = {}): McpServer {
         "validate_integration checks both static build output (buildPath) and behavioral compliance (eventLogJson) against real platform rejection rules.",
         "",
         "Uploading a build to the Yes2 dashboard (needs the user's own dashboard API key, sent as Authorization: Bearer y2g_… or the YES2_API_KEY env var; without one these tools return the setup steps): list_games or create_game for the gameId; zip the built game with index.html at the zip root; prepare_upload(gameId, version, size in bytes) returns an uploadId and a curl PUT command that sends the zip from the user's machine straight to storage (this server never handles the file); after the PUT, finalize_upload(gameId, uploadId); then get_build_status(gameId, uploadId) every few seconds until ready or failed. When ready, show the user the inspectorUrl and any uploadWarnings.",
+        "Editing a game with the same key: update_game(gameId, fields) changes name, description, engine, category, tags, orientation, yandexMetricaCounterId or jestAutoLoginReminders; set_game_image(gameId, kind: icon | banner, imagePath?) returns a curl command for the user's machine that posts the image and reads the key from the user's shell as $YES2_API_KEY, so never paste the key into it (remove: true deletes the image instead); rename_build(gameId, buildId, name) sets a build's display name, null clears it.",
       ].join("\n"),
     }
   );

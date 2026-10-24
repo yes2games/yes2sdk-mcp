@@ -11,8 +11,8 @@ It gives the AI *tools it can run*, not just text it can read — most important
 rules before upload.
 
 The server calls **no LLM** and is purely a tool provider. The docs and validation tools need no
-key. The dashboard tools, which upload a build, act with the caller's own dashboard API key (see
-[Dashboard tools](#dashboard-tools-upload-a-build)).
+key. The dashboard tools, which edit games and upload builds, act with the caller's own dashboard API key (see
+[Dashboard tools](#dashboard-tools-edit-games-and-upload-builds)).
 
 ## Tools
 
@@ -33,9 +33,9 @@ filesystem or call the network.
 | `troubleshoot` | `{ symptom }` | Map an error string or description to its likely cause and the ordered fix. |
 | `validate_integration` | `{ platform, buildPath? \| inline build, eventLogJson? }` | Static build checks and/or behavioral compliance checks (see below). |
 
-### Dashboard tools: upload a build
+### Dashboard tools: edit games and upload builds
 
-These five call the Yes2 dashboard's machine API (`DASHBOARD_API_URL`, default
+These eight call the Yes2 dashboard's machine API (`DASHBOARD_API_URL`, default
 `https://dashboard.yes2games.com/api/v1`) with the caller's own API key, so they are
 `openWorldHint: true`. They are always listed; with no key they return the setup steps below.
 
@@ -46,13 +46,17 @@ These five call the Yes2 dashboard's machine API (`DASHBOARD_API_URL`, default
 | `prepare_upload` | `{ gameId, version, size, notes?, name?, zipPath? }` | Reserves the version and returns an `uploadId`, an expiry, and a ready-to-run `curl -X PUT --data-binary @<zip> …` to a presigned URL signed to exactly `size` bytes. |
 | `finalize_upload` | `{ gameId, uploadId }` | Tells the dashboard the zip is in storage; processing runs after it returns. Idempotent. |
 | `get_build_status` | `{ gameId, uploadId }` or `{ gameId, buildId }` | `pending` / `processing` / `ready` / `failed`. When ready: build id, engine, upload warnings, bundle errors and the `inspectorUrl`. |
+| `update_game` | `{ gameId, name?, description?, engine?, category?, tags?, orientation?, yandexMetricaCounterId?, jestAutoLoginReminders? }` | `PATCH`es only the fields given (at least one). `null` clears `description`, `engine`, `category` or `yandexMetricaCounterId`; `tags` (up to 20, each up to 50 characters) replaces the list; `category` is up to 100 characters. |
+| `set_game_image` | `{ gameId, kind, imagePath?, remove? }` | `kind` is `icon` \| `banner`. Returns a ready-to-run `curl` that posts the image from the user's machine as a JSON data URL, sending the key as `"Authorization: Bearer $YES2_API_KEY"` from the user's shell, so the key never enters the chat. PNG, JPEG or WebP, under about 15 MB (20 MB request cap after base64), no dimension check. `remove: true` deletes the image through the server instead. |
+| `rename_build` | `{ gameId, buildId, name }` | Sets a build's display name (up to 100 characters, trimmed); `null` or blank clears it back to the zip file name. |
 
 The flow: zip the build with `index.html` at the zip root → `prepare_upload` (size from
 `stat -f%z build.zip` on macOS, `stat -c%s build.zip` on Linux) → run the returned `curl` →
 `finalize_upload` → poll `get_build_status` every few seconds until `ready` or `failed`.
 
-**The server never touches the zip.** The `curl` runs on the user's machine and sends the file
-straight to storage, so a build never passes through this process.
+**The server never touches the zip or an image.** The `curl` runs on the user's machine and sends the file
+straight to storage, so a build never passes through this process. `set_game_image` works the same
+way for an icon or banner.
 
 **The key.** Create a personal key in the dashboard (avatar → **Settings → Personal API keys**)
 and export it as `YES2_API_KEY`. Then hand it to the server:
@@ -114,7 +118,7 @@ Three ways in. None of them need a checkout.
 
 ### 1. Claude connector (no setup)
 
-Claude → **Settings → Connectors → YES2SDK**. Connecting exposes all 16 tools, each with its
+Claude → **Settings → Connectors → YES2SDK**. Connecting exposes all 19 tools, each with its
 own permission control. This is the shortest path for anyone not running a local checkout.
 
 ### 2. Hosted HTTP
@@ -292,7 +296,7 @@ Notes:
 - `src/http.ts` — Streamable HTTP entry. Stateless: a fresh server + transport per request.
 - `src/tools/` — one registration per tool file: `install.ts`, `detect.ts`, `docs.ts`
   (the four docs tools), `validate.ts`, `requirements.ts`, `capabilities.ts`, `rule.ts`,
-  `troubleshoot.ts`, and `dashboard.ts` (the five dashboard tools).
+  `troubleshoot.ts`, and `dashboard.ts` (the eight dashboard tools).
 - `src/resources/`, `src/prompts/` — the `yes2sdk://` module resources and the integrate prompts.
 - `src/lib/` — the leaf layer, importing nothing from `tools/`: docs scanner/search (`docs.ts`),
   the copied compliance engine and its types (`compliance.ts`, `inspector-types.ts`), engine
