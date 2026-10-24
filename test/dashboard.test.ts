@@ -506,7 +506,8 @@ describe("set_game_image", () => {
     expect(text).toMatch(/PNG, JPEG or WebP/);
     expect(text).toContain("15 MB");
     expect(text).toMatch(/no width or height is enforced/);
-    expect(text).toMatch(/15 minutes/);
+    expect(text).toMatch(/10 minutes/);
+    expect(text).not.toMatch(/15 minutes/);
   });
 
   it("refuses bad input without a call", async () => {
@@ -538,12 +539,25 @@ describe("set_game_image", () => {
       [404, "GAME_NOT_FOUND", /list_games/],
       [409, "R2_NOT_ENABLED", /dashboard UI/],
     ] as const) {
+
       const { client } = await connect(withKey, () => fail(status, "nope", code));
       const res = await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "icon", size: 5, contentType: "image/png" } });
       expect(isError(res), code).toBe(true);
       expect(textOf(res), code).toMatch(pattern);
       expect(textOf(res), code).toContain(`(${code})`);
     }
+  });
+
+  it("TOO_MANY_OPEN_UPLOADS says to finish or wait out the open uploads", async () => {
+    const { client } = await connect(withKey, () =>
+      json(409, { success: false, code: "TOO_MANY_OPEN_UPLOADS", error: "Too many open image uploads", limit: 2 }),
+    );
+    const res = await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "icon", size: 5, contentType: "image/png" } });
+    expect(isError(res)).toBe(true);
+    const text = textOf(res);
+    expect(text).toMatch(/maximum number of open image uploads \(2\) \(TOO_MANY_OPEN_UPLOADS\)/);
+    expect(text).toMatch(/finalize_image_upload/);
+    expect(text).toMatch(/expire, which they do within the hour/);
   });
 
   it("remove: true sends DELETE /games/:id/:kind with the key", async () => {
@@ -629,6 +643,29 @@ describe("preview caps", () => {
     const builds = await connect(withKey, () => json(409, { success: false, code: "build_limit_reached", error: "Build limit reached", limit: 1 }));
     const prepared = await builds.client.callTool({ name: "prepare_upload", arguments: { gameId: "g1", version: "1", size: 10 } });
     expect(textOf(prepared)).toMatch(/build limit of 1 \(build_limit_reached\)/);
+  });
+
+  it("presign build_limit_reached says an earlier open upload counts", async () => {
+    const { client } = await connect(withKey, () => json(409, { success: false, code: "build_limit_reached", error: "Build limit reached", limit: 1 }));
+    const res = await client.callTool({ name: "prepare_upload", arguments: { gameId: "g1", version: "2", size: 10 } });
+    expect(isError(res)).toBe(true);
+    expect(textOf(res)).toMatch(/earlier upload to this game that is still open counts/);
+    expect(textOf(res)).toMatch(/expires \(within the hour\)/);
+  });
+
+  it("finalize_upload explains a 409 build_limit_reached instead of reporting success", async () => {
+    const { client, calls } = await connect(withKey, () =>
+      json(409, { success: false, code: "build_limit_reached", error: "Build limit reached", limit: 1, uploadId: "u1" }),
+    );
+    const res = await client.callTool({ name: "finalize_upload", arguments: { gameId: "g1", uploadId: "u1" } });
+    expect(calls[0].url).toBe(`${BASE}/games/g1/build-uploads/u1/finalize`);
+    expect(isError(res)).toBe(true);
+    const text = textOf(res);
+    expect(text).toMatch(/build limit of 1 \(build_limit_reached\)/);
+    expect(text).toMatch(/did not register this upload as a build/);
+    expect(text).toMatch(/Preview accounts are capped per game/);
+    expect(text).toMatch(/earlier upload to this game that is still open/);
+    expect(text).not.toMatch(/finalized\. Status/);
   });
 
   it("a failed upload with build_limit_reached explains the cap", async () => {

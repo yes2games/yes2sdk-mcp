@@ -93,7 +93,7 @@ export const INVALID_CREDENTIAL_HELP =
   "With an API key instead: create a personal key in the dashboard (avatar → Settings → Personal API keys → Create personal key), set it as YES2_API_KEY in this MCP server's config, and restart the client.";
 
 /** The icon/banner presigned upload (`/games/:id/image-uploads…`) has its own texts for shared codes. */
-function describeImageUploadFailure(code: string | undefined, tag: string, detail: string): string | undefined {
+function describeImageUploadFailure(code: string | undefined, tag: string, detail: string, limit: number | undefined): string | undefined {
   switch (code) {
     case "INVALID_BODY":
     case "INVALID_KIND":
@@ -113,9 +113,11 @@ function describeImageUploadFailure(code: string | undefined, tag: string, detai
     case "INVALID_IMAGE":
       return `The uploaded file is not a valid image of the declared type${tag}${detail}. This upload cannot be finalized; check the file, then call set_game_image again.`;
     case "UPLOAD_EXPIRED":
-      return `That image upload expired${tag}${detail}. Uploads must be finalized within 60 minutes (the PUT URL lasts 15); call set_game_image again.`;
+      return `That image upload expired${tag}${detail}. Uploads must be finalized within 60 minutes (the PUT URL lasts 10); call set_game_image again.`;
     case "UPLOAD_NOT_FOUND":
       return `No image upload with that id belongs to this game${tag}${detail}. The uploadId comes from set_game_image for the same gameId.`;
+    case "TOO_MANY_OPEN_UPLOADS":
+      return `This game already has the maximum number of open image uploads${limit !== undefined ? ` (${limit})` : ""}${tag}${detail}. Finish one (run its curl PUT, then finalize_image_upload with its uploadId) or wait for them to expire, which they do within the hour, then call set_game_image again.`;
     case "GAME_NOT_FOUND":
       return `No game with that id is reachable${tag}${detail}. list_games shows the games this sign-in or key can reach.`;
     case "R2_NOT_ENABLED":
@@ -136,7 +138,7 @@ function describeFailure(status: number, code: string | undefined, context: Fail
   const detail = trimmed ? `: ${trimmed}` : "";
   const tag = code ? ` (${code})` : "";
   if (path.includes("/image-uploads")) {
-    const image = describeImageUploadFailure(code, tag, detail);
+    const image = describeImageUploadFailure(code, tag, detail, limit);
     if (image !== undefined) return image;
   }
   switch (code) {
@@ -166,8 +168,15 @@ function describeFailure(status: number, code: string | undefined, context: Fail
       return `No build with that id belongs to this game${tag}${detail}. A buildId comes from get_build_status once an upload is ready, and belongs to the game it was uploaded to.`;
     case "game_limit_reached":
       return `This account has reached its game limit${limit !== undefined ? ` of ${limit}` : ""}${tag}${detail}. Preview accounts are capped; use an existing game from list_games, delete one in the dashboard, or ask to join a studio.`;
-    case "build_limit_reached":
-      return `This game has reached its build limit${limit !== undefined ? ` of ${limit}` : ""}${tag}${detail}. Preview accounts are capped per game; remove the existing build in the dashboard, or ask to join a studio.`;
+    case "build_limit_reached": {
+      const cap = `This game has reached its build limit${limit !== undefined ? ` of ${limit}` : ""}${tag}${detail}.`;
+      const why =
+        "Preview accounts are capped per game, and an earlier upload to this game that is still open counts against the cap until it is finalized or expires (within the hour).";
+      if (/\/build-uploads\/[^/]+\/finalize$/.test(path)) {
+        return `${cap} The dashboard did not register this upload as a build. ${why} Remove the existing build in the dashboard, or ask to join a studio, then prepare_upload again.`;
+      }
+      return `${cap} ${why} Finish or wait out the earlier upload, remove the existing build in the dashboard, or ask to join a studio.`;
+    }
     case "INSUFFICIENT_SCOPE":
       return `This credential is not allowed to do that${tag}${detail}. Sign in again and allow every requested permission (games:read, games:write, builds:write), or use a personal API key that carries the scope.`;
     case "DISPLAY_NAME_COLUMN_MISSING":

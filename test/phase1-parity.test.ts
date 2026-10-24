@@ -17,7 +17,10 @@ import { PARITY_PORTS } from "./helpers/parity-ports.js";
  * depend on the flag. Diffed against the cd112ee recording, the only changes
  * were the "Editing a game" instructions line, the set_game_image and
  * finalize_image_upload tool entries and calls, and two JSON-RPC ids shifted
- * by the inserted matrix rows. See helpers/capture-phase1.ts.
+ * by the inserted matrix rows. It was re-recorded again when the image
+ * upload URL lifetime went from 15 to 10 minutes; that diff was only
+ * "15 minutes" -> "10 minutes" in tools/list and the set_game_image answer.
+ * See helpers/capture-phase1.ts.
  */
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..");

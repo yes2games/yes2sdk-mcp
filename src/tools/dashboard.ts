@@ -44,7 +44,8 @@ export type ImageKind = (typeof IMAGE_KINDS)[number];
 /**
  * What POST /api/v1/games/:id/image-uploads accepts: PNG, JPEG or WebP, with
  * the exact size in bytes, 1 to 15 MB. The PUT URL is signed to that type and
- * length, lasts 15 minutes, and the upload must be finalized within 60.
+ * length, lasts 10 minutes, and the upload must be finalized within 60. At
+ * most 2 image uploads per game may be open at once (TOO_MANY_OPEN_UPLOADS).
  */
 export const IMAGE_MAX_BYTES = 15 * 1024 * 1024;
 export const IMAGE_CONTENT_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
@@ -59,7 +60,7 @@ export const IMAGE_LIMITS =
 
 const IMAGE_FLOW =
   "Image flow: (1) set_game_image with the image's exact size in bytes and its type (contentType, or imagePath to derive it from the extension); " +
-  "(2) the returned curl command PUTs the file from the user's machine straight to storage, within 15 minutes; (3) finalize_image_upload with the uploadId.";
+  "(2) the returned curl command PUTs the file from the user's machine straight to storage, within 10 minutes; (3) finalize_image_upload with the uploadId.";
 
 const FLOW =
   "Upload flow: (1) zip the built game with index.html at the root of the zip, not inside a folder; " +
@@ -646,7 +647,7 @@ export function registerDashboardTools(server: McpServer, ctx: DashboardToolCont
           "",
           curlCommand(prepared, imagePath, { contentType: type, placeholder }),
           "",
-          "The URL is signed to that exact type and size and works for 15 minutes. It carries no credential, so nothing needs to be exported first. An empty answer means it landed; an XML error body means it did not (usually a size or type mismatch, or an expired URL, fixed by calling set_game_image again).",
+          "The URL is signed to that exact type and size and works for 10 minutes. It carries no credential, so nothing needs to be exported first. An empty answer means it landed; an XML error body means it did not (usually a size or type mismatch, or an expired URL, fixed by calling set_game_image again).",
           IMAGE_LIMITS,
           `After the PUT succeeds: finalize_image_upload with gameId ${gameId} and uploadId ${uploadId} (within 60 minutes).`,
         ].join("\n");
