@@ -10,11 +10,14 @@ It gives the AI *tools it can run*, not just text it can read — most important
 `validate_integration`, which lets the AI self-check a game against real platform rejection
 rules before upload.
 
-The server calls **no LLM** and needs no API key — it is purely a tool provider.
+The server calls **no LLM** and is purely a tool provider. The docs and validation tools need no
+key. The dashboard tools, which upload a build, act with the caller's own dashboard API key (see
+[Dashboard tools](#dashboard-tools-upload-a-build)).
 
 ## Tools
 
-All tools are read-only (`readOnlyHint`); none write to the consumer filesystem or call the network.
+The docs and validation tools below are read-only (`readOnlyHint`); none write to the consumer
+filesystem or call the network.
 
 | Tool | Input | What it does |
 |------|-------|--------------|
@@ -29,6 +32,53 @@ All tools are read-only (`readOnlyHint`); none write to the consumer filesystem 
 | `get_compliance_rule` | `{ ruleId }` | One compliance rule by id (e.g. `P-002`): severity, platform, what it checks, and the fix. |
 | `troubleshoot` | `{ symptom }` | Map an error string or description to its likely cause and the ordered fix. |
 | `validate_integration` | `{ platform, buildPath? \| inline build, eventLogJson? }` | Static build checks and/or behavioral compliance checks (see below). |
+
+### Dashboard tools: upload a build
+
+These five call the Yes2 dashboard's machine API (`DASHBOARD_API_URL`, default
+`https://dashboard.yes2games.com/api/v1`) with the caller's own API key, so they are
+`openWorldHint: true`. They are always listed; with no key they return the setup steps below.
+
+| Tool | Input | What it does |
+|------|-------|--------------|
+| `list_games` | `{}` | The studio's games, newest first, with each `gameId`. |
+| `create_game` | `{ name, engine?, description?, orientation? }` | Creates a game and returns its `gameId`. `engine` is `unity` \| `defold` \| `playcanvas` \| `cocos` \| `vanilla` \| `other`; `orientation` is `portrait` \| `landscape` \| `both`. |
+| `prepare_upload` | `{ gameId, version, size, notes?, name?, zipPath? }` | Reserves the version and returns an `uploadId`, an expiry, and a ready-to-run `curl -X PUT --data-binary @<zip> …` to a presigned URL signed to exactly `size` bytes. |
+| `finalize_upload` | `{ gameId, uploadId }` | Tells the dashboard the zip is in storage; processing runs after it returns. Idempotent. |
+| `get_build_status` | `{ gameId, uploadId }` or `{ gameId, buildId }` | `pending` / `processing` / `ready` / `failed`. When ready: build id, engine, upload warnings, bundle errors and the `inspectorUrl`. |
+
+The flow: zip the build with `index.html` at the zip root → `prepare_upload` (size from
+`stat -f%z build.zip` on macOS, `stat -c%s build.zip` on Linux) → run the returned `curl` →
+`finalize_upload` → poll `get_build_status` every few seconds until `ready` or `failed`.
+
+**The server never touches the zip.** The `curl` runs on the user's machine and sends the file
+straight to storage, so a build never passes through this process.
+
+**The key.** Create a personal key in the dashboard (avatar → **Settings → Personal API keys**)
+and export it as `YES2_API_KEY`. Then hand it to the server:
+
+- Claude Code, hosted, in `.mcp.json`:
+  ```json
+  { "mcpServers": { "yes2sdk": { "type": "http", "url": "https://mcp.yes2games.com/mcp",
+    "headers": { "Authorization": "Bearer ${YES2_API_KEY:-}" } } } }
+  ```
+  The `:-` default keeps the server starting when the variable is unset; an empty `Bearer` is
+  treated as no key, so the docs tools keep working.
+- Codex, in `~/.codex/config.toml`:
+  ```toml
+  [mcp_servers.yes2sdk]
+  url = "https://mcp.yes2games.com/mcp"
+  env_http_headers = { "X-Yes2-Api-Key" = "YES2_API_KEY" }
+  ```
+  `X-Yes2-Api-Key` carries the bare key, for clients that can map an env var onto a header but
+  cannot add a `Bearer ` prefix. Codex skips the header when the variable is unset, so the
+  server still starts. `Authorization` wins when both are sent.
+- Local stdio: put `YES2_API_KEY` in the server entry's `env`.
+
+Over HTTP the key arrives as `Authorization: Bearer y2g_…` (or `X-Yes2-Api-Key: y2g_…`) on each request and is forwarded to
+the dashboard for that request only. It is never stored, logged or returned in tool output. The
+Claude connector cannot send a key yet (OAuth sign-in is planned), so the dashboard tools there
+return the setup steps.
 
 ### `validate_integration` — two modes
 
@@ -64,7 +114,7 @@ Three ways in. None of them need a checkout.
 
 ### 1. Claude connector (no setup)
 
-Claude → **Settings → Connectors → YES2SDK**. Connecting exposes all 11 tools, each with its
+Claude → **Settings → Connectors → YES2SDK**. Connecting exposes all 16 tools, each with its
 own permission control. This is the shortest path for anyone not running a local checkout.
 
 ### 2. Hosted HTTP
@@ -242,13 +292,14 @@ Notes:
 - `src/http.ts` — Streamable HTTP entry. Stateless: a fresh server + transport per request.
 - `src/tools/` — one registration per tool file: `install.ts`, `detect.ts`, `docs.ts`
   (the four docs tools), `validate.ts`, `requirements.ts`, `capabilities.ts`, `rule.ts`,
-  `troubleshoot.ts`.
+  `troubleshoot.ts`, and `dashboard.ts` (the five dashboard tools).
 - `src/resources/`, `src/prompts/` — the `yes2sdk://` module resources and the integrate prompts.
 - `src/lib/` — the leaf layer, importing nothing from `tools/`: docs scanner/search (`docs.ts`),
   the copied compliance engine and its types (`compliance.ts`, `inspector-types.ts`), engine
   metadata (`sdk-meta.ts`), static build checks (`build-checks.ts`), hand-written platform
   launch checklists (`launch-checklists.ts`), shared tool annotations
-  (`annotations.ts`), the canonical positioning line (`positioning.ts`) and the version lookup
+  (`annotations.ts`), the per-request API key (`auth.ts`), the dashboard API client
+  (`dashboard.ts`), the canonical positioning line (`positioning.ts`) and the version lookup
   (`version.ts`).
 - `docs/` — bundled markdown docs, shipped with the package and with the container.
 
@@ -271,6 +322,11 @@ npm run http       # node dist/http.js
 | `PORT` | `8091` | TCP port the server binds on `0.0.0.0`. |
 | `MCP_ALLOWED_ORIGINS` | *(empty)* | Comma-separated browser origins allowed to call the server, e.g. `https://a.example,https://b.example`. Empty means no browser page is trusted. See Origin validation below. |
 | `OPENAI_APPS_CHALLENGE` | *(empty)* | Domain verification token from the OpenAI plugin submission portal, served at `/.well-known/openai-apps-challenge`. Empty means that path 404s. |
+| `DASHBOARD_API_URL` | `https://dashboard.yes2games.com/api/v1` | Dashboard machine API the dashboard tools call. Also read by the stdio entry. |
+
+The stdio entry also reads `YES2_API_KEY`, the user's own dashboard key. The HTTP entry never
+does: over HTTP the key comes from each request's `Authorization` header, and the container
+holds no secrets.
 
 There is no `HOST` variable — the server always binds `0.0.0.0`.
 
@@ -278,7 +334,7 @@ There is no `HOST` variable — the server always binds `0.0.0.0`.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/mcp` | Stateless Streamable HTTP MCP endpoint. A fresh server + transport is created per request. |
+| `POST` | `/mcp` | Stateless Streamable HTTP MCP endpoint. A fresh server + transport is created per request. Bodies over 1 MB answer `413`. |
 | `GET` | `/health` | Returns `{"status":"ok"}`. Used for container healthchecks; exempt from host validation. |
 | `GET` | `/robots.txt` | Disallows crawling everything except the verification token. |
 | `GET` | `/.well-known/openai-apps-challenge` | The `OPENAI_APPS_CHALLENGE` token as plain text, nothing else. 404 when unset. Keep it set after verification; later scans may re-check it. |
@@ -310,23 +366,31 @@ consumer: CLI MCP hosts and server-side `fetch` do not send one. Only browser-ba
 clients need an entry in `MCP_ALLOWED_ORIGINS`.
 
 CORS advertises only what is served — `GET,POST,OPTIONS` and
-`Content-Type, Mcp-Protocol-Version`. The server is stateless, so it never mints or
+`Content-Type, Mcp-Protocol-Version, Authorization, X-Yes2-Api-Key` (the last two carry the caller's dashboard key). The server is stateless, so it never mints or
 echoes `Mcp-Session-Id`.
 
-### Security note: no authentication, deliberately
+### Security note: docs stay unauthenticated, uploads use the caller's key
 
-The hosted endpoint is unauthenticated by decision, not by omission. Everything it serves is
-already public: the SDK docs as published on `developer.yes2games.com`, and a stateless
-compliance validator that holds no state between requests. There are no secrets and no user
-data behind it, and an auth wall would cost every consumer a credential to read documentation
-they can read anyway.
+The docs and validation tools are unauthenticated by decision, not by omission. Everything they
+serve is already public: the SDK docs as published on `developer.yes2games.com`, and a stateless
+compliance validator that holds no state between requests. An auth wall would cost every
+consumer a credential to read documentation they can read anyway. They are read-only, none
+touches the consumer filesystem or the network, and the hosted server has no disk access at all.
 
-What guards it instead is scope. Every tool is read-only, none touches the consumer filesystem
-or the network, and the hosted server has no disk access at all. The Host allowlist and the
-`Origin` check above stop a web page the user happens to visit from driving the server.
+The dashboard tools are the exception, and the server still holds no credential of its own.
+They act with the caller's own dashboard API key, sent as `Authorization: Bearer y2g_…`. The
+key is passed through to the dashboard on that request only: it is bound to the per-request
+server instance, never kept in module state, never logged, and redacted from anything a tool
+returns. The dashboard enforces what the key may do, which is exactly what its holder could do
+with `curl`. Without a key those tools return setup steps and call nothing. Builds never pass
+through this server: `prepare_upload` hands back a presigned URL and the upload runs on the
+user's machine. Request bodies are capped at 1 MB.
 
-Revisit this if the server ever gains a tool that writes, or that reads anything not already
-published.
+The Host allowlist and the `Origin` check above stop a web page the user happens to visit from
+driving the server.
+
+Revisit this if the server ever needs a credential of its own, or a tool that reads anything
+the caller's key could not.
 
 ### Production deployment
 

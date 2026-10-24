@@ -16,8 +16,10 @@ FROM node:26.12.1-alpine AS runtime
 # MCP_ALLOWED_ORIGINS admits browser-based MCP clients through the Origin check
 # in src/http.ts. CLI hosts and server-side fetch send no Origin and never
 # needed it; a claude.ai / claude.com connector running in the page does. Both
-# are Anthropic's own origins and the server is public and read-only, so
-# admitting them grants no capability a plain curl did not already have.
+# are Anthropic's own origins. The docs tools stay unauthenticated and the
+# upload tools act only with the caller's own dashboard key, passed through per
+# request and never stored (the container holds no secrets), so admitting them
+# grants no capability a plain curl did not already have.
 # Override at the unit level to change the list.
 ENV NODE_ENV=production \
     PORT=8091 \

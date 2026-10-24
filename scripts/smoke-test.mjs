@@ -71,6 +71,11 @@ const expected = [
   "get_platform_capabilities",
   "get_compliance_rule",
   "troubleshoot",
+  "list_games",
+  "create_game",
+  "prepare_upload",
+  "finalize_upload",
+  "get_build_status",
 ];
 const names = tools.map((t) => t.name).sort();
 const ok = expected.every((e) => names.includes(e)) && names.length === expected.length;

@@ -7,18 +7,36 @@ import { registerDetectTool } from "./tools/detect.js";
 import { registerCapabilitiesTool } from "./tools/capabilities.js";
 import { registerRuleTool } from "./tools/rule.js";
 import { registerTroubleshootTool } from "./tools/troubleshoot.js";
+import { registerDashboardTools } from "./tools/dashboard.js";
 import { registerModuleResources } from "./resources/modules.js";
 import { registerIntegratePrompts } from "./prompts/integrate.js";
 import { DESCRIPTION } from "./lib/positioning.js";
 import { VERSION } from "./lib/version.js";
+import { NO_KEY, type ApiKeyAuth } from "./lib/auth.js";
+import { resolveDashboardUrl, type FetchLike } from "./lib/dashboard.js";
+
+export interface ServerOptions {
+  /**
+   * The caller's dashboard API key for this server instance only. Over HTTP it
+   * comes from the request's Authorization header, over stdio from
+   * YES2_API_KEY. Defaults to no key: the docs tools work, the dashboard tools
+   * return setup steps.
+   */
+  auth?: ApiKeyAuth;
+  /** Dashboard API base. Defaults to DASHBOARD_API_URL, then the production URL. */
+  dashboardApiUrl?: string;
+  /** Injected fetch for tests. */
+  fetch?: FetchLike;
+}
 
 /**
  * Build and configure the Yes2SDK MCP server with all tools registered.
  *
- * Transport-agnostic: callers connect their own transport (stdio in index.ts;
- * an HTTP transport could be added later without touching this factory).
+ * Transport-agnostic: callers connect their own transport (stdio in index.ts,
+ * Streamable HTTP in http.ts). The HTTP entry builds one server per request,
+ * which is what scopes `options.auth` to that request.
  */
-export function createServer(): McpServer {
+export function createServer(options: ServerOptions = {}): McpServer {
   const server = new McpServer(
     {
       name: "yes2sdk",
@@ -35,6 +53,8 @@ export function createServer(): McpServer {
         "",
         "Typical flow: 1) detect_sdk(projectPath) / get_install_instructions(engine) to ensure the SDK is installed, 2) get_quickstart for the target platform, 3) get_api_reference per module, 4) search_docs for specifics, 5) validate_integration against the built WebGL output or a captured Inspector event log.",
         "validate_integration checks both static build output (buildPath) and behavioral compliance (eventLogJson) against real platform rejection rules.",
+        "",
+        "Uploading a build to the Yes2 dashboard (needs the user's own dashboard API key, sent as Authorization: Bearer y2g_… or the YES2_API_KEY env var; without one these tools return the setup steps): list_games or create_game for the gameId; zip the built game with index.html at the zip root; prepare_upload(gameId, version, size in bytes) returns an uploadId and a curl PUT command that sends the zip from the user's machine straight to storage (this server never handles the file); after the PUT, finalize_upload(gameId, uploadId); then get_build_status(gameId, uploadId) every few seconds until ready or failed. When ready, show the user the inspectorUrl and any uploadWarnings.",
       ].join("\n"),
     }
   );
@@ -47,6 +67,11 @@ export function createServer(): McpServer {
   registerCapabilitiesTool(server);
   registerRuleTool(server);
   registerTroubleshootTool(server);
+  registerDashboardTools(server, {
+    auth: options.auth ?? NO_KEY,
+    baseUrl: resolveDashboardUrl(options.dashboardApiUrl ?? process.env.DASHBOARD_API_URL),
+    fetch: options.fetch,
+  });
   registerModuleResources(server);
   registerIntegratePrompts(server);
 

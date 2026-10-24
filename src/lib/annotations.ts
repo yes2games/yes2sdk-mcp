@@ -1,7 +1,8 @@
 /**
- * The metadata every tool in this server shares: a human-readable title and the
- * annotation hints. No tool here writes to the consumer filesystem or calls the
- * network, so the hints are the same for all of them.
+ * The metadata every docs and validation tool shares: a human-readable title
+ * and the annotation hints. None of them writes to the consumer filesystem or
+ * calls the network, so the hints are the same for all of them. The dashboard
+ * tools are the exception and use dashboardTool() below.
  *
  * The title is deliberately emitted twice. `Tool.title` is where the current
  * spec puts it, but the Claude connector review scanner reads the older
@@ -17,6 +18,28 @@ export function readOnlyTool(title: string) {
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: false,
+    },
+  };
+}
+
+/**
+ * The metadata for a dashboard tool: it calls the Yes2 dashboard API with the
+ * caller's own key, so it is open-world, and it may change the studio's data.
+ * The hints differ per tool, so each one states them rather than inheriting a
+ * shared default.
+ */
+export function dashboardTool(
+  title: string,
+  hints: { readOnly: boolean; idempotent: boolean },
+) {
+  return {
+    title,
+    annotations: {
+      title,
+      readOnlyHint: hints.readOnly,
+      destructiveHint: false,
+      idempotentHint: hints.idempotent,
+      openWorldHint: true,
     },
   };
 }
