@@ -14,6 +14,7 @@ import { DESCRIPTION } from "./lib/positioning.js";
 import { VERSION } from "./lib/version.js";
 import { NO_KEY, type ApiKeyAuth } from "./lib/auth.js";
 import { resolveDashboardUrl, type FetchLike } from "./lib/dashboard.js";
+import type { WhoamiIdentity } from "./lib/oauth.js";
 
 export interface ServerOptions {
   /**
@@ -33,6 +34,8 @@ export interface ServerOptions {
    * API key"; off, every text is exactly phase 1.
    */
   oauth?: boolean;
+  /** OAuth mode: who the request's `y2a_` token belongs to, when the HTTP gate already asked whoami. */
+  identity?: WhoamiIdentity;
 }
 
 const UPLOAD_INSTRUCTIONS_KEY =
@@ -45,7 +48,7 @@ const EDIT_INSTRUCTIONS_OAUTH =
   "Editing a game with the same sign-in or key: update_game(gameId, fields) changes name, description, engine, category, tags, orientation, yandexMetricaCounterId or jestAutoLoginReminders; set_game_image(gameId, kind: icon | banner, size in bytes, contentType or imagePath) returns an uploadId and a curl PUT command that sends the image from the user's machine straight to storage with no credential in it, then finalize_image_upload(gameId, uploadId) sets it (remove: true deletes the image instead); rename_build(gameId, buildId, name) sets a build's display name, null clears it.";
 
 const UPLOAD_INSTRUCTIONS_OAUTH =
-  "Uploading a build to the Yes2 dashboard (the user must sign in or provide an API key: the first dashboard tool call asks the client to sign in — Claude Code /mcp → Authenticate, Codex `codex mcp login yes2sdk`, the claude.ai Connect card — or a y2g_ API key can be sent as X-Yes2-Api-Key; every other tool works without either): list_games or create_game for the gameId; zip the built game with index.html at the zip root; prepare_upload(gameId, version, size in bytes) returns an uploadId and a curl PUT command that sends the zip from the user's machine straight to storage (this server never handles the file); after the PUT, finalize_upload(gameId, uploadId); then get_build_status(gameId, uploadId) every few seconds until ready or failed. When ready, show the user the inspectorUrl and any uploadWarnings.";
+  "Uploading a build to the Yes2 dashboard (sign-in is opt-in and only needed for the dashboard tools; the docs and validation tools never need it. To sign in, call sign_in when the user asks to sign in to Yes2 or after a dashboard tool says they are not signed in — or in Claude Code /mcp → Authenticate, in Codex `codex mcp login yes2sdk`; a y2g_ API key sent as X-Yes2-Api-Key works too): list_games or create_game for the gameId; zip the built game with index.html at the zip root; prepare_upload(gameId, version, size in bytes) returns an uploadId and a curl PUT command that sends the zip from the user's machine straight to storage (this server never handles the file); after the PUT, finalize_upload(gameId, uploadId); then get_build_status(gameId, uploadId) every few seconds until ready or failed. When ready, show the user the inspectorUrl and any uploadWarnings.";
 
 /**
  * Build and configure the Yes2SDK MCP server with all tools registered.
@@ -91,6 +94,7 @@ export function createServer(options: ServerOptions = {}): McpServer {
     baseUrl: resolveDashboardUrl(options.dashboardApiUrl ?? process.env.DASHBOARD_API_URL),
     fetch: options.fetch,
     oauth: options.oauth === true,
+    identity: options.identity,
   });
   registerModuleResources(server);
   registerIntegratePrompts(server);

@@ -83,16 +83,20 @@ and export it as `YES2_API_KEY`. Then hand it to the server:
 
 Over HTTP the key arrives as `Authorization: Bearer y2g_…` (or `X-Yes2-Api-Key: y2g_…`) on each request and is forwarded to
 the dashboard for that request only. It is never stored, logged or returned in tool output. The
-Claude connector cannot send a key yet (OAuth sign-in is planned), so the dashboard tools there
-return the setup steps.
+claude.ai connector cannot send a key; there, sign in instead (below).
 
-**Sign-in (coming soon, behind the `MCP_OAUTH_ENABLED` flag, off in production).** Once it is on,
-the hosted server asks you to sign in to Yes2 the first time a dashboard tool runs, and only then:
-the docs and validation tools stay anonymous in every client.
+**Sign-in (opt-in, hosted server with `MCP_OAUTH_ENABLED=1`).** Not signing in behaves like the
+original server: the docs and validation tools never need it, and a dashboard tool without a
+credential answers with the sign-in steps instead of failing the connection. To sign in:
 
-- Claude Code: run `/mcp`, pick the server, choose **Authenticate**.
-- Codex: `codex mcp login yes2sdk`.
-- claude.ai: click the **Connect** card that appears on the first dashboard tool call.
+- Any client: ask to "sign in to Yes2". That calls the `sign_in` tool, which makes Claude Code,
+  claude.ai and Codex open the Yes2 sign-in in the browser. Once signed in, `sign_in` reports
+  the account, studio and scopes.
+- Claude Code: or run `/mcp`, pick the server, choose **Authenticate**.
+- Codex: or run `codex mcp login yes2sdk`.
+
+`sign_in` is listed only when the flag is on, so the hosted server lists 21 tools and the stdio
+server 20.
 
 API keys keep working unchanged. To keep Claude Code's sign-in available alongside a key, send the
 key as `X-Yes2-Api-Key` rather than `Authorization` (a configured `Authorization` header turns
@@ -132,7 +136,7 @@ Three ways in. None of them need a checkout.
 
 ### 1. Claude connector (no setup)
 
-Claude → **Settings → Connectors → YES2SDK**. Connecting exposes all 20 tools, each with its
+Claude → **Settings → Connectors → YES2SDK**. Connecting exposes all 21 tools (20 plus `sign_in`), each with its
 own permission control. This is the shortest path for anyone not running a local checkout.
 
 ### 2. Hosted HTTP

@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { dashboardTool } from "../lib/annotations.js";
 import { redactKeys, type ApiKeyAuth } from "../lib/auth.js";
+import { identityOf, signedInSummary, SIGN_IN_TOOL, type WhoamiIdentity } from "../lib/oauth.js";
 import {
   createDashboardClient,
   DashboardError,
@@ -33,6 +34,8 @@ export interface DashboardToolContext {
    * texts lead with signing in; off keeps every phase 1 text unchanged.
    */
   oauth?: boolean;
+  /** OAuth mode: who a `y2a_` token belongs to, when the HTTP gate already asked whoami. */
+  identity?: WhoamiIdentity;
 }
 
 export const ENGINES = ["unity", "defold", "playcanvas", "cocos", "vanilla", "other"] as const;
@@ -71,7 +74,11 @@ const AUTH_NOTE =
   "Acts with the caller's own Yes2 dashboard API key (a y2g_ personal key from Dashboard → Settings), sent as the Authorization: Bearer header (or the bare key in X-Yes2-Api-Key) or, for the local stdio server, the YES2_API_KEY env var. The key is passed through to the dashboard and never stored. Without a key it returns the setup steps instead.";
 
 const AUTH_NOTE_OAUTH =
-  "Acts as the signed-in Yes2 dashboard user: sign in when the client asks (Claude Code /mcp → Authenticate, Codex `codex mcp login yes2sdk`, the claude.ai Connect card), or provide an API key instead (a y2g_ personal key from Dashboard → Settings, sent as the bare key in X-Yes2-Api-Key or as Authorization: Bearer, or for the local stdio server the YES2_API_KEY env var). The credential is passed through to the dashboard and never stored.";
+  "Acts as the signed-in Yes2 dashboard user. Sign-in is opt-in and only needed for the dashboard tools, never for the docs tools: call sign_in (or in Claude Code run /mcp → Authenticate, in Codex `codex mcp login yes2sdk`), or provide an API key instead (a y2g_ personal key from Dashboard → Settings, sent as the bare key in X-Yes2-Api-Key, or for the local stdio server the YES2_API_KEY env var). Without either it returns the sign-in steps. The credential is passed through to the dashboard and never stored.";
+
+/** What every dashboard tool answers, with MCP_OAUTH_ENABLED, when no Yes2 credential arrived. */
+export const NOT_SIGNED_IN_TEXT =
+  "You're not signed in to Yes2. To use dashboard tools, sign in: ask me to 'sign in to Yes2' (I'll call the sign_in tool), or in Claude Code run /mcp → Authenticate, or in Codex run `codex mcp login yes2sdk`. Alternatively set YES2_API_KEY (y2g_ key) and send it as X-Yes2-Api-Key.";
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: true };
 
@@ -84,9 +91,9 @@ function result(text: string, isError = false): ToolResult {
 
 /**
  * The actionable error every dashboard tool returns when no usable key arrived.
- * With `oauth` (the hosted server with MCP_OAUTH_ENABLED=1) the gate answers a
- * missing credential with a 401 before any tool runs, so this is only reached
- * for a malformed X-Yes2-Api-Key; it leads with signing in.
+ * With `oauth` (the hosted server with MCP_OAUTH_ENABLED=1) it starts with the
+ * opt-in sign-in: no credential or a foreign bearer is not an HTTP 401 there,
+ * just this result, so the connector stays usable without signing in.
  */
 export function missingKeyText(auth: ApiKeyAuth, oauth = false): string {
   if (oauth) return missingCredentialText(auth);
@@ -113,27 +120,10 @@ export function missingKeyText(auth: ApiKeyAuth, oauth = false): string {
 }
 
 function missingCredentialText(auth: ApiKeyAuth): string {
-  const lead =
-    auth.status === "malformed"
-      ? "The X-Yes2-Api-Key header sent to this server is not a Yes2 dashboard API key (expected `y2g_…`)."
-      : auth.status === "foreign"
-        ? "The Authorization header sent to this server is not a Yes2 sign-in or API key."
-        : "This tool needs you to sign in to Yes2 or to provide a dashboard API key, and neither reached the server.";
-  return [
-    lead,
-    "",
-    "Sign in (recommended):",
-    "- Claude Code: run /mcp, pick this server and choose Authenticate.",
-    "- Codex: run `codex mcp login yes2sdk`.",
-    "- claude.ai: use the Connect card shown for this tool.",
-    "",
-    "Or use an API key:",
-    "1. Create a personal key in the dashboard: avatar → Settings → Personal API keys → Create personal key. Copy it.",
-    "2. Export it in the shell that starts the client: `export YES2_API_KEY=y2g_…`",
-    "3. Send it as the bare key in the `X-Yes2-Api-Key` header (Claude Code .mcp.json: `\"headers\": { \"X-Yes2-Api-Key\": \"${YES2_API_KEY:-}\" }`; Codex: `env_http_headers = { \"X-Yes2-Api-Key\" = \"YES2_API_KEY\" }`), then restart the client.",
-    "",
-    "The docs and validation tools keep working without signing in.",
-  ].join("\n");
+  if (auth.status === "malformed") {
+    return `${NOT_SIGNED_IN_TEXT}\n\nThe X-Yes2-Api-Key header sent to this server is not a Yes2 dashboard API key (expected \`y2g_…\`).`;
+  }
+  return NOT_SIGNED_IN_TEXT;
 }
 
 async function run(ctx: DashboardToolContext, body: (client: DashboardClient) => Promise<string>): Promise<ToolResult> {
@@ -285,8 +275,30 @@ export function imageMimeType(imagePath: string): string | undefined {
   return dot === -1 ? undefined : IMAGE_MIME_BY_EXT[imagePath.slice(dot).toLowerCase()];
 }
 
+/** The sign_in tool: listed only with MCP_OAUTH_ENABLED (the hosted HTTP server). */
+function registerSignInTool(server: McpServer, ctx: DashboardToolContext): void {
+  server.registerTool(
+    SIGN_IN_TOOL,
+    {
+      ...dashboardTool("Sign in to Yes2", { readOnly: true, idempotent: true }),
+      description:
+        "Sign in to the Yes2 dashboard so dashboard tools (upload, edit games) work; only needed for those tools. " +
+        "Call it when the user asks to sign in to Yes2, or after a dashboard tool answered that they are not signed in: the client then opens the Yes2 sign-in in the browser and retries. " +
+        "Already signed in (or with an API key), it reports who the user is, the studio and the scopes. The docs and validation tools never need it.",
+      inputSchema: {},
+    },
+    async () => {
+      if (ctx.auth.status !== "ok") return result(missingKeyText(ctx.auth, true), true);
+      const kind = ctx.auth.kind;
+      if (ctx.identity) return result(signedInSummary(ctx.identity, kind));
+      return run(ctx, async (client) => signedInSummary(identityOf({ data: await client.get<unknown>("/whoami") }), kind));
+    },
+  );
+}
+
 export function registerDashboardTools(server: McpServer, ctx: DashboardToolContext): void {
   const authNote = ctx.oauth === true ? AUTH_NOTE_OAUTH : AUTH_NOTE;
+  if (ctx.oauth === true) registerSignInTool(server, ctx);
   server.registerTool(
     "list_games",
     {

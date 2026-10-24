@@ -4,7 +4,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createServer } from "../src/server.js";
 import { authFromEnv, authFromHeaders, redactKeys, NO_KEY, type ApiKeyAuth } from "../src/lib/auth.js";
 import { createDashboardClient, DashboardError, INVALID_KEY_HELP, type FetchLike } from "../src/lib/dashboard.js";
-import { missingKeyText } from "../src/tools/dashboard.js";
+import { missingKeyText, NOT_SIGNED_IN_TEXT } from "../src/tools/dashboard.js";
 import {
   challenge401,
   challenge403,
@@ -13,6 +13,7 @@ import {
   requiredScopes,
   whoami,
   PRM,
+  signedInSummary,
   TOOL_SCOPES,
 } from "../src/lib/oauth.js";
 
@@ -155,7 +156,7 @@ describe("whoami", () => {
       seen.push({ url, init });
       return new Response(JSON.stringify({ success: true, data: { scopes: ALL } }), { status: 200 });
     };
-    expect(await whoami(BASE, TOKEN, fn)).toEqual({ kind: "ok", scopes: ALL });
+    expect(await whoami(BASE, TOKEN, fn)).toMatchObject({ kind: "ok", scopes: ALL });
     expect(seen[0].url).toBe(`${BASE}/whoami`);
     expect(seen[0].init.method).toBe("GET");
     expect((seen[0].init.headers as Record<string, string>).Authorization).toBe(`Bearer ${TOKEN}`);
@@ -171,23 +172,23 @@ describe("whoami", () => {
         scopes: ["games:read", "games:write"],
       },
     };
-    expect(await whoami(BASE, TOKEN, fetchAnswering(200, team).fn)).toEqual({ kind: "ok", scopes: ["games:read", "games:write"] });
+    expect(await whoami(BASE, TOKEN, fetchAnswering(200, team).fn)).toMatchObject({ kind: "ok", scopes: ["games:read", "games:write"] });
     const personal = {
       success: true,
       data: { principal: { kind: "personal", userId: "u1" }, credential: { kind: "oauth" }, scopes: ALL },
     };
-    expect(await whoami(BASE, TOKEN, fetchAnswering(200, personal).fn)).toEqual({ kind: "ok", scopes: ALL });
+    expect(await whoami(BASE, TOKEN, fetchAnswering(200, personal).fn)).toMatchObject({ kind: "ok", scopes: ALL });
     const keyNoUser = { success: true, data: { principal: { kind: "team", teamId: "t1", teamName: "S" }, credential: { kind: "key" }, scopes: ALL } };
     expect(await gate(call("prepare_upload"), { status: "ok", kind: "oauth", credential: TOKEN }, BASE, fetchAnswering(200, team).fn)).toMatchObject({
       kind: "refuse",
       challenge: { status: 403 },
     });
-    expect(await gate(call("prepare_upload"), { status: "ok", kind: "oauth", credential: TOKEN }, BASE, fetchAnswering(200, keyNoUser).fn)).toEqual({ kind: "pass" });
+    expect(await gate(call("prepare_upload"), { status: "ok", kind: "oauth", credential: TOKEN }, BASE, fetchAnswering(200, keyNoUser).fn)).toMatchObject({ kind: "pass" });
   });
 
   it("reads a bare { scopes } too, and tolerates no scope list", async () => {
-    expect(await whoami(BASE, TOKEN, fetchAnswering(200, { scopes: ["games:read"] }).fn)).toEqual({ kind: "ok", scopes: ["games:read"] });
-    expect(await whoami(BASE, TOKEN, fetchAnswering(200, { success: true, data: {} }).fn)).toEqual({ kind: "ok", scopes: undefined });
+    expect(await whoami(BASE, TOKEN, fetchAnswering(200, { scopes: ["games:read"] }).fn)).toMatchObject({ kind: "ok", scopes: ["games:read"] });
+    expect(await whoami(BASE, TOKEN, fetchAnswering(200, { success: true, data: {} }).fn)).toMatchObject({ kind: "ok", scopes: undefined });
   });
 
   it("maps 401 to unauthorized and 5xx, 404, a bad body or a network error to unavailable", async () => {
@@ -215,22 +216,47 @@ describe("gate", () => {
   it("passes non-dashboard bodies without looking at the credential", async () => {
     const f = fetchAnswering(401, {});
     for (const auth of [NO_KEY, { status: "foreign" } as ApiKeyAuth, oauthAuth]) {
-      expect(await gate(call("search_docs"), auth, BASE, f.fn)).toEqual({ kind: "pass" });
+      expect(await gate(call("search_docs"), auth, BASE, f.fn)).toMatchObject({ kind: "pass" });
     }
     expect(f.urls).toHaveLength(0);
   });
 
-  it("refuses a missing or foreign credential with 401", async () => {
-    for (const auth of [NO_KEY, { status: "foreign" } as ApiKeyAuth]) {
-      const d = await gate(call("list_games"), auth, BASE);
+  it("lets a dashboard tool without a credential through: the tool answers with text, not a 401", async () => {
+    const f = fetchAnswering(401, {});
+    for (const auth of [NO_KEY, { status: "foreign" } as ApiKeyAuth, { status: "malformed", source: "header" } as ApiKeyAuth]) {
+      expect(await gate(call("list_games"), auth, BASE, f.fn)).toEqual({ kind: "pass" });
+    }
+    expect(f.urls).toHaveLength(0);
+  });
+
+  it("refuses sign_in without a valid credential with the 401 challenge", async () => {
+    for (const auth of [NO_KEY, { status: "foreign" } as ApiKeyAuth, { status: "malformed", source: "header" } as ApiKeyAuth]) {
+      const d = await gate(call("sign_in"), auth, BASE);
       expect(d.kind === "refuse" && d.challenge.status).toBe(401);
     }
+    // In a batch with a docs call too.
+    const batch = await gate([call("search_docs"), call("sign_in")], NO_KEY, BASE);
+    expect(batch.kind === "refuse" && batch.challenge.status).toBe(401);
+  });
+
+  it("sign_in: a key passes without whoami; a live y2a_ passes with its identity; a rejected y2a_ gets 401", async () => {
+    const none = fetchAnswering(401, {});
+    expect(await gate(call("sign_in"), { status: "ok", kind: "key", credential: KEY }, BASE, none.fn)).toEqual({ kind: "pass" });
+    expect(none.urls).toHaveLength(0);
+
+    const live = { success: true, data: { principal: { kind: "personal", userId: "u1" }, user: { email: "a@b.test" }, credential: { kind: "oauth" }, scopes: ["games:read"] } };
+    expect(await gate(call("sign_in"), oauthAuth, BASE, fetchAnswering(200, live).fn)).toEqual({
+      kind: "pass",
+      identity: { principal: { kind: "personal" }, user: { email: "a@b.test" }, credentialKind: "oauth", scopes: ["games:read"] },
+    });
+    const rejected = await gate(call("sign_in"), oauthAuth, BASE, fetchAnswering(401, {}).fn);
+    expect(rejected.kind === "refuse" && rejected.challenge.status).toBe(401);
   });
 
   it("passes y2g_ keys and malformed keys without a whoami", async () => {
     const f = fetchAnswering(401, {});
-    expect(await gate(call("list_games"), { status: "ok", kind: "key", credential: KEY }, BASE, f.fn)).toEqual({ kind: "pass" });
-    expect(await gate(call("list_games"), { status: "malformed", source: "header" }, BASE, f.fn)).toEqual({ kind: "pass" });
+    expect(await gate(call("list_games"), { status: "ok", kind: "key", credential: KEY }, BASE, f.fn)).toMatchObject({ kind: "pass" });
+    expect(await gate(call("list_games"), { status: "malformed", source: "header" }, BASE, f.fn)).toMatchObject({ kind: "pass" });
     expect(f.urls).toHaveLength(0);
   });
 
@@ -241,10 +267,28 @@ describe("gate", () => {
     const readOnly = fetchAnswering(200, { success: true, data: { scopes: ["games:read"] } }).fn;
     const r403 = await gate(call("prepare_upload"), oauthAuth, BASE, readOnly);
     expect(r403.kind === "refuse" && r403.challenge.status).toBe(403);
-    expect(await gate(call("get_build_status"), oauthAuth, BASE, readOnly)).toEqual({ kind: "pass" });
+    expect(await gate(call("get_build_status"), oauthAuth, BASE, readOnly)).toMatchObject({ kind: "pass" });
 
-    expect(await gate(call("create_game"), oauthAuth, BASE, fetchAnswering(200, { success: true, data: { scopes: ALL } }).fn)).toEqual({ kind: "pass" });
-    expect(await gate(call("create_game"), oauthAuth, BASE, fetchAnswering(502, {}).fn)).toEqual({ kind: "pass" });
+    expect(await gate(call("create_game"), oauthAuth, BASE, fetchAnswering(200, { success: true, data: { scopes: ALL } }).fn)).toMatchObject({ kind: "pass" });
+    expect(await gate(call("create_game"), oauthAuth, BASE, fetchAnswering(502, {}).fn)).toMatchObject({ kind: "pass" });
+  });
+});
+
+describe("signedInSummary", () => {
+  it("names the user, the studio, the credential and the scopes", () => {
+    expect(
+      signedInSummary(
+        { principal: { kind: "team", teamId: "t1", teamName: "Pixel Forge" }, user: { name: "Ada", email: "ada@x.test" }, credentialKind: "oauth", scopes: ALL },
+        "oauth",
+      ),
+    ).toBe("Signed in to Yes2 as Ada (ada@x.test) in Pixel Forge, via sign-in. Scopes: games:read, games:write, builds:write.");
+    expect(signedInSummary({ principal: { kind: "personal" }, user: { email: "p@x.test" }, scopes: ["games:read"] }, "oauth")).toBe(
+      "Signed in to Yes2 as p@x.test in your personal games (preview), via sign-in. Scopes: games:read.",
+    );
+    expect(signedInSummary({ principal: { kind: "team", teamId: "t9" }, credentialKind: "key", scopes: ALL }, "key")).toBe(
+      "Signed in to Yes2 in t9, via API key. Scopes: games:read, games:write, builds:write.",
+    );
+    expect(signedInSummary({}, "key")).toBe("Signed in to Yes2 in your studio, via API key. Scopes: none reported.");
   });
 });
 
@@ -287,13 +331,32 @@ describe("texts with OAuth on", () => {
     return client;
   }
 
-  it("instructions and dashboard tool descriptions say sign in or provide an API key", async () => {
+  it("instructions and dashboard tool descriptions say sign-in is opt-in via sign_in, and docs never need it", async () => {
     const client = await connect(true);
-    expect(client.getInstructions()).toContain("sign in or provide an API key");
+    const instructions = client.getInstructions() ?? "";
+    expect(instructions).toContain("sign-in is opt-in");
+    expect(instructions).toContain("call sign_in");
+    expect(instructions).toContain("/mcp → Authenticate");
+    expect(instructions).toContain("docs and validation tools never need it");
     const { tools } = await client.listTools();
     for (const tool of tools.filter((t) => t.name in TOOL_SCOPES)) {
-      expect(tool.description, tool.name).toContain("or provide an API key instead");
+      expect(tool.description, tool.name).toContain("Sign-in is opt-in");
+      expect(tool.description, tool.name).toContain("call sign_in");
+      expect(tool.description, tool.name).toContain("never for the docs tools");
     }
+  });
+
+  it("lists sign_in only with OAuth on: 21 tools, readOnly and idempotent", async () => {
+    const on = await (await connect(true)).listTools();
+    expect(on.tools).toHaveLength(21);
+    const signIn = on.tools.find((t) => t.name === "sign_in");
+    expect(signIn?.description).toMatch(/^Sign in to the Yes2 dashboard so dashboard tools \(upload, edit games\) work; only needed for those tools\./);
+    expect(signIn?.annotations?.readOnlyHint).toBe(true);
+    expect(signIn?.annotations?.idempotentHint).toBe(true);
+    expect(signIn?.annotations?.destructiveHint).toBe(false);
+    const off = await (await connect(false)).listTools();
+    expect(off.tools).toHaveLength(20);
+    expect(off.tools.map((t) => t.name)).not.toContain("sign_in");
   });
 
   it("with OAuth off they are unchanged", async () => {
@@ -305,11 +368,18 @@ describe("texts with OAuth on", () => {
     }
   });
 
-  it("missingKeyText leads with sign-in only in OAuth mode", () => {
-    const on = missingKeyText(NO_KEY, true);
-    expect(on.indexOf("Sign in")).toBeGreaterThan(-1);
-    expect(on.indexOf("Sign in")).toBeLessThan(on.indexOf("Or use an API key"));
-    expect(missingKeyText(NO_KEY)).not.toContain("Sign in");
-    expect(missingKeyText({ status: "foreign" }, true)).toMatch(/^The Authorization header sent to this server is not a Yes2 sign-in/);
+  it("missingKeyText is the not-signed-in text in OAuth mode, phase 1 text otherwise", () => {
+    expect(missingKeyText(NO_KEY, true)).toBe(NOT_SIGNED_IN_TEXT);
+    expect(missingKeyText({ status: "foreign" }, true)).toBe(NOT_SIGNED_IN_TEXT);
+    const malformed = missingKeyText({ status: "malformed", source: "header" }, true);
+    expect(malformed.startsWith(NOT_SIGNED_IN_TEXT)).toBe(true);
+    expect(malformed).toContain("X-Yes2-Api-Key header sent to this server is not a Yes2 dashboard API key");
+    expect(missingKeyText(NO_KEY)).not.toContain("sign in");
+  });
+
+  it("the not-signed-in text is exactly the product wording", () => {
+    expect(NOT_SIGNED_IN_TEXT).toBe(
+      "You're not signed in to Yes2. To use dashboard tools, sign in: ask me to 'sign in to Yes2' (I'll call the sign_in tool), or in Claude Code run /mcp → Authenticate, or in Codex run `codex mcp login yes2sdk`. Alternatively set YES2_API_KEY (y2g_ key) and send it as X-Yes2-Api-Key.",
+    );
   });
 });
