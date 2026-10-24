@@ -237,6 +237,51 @@ Lists the game's builds, newest first, each with its bundles:
 
 `version` is `null` for a build uploaded through the dashboard by hand. `display_name` is `null` until the build is [renamed](#rename-a-build). `bundles` is `[]` until a bundle is built, and holds one entry per bundled target.
 
+### Get a build
+
+```
+GET /api/v1/games/:gameId/builds/:buildId
+```
+
+Returns one build: the same fields as an entry of the list, plus four camelCase fields that describe what the dashboard made of it.
+
+| Field | Type | Notes |
+|---|---|---|
+| `engine` | string or null | The engine detected in the zip, for example `unity`, `defold` or `vanilla` |
+| `uploadWarnings` | string[] | Advisory findings from the upload analysis, for example root-absolute asset paths. The build is stored either way. `[]` when there are none |
+| `bundleErrors` | object[] | One `{ "platform", "error" }` per bundle whose build failed. `[]` when none did |
+| `inspectorUrl` | string | The build's QA Inspector page in the dashboard. Open it in a browser while logged in |
+
+```bash
+curl https://dashboard.yes2games.com/api/v1/games/$GAME_ID/builds/$BUILD_ID \
+  -H "Authorization: Bearer $YES2_API_KEY"
+```
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "c81e...",
+    "version": "3.0.9",
+    "display_name": null,
+    "original_filename": "Age of Zombies v3.0.9.zip",
+    "original_size_bytes": 48211934,
+    "status": "uploaded",
+    "notes": "Fixed the wave 10 boss softlock",
+    "created_at": "2026-08-24T09:14:02.887Z",
+    "bundles": [
+      { "platform": "debug", "status": "ready", "size_bytes": 48302211, "created_at": "2026-08-24T09:15:40.112Z" }
+    ],
+    "engine": "unity",
+    "uploadWarnings": [],
+    "bundleErrors": [],
+    "inspectorUrl": "https://dashboard.yes2games.com/games/3f6c1b8e-.../builds/c81e.../inspect"
+  }
+}
+```
+
+A build that is not in the game answers `404` with `BUILD_NOT_FOUND`.
+
 ---
 
 ## Upload an icon or banner
@@ -283,6 +328,11 @@ Removes the image. Removing an image that is not there still answers `200`. The 
 
 ## Upload a build
 
+There are two ways to upload a build. Both produce exactly the same build.
+
+- **Multipart**, one request carrying the zip. The simplest, but the request passes through the dashboard's Cloudflare proxy, which refuses a request body over about **100 MB**. In practice this route is for zips under 100 MB, even though the build cap is 500 MB.
+- **Presigned**, three short requests and one direct upload to storage. Works for any zip up to the 500 MB cap and is the way to upload anything larger than 100 MB. See [Upload a large build](#upload-a-large-build-presigned).
+
 ```
 POST /api/v1/games/:gameId/builds
 Content-Type: multipart/form-data
@@ -290,7 +340,7 @@ Content-Type: multipart/form-data
 
 | Part | Type | Required | Notes |
 |---|---|---|---|
-| `build` | file | yes | The WebGL build zip, `index.html` at the zip root or one level down. Max 500 MB |
+| `build` | file | yes | The WebGL build zip, `index.html` at the zip root or one level down. About 100 MB in practice on this route (see above); use the presigned flow for anything larger |
 | `version` | text | yes | Your version string, up to 100 characters. Must be unique within the game |
 | `notes` | text | no | Release notes for this build, shown on the build in the dashboard and in the team's new-build notification. Up to 500 characters, trimmed. Blank is the same as absent |
 
@@ -314,12 +364,15 @@ curl -X POST https://dashboard.yes2games.com/api/v1/games/$GAME_ID/builds \
     "status": "uploaded",
     "notes": "Fixed the wave 10 boss softlock",
     "created_at": "2026-08-24T09:14:02.887Z",
-    "version": "3.0.9"
+    "version": "3.0.9",
+    "engine": "unity",
+    "uploadWarnings": [],
+    "inspectorUrl": "https://dashboard.yes2games.com/games/3f6c1b8e-.../builds/c81e.../inspect"
   }
 }
 ```
 
-The response may also carry informational analysis fields such as `compression`, `largest_file_bytes`, and `largest_file_name`. Do not depend on them being present.
+`engine`, `uploadWarnings` and `inspectorUrl` mean the same as on [Get a build](#get-a-build). The response may also carry informational analysis fields such as `compression`, `largest_file_bytes`, and `largest_file_name`. Do not depend on them being present.
 
 ### What happens after a successful upload
 
@@ -334,6 +387,141 @@ The version is a free-form string, so `1.4.2`, `2026.08.24-nightly`, and `1.2.3-
 It is unique **per game**. Re-posting a version that a game already has returns `409` and changes nothing, which is what makes a retried or re-run pipeline job safe: the second attempt cannot create a duplicate build. When you genuinely mean to replace a build, upload a new version.
 
 Builds uploaded through the dashboard by hand carry no version, and they never collide with a versioned one.
+
+---
+
+## Upload a large build (presigned)
+
+For a zip over about 100 MB, or whenever the upload should not depend on one long request. The zip goes straight to storage, and the dashboard analyses it in the background, so neither the size nor a slow analysis can time the request out.
+
+1. **Create the upload.** Say how big the zip is; you get back a URL to PUT it to.
+2. **PUT the zip** to that URL, with exactly the headers you were given.
+3. **Finalize.** The dashboard answers `202` at once and processes the zip in the background.
+4. **Poll the status** until it is `ready` (you get the build) or `failed` (you get the reason).
+
+### 1. Create the upload
+
+```
+POST /api/v1/games/:gameId/build-uploads
+Content-Type: application/json
+Idempotency-Key: <optional, up to 128 characters>
+```
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `version` | string | yes | Same rules as the multipart `version`. Checked now, so a version the game already has is refused before you upload anything |
+| `size` | integer | yes | The zip's exact size in bytes. At most 524288000 (500 MB). The upload URL only accepts a body of exactly this size |
+| `notes` | string or null | no | Same rules as the multipart `notes` |
+| `name` | string or null | no | The build's display name, as set by [Rename a build](#rename-a-build). Up to 100 characters |
+
+`201 Created`:
+
+```json
+{
+  "success": true,
+  "data": {
+    "uploadId": "7d1e0c2a-...",
+    "uploadUrl": "https://...r2.cloudflarestorage.com/...",
+    "method": "PUT",
+    "headers": { "Content-Type": "application/zip", "Content-Length": "314572800" },
+    "expiresAt": "2026-08-24T09:29:02.887Z"
+  }
+}
+```
+
+The upload must start before `expiresAt` (15 minutes). The URL is a credential for this one upload: do not log it.
+
+Send an `Idempotency-Key` to make a retried request safe. Repeating the request with the same key and the same body returns the same `uploadId` with a fresh URL, instead of a second upload. The same key with a different body is a `409 IDEMPOTENCY_CONFLICT`, and repeating it after the upload was finalized is a `409 UPLOAD_NOT_PENDING` that carries the `uploadId`, so you can read its status.
+
+### 2. PUT the zip
+
+PUT the file to `uploadUrl` with the returned `headers`, and nothing else. No `Authorization` header: the URL carries its own signature.
+
+### 3. Finalize
+
+```
+POST /api/v1/games/:gameId/build-uploads/:uploadId/finalize
+```
+
+`202 Accepted`:
+
+```json
+{ "success": true, "data": { "uploadId": "7d1e0c2a-...", "status": "processing" } }
+```
+
+Finalizing is safe to repeat. A second call does not process the zip twice; it answers `202` with the upload's current status. Finalizing before the PUT has finished is a `409 UPLOAD_NOT_RECEIVED`, and the upload stays usable: finish the PUT and finalize again. An upload must be finalized within an hour of being created.
+
+### 4. Poll the status
+
+```
+GET /api/v1/games/:gameId/build-uploads/:uploadId
+```
+
+```json
+{
+  "success": true,
+  "data": {
+    "uploadId": "7d1e0c2a-...",
+    "status": "ready",
+    "buildId": "c81e...",
+    "build": { "id": "c81e...", "version": "3.0.9", "engine": "unity", "uploadWarnings": [], "bundleErrors": [], "inspectorUrl": "https://dashboard.yes2games.com/games/.../builds/c81e.../inspect" }
+  }
+}
+```
+
+| `status` | Meaning |
+|---|---|
+| `pending` | Created, waiting for the PUT and the finalize call |
+| `processing` | Finalized; the zip is being analysed. Poll again in a few seconds |
+| `ready` | The build exists. `buildId` and `build` (the [Get a build](#get-a-build) shape) are set |
+| `failed` | Nothing was stored. `error` is `{ "code", "message" }`. Fix the cause and create a new upload |
+
+`error.code` is one of the multipart route's codes (`SDK_NOT_INTEGRATED`, `INDEX_HTML_MISSING`, `UPLOAD_ANALYSIS_FAILED`, `VERSION_EXISTS`, `FILE_TOO_LARGE`) or one of these: `SIZE_MISMATCH` (the stored object is not the declared size), `UPLOAD_EXPIRED` (not finalized in time, or nothing was uploaded), `PROCESSING_INTERRUPTED` (the server restarted mid-processing) or `PROCESSING_FAILED` (an unexpected server error). The last two are safe to retry with a new upload.
+
+A status is kept for a day after the upload finishes.
+
+### Example: curl
+
+```bash
+ZIP=build/WebGL.zip
+SIZE=$(wc -c < "$ZIP" | tr -d ' ')
+API=https://dashboard.yes2games.com/api/v1/games/$GAME_ID
+
+upload=$(curl --fail-with-body -s -X POST "$API/build-uploads" \
+  -H "Authorization: Bearer $YES2_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
+  -d "{\"version\":\"$VERSION\",\"size\":$SIZE}")
+UPLOAD_ID=$(echo "$upload" | jq -r .data.uploadId)
+URL=$(echo "$upload" | jq -r .data.uploadUrl)
+
+curl --fail-with-body -s -X PUT "$URL" \
+  -H 'Content-Type: application/zip' \
+  --upload-file "$ZIP"
+
+curl --fail-with-body -s -X POST "$API/build-uploads/$UPLOAD_ID/finalize" \
+  -H "Authorization: Bearer $YES2_API_KEY"
+
+while :; do
+  status=$(curl --fail-with-body -s "$API/build-uploads/$UPLOAD_ID" \
+    -H "Authorization: Bearer $YES2_API_KEY")
+  case "$(echo "$status" | jq -r .data.status)" in
+    ready)  echo "$status" | jq .data.build; break ;;
+    failed) echo "$status" | jq .data.error; exit 1 ;;
+    *)      sleep 5 ;;
+  esac
+done
+```
+
+`--upload-file` sends the `Content-Length` curl measures from the file, which matches `size` as long as the zip did not change in between.
+
+---
+
+## Rate limits and client tags
+
+Write requests (every `POST`, `PATCH` and `DELETE` on this page) are limited per key, to 60 a minute. Past the limit the answer is `429` with `RATE_LIMITED` and a `Retry-After` header in seconds. Reads, including status polling, are not counted.
+
+An integration can name itself with an `X-Yes2-Client` header, for example `X-Yes2-Client: mcp`: lowercase letters, digits and `-`, up to 32 characters. The dashboard records it on the build's upload activity. Anything else is ignored.
 
 ---
 
@@ -357,6 +545,15 @@ Every failure answers with `{"success": false, "error": "..."}`, plus a `code` w
 | `409` | `VERSION_EXISTS` | This game already has a build at that version |
 | `422` | `SDK_NOT_INTEGRATED` | Yes2SDK was not detected in the build |
 | `413` | | The zip is over the 500 MB cap, or a JSON body is over 20 MB |
+| `413` | `FILE_TOO_LARGE` | A presigned upload declared a `size` over 500 MB |
+| `400` | `INVALID_SIZE` | A presigned upload's `size` is missing or not a positive whole number |
+| `400` | `INVALID_IDEMPOTENCY_KEY` | `Idempotency-Key` is empty, over 128 characters, or not visible ASCII |
+| `409` | `IDEMPOTENCY_CONFLICT` | The `Idempotency-Key` was already used for a different upload |
+| `409` | `UPLOAD_NOT_PENDING` | The `Idempotency-Key` belongs to an upload that was already finalized. The body carries its `uploadId` and `status` |
+| `409` | `UPLOAD_NOT_RECEIVED` | Finalize was called before the zip was PUT. The upload stays usable |
+| `409` | `R2_NOT_ENABLED` | Presigned uploads are not available on this server. Use the multipart route |
+| `404` | `UPLOAD_NOT_FOUND` | No upload with that id belongs to the game |
+| `429` | `RATE_LIMITED` | Too many writes for this key. Wait `Retry-After` seconds |
 | `400` | | A field failed validation. The message names the field |
 | `500` | | Server error. Safe to retry |
 
