@@ -1,7 +1,10 @@
 /**
- * Records test/fixtures/phase1-http.json: the phase 1 server's answers to the
- * parity matrix, plus what it forwarded to the dashboard. Run it against a
- * build of the commit before the OAuth gate (origin/main at cd112ee):
+ * Records test/fixtures/phase1-http.json: the flag-off server's answers to
+ * the parity matrix, plus what it forwarded to the dashboard. The argument is
+ * a checkout with a built dist/: the commit before the OAuth gate
+ * (origin/main at cd112ee), or this branch after a flag-independent change to
+ * a tool, in which case diff the result against the previous fixture and
+ * account for every change:
  *
  *   git worktree add /tmp/phase1 cd112ee && (cd /tmp/phase1 && npm ci && npm run build)
  *   npx tsx test/helpers/capture-phase1.ts /tmp/phase1

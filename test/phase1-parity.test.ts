@@ -7,10 +7,17 @@ import { PARITY_PORTS } from "./helpers/parity-ports.js";
 
 /**
  * MCP_OAUTH_ENABLED off must be phase 1 byte for byte. The fixture holds what
- * the phase 1 server (origin/main at cd112ee, before the OAuth gate) answered
- * to every request in the matrix (status, every header but Date, the raw body)
- * and what it forwarded to the dashboard. This branch must reproduce all of it
- * with the flag unset and with it set to 0. See helpers/capture-phase1.ts.
+ * the flag-off server answered to every request in the matrix (status, every
+ * header but Date, the raw body) and what it forwarded to the dashboard. This
+ * branch must reproduce all of it with the flag unset and with it set to 0.
+ *
+ * Provenance: first recorded from origin/main at cd112ee (before the OAuth
+ * gate). It was re-recorded once when set_game_image moved to the presigned
+ * image upload and finalize_image_upload was added, a change that does not
+ * depend on the flag. Diffed against the cd112ee recording, the only changes
+ * were the "Editing a game" instructions line, the set_game_image and
+ * finalize_image_upload tool entries and calls, and two JSON-RPC ids shifted
+ * by the inserted matrix rows. See helpers/capture-phase1.ts.
  */
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..");

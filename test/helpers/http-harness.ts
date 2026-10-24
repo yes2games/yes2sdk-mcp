@@ -68,11 +68,38 @@ export async function startStubDashboard(port = 0): Promise<StubDashboard> {
         return;
       }
       const scopes = token === CREDS.oauthReadOnly ? ["games:read"] : ALL_SCOPES;
-      json(res, 200, { success: true, data: { kind: token.startsWith("y2a_") ? "oauth" : "key", scopes } });
+      // The live dashboard A1 shape.
+      json(res, 200, {
+        success: true,
+        data: {
+          principal: { kind: "team", teamId: "t-stub", teamName: "Stub Studio" },
+          user: { id: "u-stub", email: "dev@stub.test", name: "Stub Dev" },
+          credential: { kind: token.startsWith("y2a_") ? "oauth" : "key" },
+          scopes,
+        },
+      });
       return;
     }
     if (path === "/games" && req.method === "GET") {
       json(res, 200, { success: true, data: [{ id: "g-stub", name: "Stub Game", engine: "unity", buildCount: 0 }] });
+      return;
+    }
+    if (/^\/games\/[^/]+\/image-uploads$/.test(path) && req.method === "POST") {
+      json(res, 201, {
+        success: true,
+        data: {
+          uploadId: "iu-stub",
+          kind: "icon",
+          uploadUrl: "https://r2.test/img?sig=stub",
+          method: "PUT",
+          headers: { "Content-Type": "image/png", "Content-Length": "2048" },
+          expiresAt: "2026-10-24T12:15:00Z",
+        },
+      });
+      return;
+    }
+    if (/^\/games\/[^/]+\/image-uploads\/[^/]+\/finalize$/.test(path) && req.method === "POST") {
+      json(res, 200, { success: true, data: { uploadId: "iu-stub", status: "ready", kind: "icon", id: "g1", has_icon: true } });
       return;
     }
     if (path === "/games" && req.method === "POST") {
@@ -204,7 +231,9 @@ export function parityMatrix(): MatrixEntry[] {
     post("list_games, malformed X-Yes2-Api-Key", call("list_games"), { "X-Yes2-Api-Key": "nope" }),
     post("create_game, y2g_ bearer", call("create_game", { name: "New Game", engine: "unity" }), bearer(CREDS.key)),
     post("create_game, no auth", call("create_game", { name: "New Game", engine: "unity" })),
-    post("set_game_image, y2g_ bearer", call("set_game_image", { gameId: "g1", kind: "icon" }), bearer(CREDS.key)),
+    post("set_game_image, y2g_ bearer", call("set_game_image", { gameId: "g1", kind: "icon", size: 2048, imagePath: "icon.png" }), bearer(CREDS.key)),
+    post("finalize_image_upload, y2g_ bearer", call("finalize_image_upload", { gameId: "g1", uploadId: "iu-stub" }), bearer(CREDS.key)),
+    post("finalize_image_upload, no auth", call("finalize_image_upload", { gameId: "g1", uploadId: "iu-stub" })),
     post("prepare_upload, no auth", call("prepare_upload", { gameId: "g1", version: "1.0.0", size: 10 })),
     post("batch with a dashboard call, no auth", [call("list_games"), call("search_docs", { query: "ads" })]),
     { name: "GET path-suffixed PRM", method: "GET", path: "/.well-known/oauth-protected-resource/mcp" },

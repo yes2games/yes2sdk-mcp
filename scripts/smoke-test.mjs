@@ -79,6 +79,7 @@ const expected = [
   "get_build_status",
   "update_game",
   "set_game_image",
+  "finalize_image_upload",
   "rename_build",
 ];
 const names = tools.map((t) => t.name).sort();

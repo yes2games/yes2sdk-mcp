@@ -2,7 +2,7 @@
  * Lazy OAuth sign-in for the dashboard tools (phase 2, yes2sdk-mcp#108,
  * design in yes2dashboard#881 §7).
  *
- * Only the eight dashboard tools ever need a sign-in. `initialize`,
+ * Only the dashboard tools ever need a sign-in. `initialize`,
  * `tools/list` and every other `tools/call` stay anonymous: the gate never
  * answers them with 401 or 403, and ignores any token they carry. A protected
  * call without a usable credential is refused at the HTTP layer with a 401 and
@@ -43,13 +43,14 @@ export const PRM = {
   resource_name: "Yes2 dashboard",
 } as const;
 
-/** The dashboard tools, each with the scope its v1 routes require. */
+/** The nine dashboard tools, each with the scope its v1 routes require. */
 export const TOOL_SCOPES: Readonly<Record<string, Scope>> = {
   list_games: "games:read",
   get_build_status: "games:read",
   create_game: "games:write",
   update_game: "games:write",
   set_game_image: "games:write",
+  finalize_image_upload: "games:write",
   rename_build: "games:write",
   prepare_upload: "builds:write",
   finalize_upload: "builds:write",
@@ -160,7 +161,11 @@ export async function whoami(
   return { kind: "ok", scopes: scopesOf(envelope) };
 }
 
-/** `{ success, data: { scopes } }` (the v1 envelope), or a bare `{ scopes }`. */
+/**
+ * The live dashboard whoami (A1) answers `{ success, data: { principal, user?,
+ * credential: { kind }, scopes } }`; only `data.scopes` is read. A bare
+ * `{ scopes }` is accepted too.
+ */
 function scopesOf(envelope: unknown): string[] | undefined {
   if (envelope === null || typeof envelope !== "object") return undefined;
   const e = envelope as { data?: unknown; scopes?: unknown };

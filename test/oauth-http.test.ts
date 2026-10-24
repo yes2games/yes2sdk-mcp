@@ -129,8 +129,8 @@ describe("dashboard tools without a usable credential get the 401 challenge", ()
     expect(stub.calls).toHaveLength(0);
   });
 
-  it("every one of the eight dashboard tools is gated", async () => {
-    for (const name of ["list_games", "create_game", "prepare_upload", "finalize_upload", "get_build_status", "update_game", "set_game_image", "rename_build"]) {
+  it("every one of the nine dashboard tools is gated", async () => {
+    for (const name of ["list_games", "create_game", "prepare_upload", "finalize_upload", "get_build_status", "update_game", "set_game_image", "finalize_image_upload", "rename_build"]) {
       const res = await post(callTool(name, {}));
       expect(res.status, name).toBe(401);
       await res.text();

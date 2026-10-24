@@ -84,13 +84,14 @@ describe("redactKeys", () => {
 });
 
 describe("requiredScopes", () => {
-  it("maps each of the eight dashboard tools to its scope", () => {
+  it("maps each of the nine dashboard tools to its scope", () => {
     expect(Object.keys(TOOL_SCOPES).sort()).toEqual(
-      ["create_game", "finalize_upload", "get_build_status", "list_games", "prepare_upload", "rename_build", "set_game_image", "update_game"],
+      ["create_game", "finalize_image_upload", "finalize_upload", "get_build_status", "list_games", "prepare_upload", "rename_build", "set_game_image", "update_game"],
     );
     expect(requiredScopes(call("list_games"))).toEqual(["games:read"]);
     expect(requiredScopes(call("prepare_upload"))).toEqual(["builds:write"]);
     expect(requiredScopes(call("rename_build"))).toEqual(["games:write"]);
+    expect(requiredScopes(call("finalize_image_upload"))).toEqual(["games:write"]);
   });
 
   it("ignores everything that is not a dashboard tools/call", () => {
@@ -158,6 +159,30 @@ describe("whoami", () => {
     expect(seen[0].url).toBe(`${BASE}/whoami`);
     expect(seen[0].init.method).toBe("GET");
     expect((seen[0].init.headers as Record<string, string>).Authorization).toBe(`Bearer ${TOKEN}`);
+  });
+
+  it("reads data.scopes from the live dashboard whoami shape (team and personal principals)", async () => {
+    const team = {
+      success: true,
+      data: {
+        principal: { kind: "team", teamId: "t1", teamName: "Studio" },
+        user: { id: "u1", email: "a@b.test", name: "A" },
+        credential: { kind: "oauth" },
+        scopes: ["games:read", "games:write"],
+      },
+    };
+    expect(await whoami(BASE, TOKEN, fetchAnswering(200, team).fn)).toEqual({ kind: "ok", scopes: ["games:read", "games:write"] });
+    const personal = {
+      success: true,
+      data: { principal: { kind: "personal", userId: "u1" }, credential: { kind: "oauth" }, scopes: ALL },
+    };
+    expect(await whoami(BASE, TOKEN, fetchAnswering(200, personal).fn)).toEqual({ kind: "ok", scopes: ALL });
+    const keyNoUser = { success: true, data: { principal: { kind: "team", teamId: "t1", teamName: "S" }, credential: { kind: "key" }, scopes: ALL } };
+    expect(await gate(call("prepare_upload"), { status: "ok", kind: "oauth", credential: TOKEN }, BASE, fetchAnswering(200, team).fn)).toMatchObject({
+      kind: "refuse",
+      challenge: { status: 403 },
+    });
+    expect(await gate(call("prepare_upload"), { status: "ok", kind: "oauth", credential: TOKEN }, BASE, fetchAnswering(200, keyNoUser).fn)).toEqual({ kind: "pass" });
   });
 
   it("reads a bare { scopes } too, and tolerates no scope list", async () => {
@@ -238,8 +263,8 @@ describe("dashboard client texts", () => {
   });
 
   it("explains the preview caps and a missing scope", async () => {
-    expect(await errorFor(409, { success: false, error: "Game limit reached", code: "game_limit_reached" })).toMatch(/game limit \(game_limit_reached\).*up to 3 games/);
-    expect(await errorFor(409, { success: false, error: "Build limit reached", code: "build_limit_reached" })).toMatch(/build limit \(build_limit_reached\).*1 build per game/);
+    expect(await errorFor(409, { success: false, error: "Game limit reached", code: "game_limit_reached", limit: 3 })).toMatch(/game limit of 3 \(game_limit_reached\).*Preview accounts are capped/);
+    expect(await errorFor(409, { success: false, error: "Build limit reached", code: "build_limit_reached" })).toMatch(/build limit \(build_limit_reached\).*capped per game/);
     expect(await errorFor(403, { success: false, error: "Missing scope", code: "INSUFFICIENT_SCOPE", scope: "builds:write" })).toMatch(
       /not allowed to do that \(INSUFFICIENT_SCOPE\).*Sign in again/,
     );

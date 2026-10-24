@@ -21,7 +21,8 @@ import {
  * a ready-to-run curl command, and the agent uploads from the user's machine
  * straight to storage. That keeps the hosted server's memory flat and means a
  * build never passes through this process. set_game_image does the same for an
- * icon or banner, with a curl command that reads the key from the user's shell.
+ * icon or banner through the dashboard's presigned image upload, finished by
+ * finalize_image_upload.
  */
 export interface DashboardToolContext {
   auth: ApiKeyAuth;
@@ -41,11 +42,12 @@ export const IMAGE_KINDS = ["icon", "banner"] as const;
 export type ImageKind = (typeof IMAGE_KINDS)[number];
 
 /**
- * What POST /api/v1/games/:id/{icon,banner} accepts: a JSON `{ dataUrl }` whose
- * data URL is base64 PNG, JPEG or WebP. The whole JSON body is capped at 20 MB,
- * and base64 grows the bytes by a third, so the image itself tops out near 15 MB.
- * The route checks no dimensions.
+ * What POST /api/v1/games/:id/image-uploads accepts: PNG, JPEG or WebP, with
+ * the exact size in bytes, 1 to 15 MB. The PUT URL is signed to that type and
+ * length, lasts 15 minutes, and the upload must be finalized within 60.
  */
+export const IMAGE_MAX_BYTES = 15 * 1024 * 1024;
+export const IMAGE_CONTENT_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 export const IMAGE_MIME_BY_EXT: Readonly<Record<string, string>> = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
@@ -53,7 +55,11 @@ export const IMAGE_MIME_BY_EXT: Readonly<Record<string, string>> = {
   ".webp": "image/webp",
 };
 export const IMAGE_LIMITS =
-  "Image limits (from the dashboard route): PNG, JPEG or WebP only; the JSON request body is capped at 20 MB, so the image file must stay under about 15 MB once base64 adds its third; no width or height is enforced, and an upload replaces the current image.";
+  "Image limits (from the dashboard route): PNG, JPEG or WebP only, at most 15 MB (15728640 bytes); no width or height is enforced, and a finalized upload replaces the current image.";
+
+const IMAGE_FLOW =
+  "Image flow: (1) set_game_image with the image's exact size in bytes and its type (contentType, or imagePath to derive it from the extension); " +
+  "(2) the returned curl command PUTs the file from the user's machine straight to storage, within 15 minutes; (3) finalize_image_upload with the uploadId.";
 
 const FLOW =
   "Upload flow: (1) zip the built game with index.html at the root of the zip, not inside a folder; " +
@@ -188,6 +194,16 @@ interface PreparedUpload {
   expiresAt?: unknown;
 }
 
+interface ImageUploadResult {
+  uploadId?: unknown;
+  status?: unknown;
+  kind?: unknown;
+  id?: unknown;
+  has_icon?: unknown;
+  has_banner?: unknown;
+  onboarding_stage?: unknown;
+}
+
 interface UploadStatus {
   uploadId?: unknown;
   status?: unknown;
@@ -196,10 +212,18 @@ interface UploadStatus {
   build?: Record<string, unknown> | null;
 }
 
-/** The curl command for a presigned PUT. Content-Length is left to curl, which measures the file. */
-export function curlCommand(prepared: PreparedUpload, zipPath: string | undefined): string {
+/**
+ * The curl command for a presigned PUT. Content-Length is left to curl, which
+ * measures the file, so a wrong file fails the signature instead of hanging.
+ * The URL carries the signature: no Authorization header is ever added.
+ */
+export function curlCommand(
+  prepared: PreparedUpload,
+  filePath: string | undefined,
+  defaults: { contentType: string; placeholder: string } = { contentType: "application/zip", placeholder: ZIP_PLACEHOLDER },
+): string {
   const method = str(prepared.method) ?? "PUT";
-  const headers: Record<string, string> = { "Content-Type": "application/zip" };
+  const headers: Record<string, string> = { "Content-Type": defaults.contentType };
   if (prepared.headers && typeof prepared.headers === "object") {
     for (const [name, value] of Object.entries(prepared.headers as Record<string, unknown>)) {
       if (name.toLowerCase() === "content-length" || typeof value !== "string") continue;
@@ -207,7 +231,7 @@ export function curlCommand(prepared: PreparedUpload, zipPath: string | undefine
       headers[name] = value;
     }
   }
-  const file = zipPath ? `@${shellQuote(zipPath)}` : `@${ZIP_PLACEHOLDER}`;
+  const file = filePath ? `@${shellQuote(filePath)}` : `@${defaults.placeholder}`;
   const headerArgs = Object.entries(headers).map(([name, value]) => `-H ${shellQuote(`${name}: ${value}`)}`);
   return [`curl -X ${method}`, `--data-binary ${file}`, ...headerArgs, shellQuote(String(prepared.uploadUrl))].join(" ");
 }
@@ -258,30 +282,6 @@ function show(value: unknown): string {
 export function imageMimeType(imagePath: string): string | undefined {
   const dot = imagePath.lastIndexOf(".");
   return dot === -1 ? undefined : IMAGE_MIME_BY_EXT[imagePath.slice(dot).toLowerCase()];
-}
-
-/**
- * The command that uploads an icon or banner from the user's machine. The
- * route takes JSON `{ dataUrl }`, not multipart, so the body is built in the
- * shell and streamed to curl on stdin: inlining it with -d would hit the
- * per-argument size limit (128 KB on Linux) for any real image. `base64 <`
- * works on macOS and Linux alike; GNU wraps its output, which tr removes.
- *
- * The key is `$YES2_API_KEY`, expanded by the user's shell inside double
- * quotes. It is never filled in here, so it cannot reach the chat.
- */
-export function imageCurlCommand(baseUrl: string, gameId: string, kind: ImageKind, imagePath: string | undefined): string {
-  const mime = imagePath ? (imageMimeType(imagePath) ?? "image/png") : "image/png";
-  const file = imagePath ? shellQuote(imagePath) : `<path/to/${kind}.png>`;
-  const url = shellQuote(`${baseUrl}/games/${seg(gameId)}/${kind}`);
-  return [
-    `{ printf '{"dataUrl":"data:${mime};base64,'; base64 < ${file} | tr -d '\\n'; printf '"}'; }`,
-    `| curl -sS -X POST`,
-    `-H "Authorization: Bearer $YES2_API_KEY"`,
-    `-H 'Content-Type: application/json'`,
-    `--data-binary @-`,
-    url,
-  ].join(" ");
 }
 
 export function registerDashboardTools(server: McpServer, ctx: DashboardToolContext): void {
@@ -473,6 +473,8 @@ export function registerDashboardTools(server: McpServer, ctx: DashboardToolCont
             lines.push("Yes2SDK was not detected in the build, so uploading the same zip again fails the same way. validate_integration on the build output shows what is missing.");
           } else if (code === "VERSION_EXISTS") {
             lines.push("This game already has a build at that version; prepare_upload with a new version.");
+          } else if (code === "build_limit_reached") {
+            lines.push("This account's build limit for the game is reached (preview accounts are capped per game). Remove the existing build in the dashboard or ask to join a studio, then prepare_upload again.");
           } else if (code === "UPLOAD_EXPIRED") {
             lines.push("The zip was not uploaded and finalized within the hour; start again with prepare_upload.");
           } else if (code === "PROCESSING_INTERRUPTED" || code === "PROCESSING_FAILED") {
@@ -558,37 +560,45 @@ export function registerDashboardTools(server: McpServer, ctx: DashboardToolCont
   server.registerTool(
     "set_game_image",
     {
-      ...dashboardTool("Set a game's icon or banner", { readOnly: false, idempotent: true, destructive: true }),
+      ...dashboardTool("Set a game's icon or banner", { readOnly: false, idempotent: false, destructive: true }),
       description:
         "Sets or removes a game's icon or banner on the Yes2 dashboard. " +
-        "Setting one: this server never reads local files, so it returns a ready-to-run curl command for the user's machine that posts the image to the dashboard. " +
-        "The command reads the key from the user's shell as $YES2_API_KEY, so the key never appears in the chat; it needs `export YES2_API_KEY=y2g_…` in that shell. " +
-        "PNG, JPEG or WebP, under about 15 MB (the request is capped at 20 MB after base64); no dimensions are enforced; an upload replaces the current image. " +
+        "Setting one: give the image's exact size in bytes (`stat -f%z <file>` on macOS, `stat -c%s <file>` on Linux) and its type, as contentType or as imagePath (the type comes from the extension). " +
+        "It returns an uploadId and a ready-to-run curl command that PUTs the file from the user's machine to a presigned storage URL; the command carries no credential, and this server never reads the file. " +
+        "After the PUT succeeds, finalize_image_upload stores it. " +
+        "PNG, JPEG or WebP, at most 15 MB; no dimensions are enforced; the new image replaces the current one. " +
         "With remove: true it deletes the current image directly instead. " +
+        IMAGE_FLOW +
+        " " +
         authNote,
       inputSchema: {
         gameId: z.string().trim().min(1).describe("Game id from list_games or create_game."),
         kind: z.enum(IMAGE_KINDS).describe("'icon' or 'banner'."),
+        size: z
+          .number()
+          .int()
+          .min(1)
+          .max(IMAGE_MAX_BYTES)
+          .optional()
+          .describe("Exact size of the image file in bytes, at most 15728640 (15 MB). Required unless remove is true."),
+        contentType: z
+          .enum(IMAGE_CONTENT_TYPES)
+          .optional()
+          .describe("The image's type: image/png, image/jpeg or image/webp. Omit it when imagePath is given; the extension decides."),
         imagePath: z
           .string()
           .min(1)
           .optional()
-          .describe("Optional local path of the image on the user's machine (.png, .jpg, .jpeg or .webp), filled into the curl command. Omitted, the command carries a placeholder."),
-        remove: z.boolean().optional().describe("true deletes the current icon or banner instead of returning an upload command."),
+          .describe("Optional local path of the image on the user's machine (.png, .jpg, .jpeg or .webp), filled into the curl command and used for the type. Omitted, the command carries a placeholder."),
+        remove: z.boolean().optional().describe("true deletes the current icon or banner instead of preparing an upload."),
       },
     },
-    async ({ gameId, kind, imagePath, remove }) => {
-      if (remove === true && imagePath !== undefined) {
-        return result("set_game_image takes either imagePath (to set the image) or remove: true (to delete it), not both.", true);
-      }
-      if (remove !== true && imagePath !== undefined && imageMimeType(imagePath) === undefined) {
-        return result(
-          `The dashboard accepts only PNG, JPEG or WebP images, and ${imagePath} does not end in .png, .jpg, .jpeg or .webp. Convert it first, then call set_game_image again.`,
-          true,
-        );
-      }
-      return run(ctx, async (client) => {
-        if (remove === true) {
+    async ({ gameId, kind, size, contentType, imagePath, remove }) => {
+      if (remove === true) {
+        if (imagePath !== undefined || size !== undefined || contentType !== undefined) {
+          return result("set_game_image takes either an image to upload (size with contentType or imagePath) or remove: true (to delete it), not both.", true);
+        }
+        return run(ctx, async (client) => {
           await client.delete<Record<string, unknown>>(`/games/${seg(gameId)}/${kind}`);
           return [
             `Removed the ${kind} of game ${gameId} (removing one that was not there also succeeds).`,
@@ -596,21 +606,80 @@ export function registerDashboardTools(server: McpServer, ctx: DashboardToolCont
           ]
             .filter((line) => line !== "")
             .join("\n");
-        }
+        });
+      }
 
-        const command = imageCurlCommand(ctx.baseUrl, gameId, kind, imagePath);
+      const fromPath = imagePath !== undefined ? imageMimeType(imagePath) : undefined;
+      if (imagePath !== undefined && fromPath === undefined) {
+        return result(
+          `The dashboard accepts only PNG, JPEG or WebP images, and ${imagePath} does not end in .png, .jpg, .jpeg or .webp. Convert it first, then call set_game_image again.`,
+          true,
+        );
+      }
+      if (contentType !== undefined && fromPath !== undefined && contentType !== fromPath) {
+        return result(`contentType ${contentType} does not match ${imagePath}, which is ${fromPath} by its extension. Give one or make them agree.`, true);
+      }
+      const type = contentType ?? fromPath;
+      if (type === undefined) {
+        return result("set_game_image needs the image's type: contentType (image/png, image/jpeg or image/webp) or an imagePath with a .png, .jpg, .jpeg or .webp extension.", true);
+      }
+      if (size === undefined) {
+        return result(
+          "set_game_image needs the image's exact size in bytes (`stat -f%z <file>` on macOS, `stat -c%s <file>` on Linux): the upload URL is signed to it.",
+          true,
+        );
+      }
+
+      return run(ctx, async (client) => {
+        const prepared = await client.post<PreparedUpload>(`/games/${seg(gameId)}/image-uploads`, { kind, contentType: type, size });
+        const uploadId = str(prepared?.uploadId);
+        if (!uploadId || !str(prepared?.uploadUrl)) {
+          throw new DashboardError("The dashboard did not return an image upload URL. It is safe to call set_game_image again.");
+        }
+        const placeholder = `<path/to/${kind}>`;
         return [
-          `Run this on the user's machine, in bash or zsh, to set the ${kind} of game ${gameId}` +
-            (imagePath ? ":" : `, replacing <path/to/${kind}.png> with the image's path (and image/png in the command with image/jpeg or image/webp for those files):`),
+          `Image upload prepared for the ${kind} of game ${gameId} (${type}, ${size} bytes).`,
+          `uploadId: ${uploadId}`,
+          `expiresAt: ${str(prepared.expiresAt) ?? "unknown"}`,
           "",
-          command,
+          "Run this on the user's machine" + (imagePath ? ":" : `, replacing ${placeholder} with the image's path:`),
           "",
-          "It sends the key as $YES2_API_KEY from that shell, so run `export YES2_API_KEY=y2g_…` there first if it is not set. Do not paste the key into the command.",
+          curlCommand(prepared, imagePath, { contentType: type, placeholder }),
+          "",
+          "The URL is signed to that exact type and size and works for 15 minutes. It carries no credential, so nothing needs to be exported first. An empty answer means it landed; an XML error body means it did not (usually a size or type mismatch, or an expired URL, fixed by calling set_game_image again).",
           IMAGE_LIMITS,
-          `The answer is JSON: "success":true with has_${kind}:true means it is stored. HTTP 400 means the file is not a PNG, JPEG or WebP data URL; HTTP 413 means the image is too large; INVALID_API_KEY means YES2_API_KEY is unset or wrong in that shell; HTTP 403 means the key's studio does not own the game.`,
+          `After the PUT succeeds: finalize_image_upload with gameId ${gameId} and uploadId ${uploadId} (within 60 minutes).`,
         ].join("\n");
       });
     },
+  );
+
+  server.registerTool(
+    "finalize_image_upload",
+    {
+      ...dashboardTool("Finalize an icon or banner upload", { readOnly: false, idempotent: true }),
+      description:
+        "Last step of setting a game's icon or banner, after the curl PUT from set_game_image has succeeded: the dashboard checks the image and makes it the game's icon or banner. " +
+        "Calling it again is safe. " +
+        IMAGE_FLOW +
+        " " +
+        authNote,
+      inputSchema: {
+        gameId: z.string().trim().min(1).describe("Game id the image upload was prepared for."),
+        uploadId: z.string().trim().min(1).describe("uploadId returned by set_game_image."),
+      },
+    },
+    async ({ gameId, uploadId }) =>
+      run(ctx, async (client) => {
+        const res = await client.post<ImageUploadResult>(`/games/${seg(gameId)}/image-uploads/${seg(uploadId)}/finalize`);
+        const kind = str(res?.kind) ?? "image";
+        const status = str(res?.status) ?? "unknown";
+        if (status !== "ready") return `Image upload ${uploadId} finalized. Status: ${status}.`;
+        const lines = [`Status: ready. The ${kind} of game ${str(res.id) ?? gameId} is set.`];
+        const stage = str(res.onboarding_stage);
+        if (stage) lines.push(`onboarding_stage: ${stage}`);
+        return lines.join("\n");
+      }),
   );
 
   server.registerTool(
