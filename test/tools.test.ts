@@ -19,6 +19,7 @@ const DASHBOARD_TOOLS = new Set([
   "get_build_status",
   "update_game",
   "set_game_image",
+  "finalize_image_upload",
   "rename_build",
 ]);
 
@@ -82,7 +83,7 @@ afterAll(async () => {
 });
 
 describe("listTools", () => {
-  it("returns exactly the 19 registered tools", async () => {
+  it("returns exactly the 20 registered tools", async () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
@@ -103,6 +104,7 @@ describe("listTools", () => {
         "rename_build",
         "search_docs",
         "set_game_image",
+        "finalize_image_upload",
         "troubleshoot",
         "update_game",
         "validate_integration",

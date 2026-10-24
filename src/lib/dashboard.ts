@@ -29,7 +29,13 @@ export class DashboardError extends Error {
 }
 
 export interface DashboardClientOptions {
-  apiKey: string;
+  /** A `y2g_` API key or, with MCP_OAUTH_ENABLED, a `y2a_` OAuth access token. */
+  credential: string;
+  /**
+   * MCP_OAUTH_ENABLED: a 401 also explains how to sign in again. Off keeps the
+   * phase 1 text.
+   */
+  signInHelp?: boolean;
   baseUrl: string;
   fetch?: FetchLike;
   timeoutMs?: number;
@@ -47,6 +53,19 @@ interface Envelope {
   data?: unknown;
   error?: unknown;
   code?: unknown;
+  /** The cap on a `game_limit_reached` / `build_limit_reached` answer. */
+  limit?: unknown;
+}
+
+/** What a failure needs besides its status and code. */
+interface FailureContext {
+  error: string | undefined;
+  retryAfter: string | null;
+  signInHelp: boolean;
+  /** The cap from a 409 `*_limit_reached`, when the dashboard sent one. */
+  limit: number | undefined;
+  /** The request path: the icon/banner upload codes overlap the build ones. */
+  path: string;
 }
 
 /** Normalise `DASHBOARD_API_URL`: no trailing slash, so paths join with one. */
@@ -64,8 +83,53 @@ export const INVALID_KEY_HELP =
   "The dashboard rejected the API key (INVALID_API_KEY). It is missing, revoked or unknown, or its holder left the studio or lost upload rights. " +
   "Create a personal key in the dashboard (avatar → Settings → Personal API keys → Create personal key), set it as YES2_API_KEY in this MCP server's config, and restart the client.";
 
-function describeFailure(status: number, code: string | undefined, error: string | undefined, retryAfter: string | null): string {
-  if (status === 401 || code === "INVALID_API_KEY") return INVALID_KEY_HELP;
+export const SIGN_IN_AGAIN_HELP =
+  "Sign in again: Claude Code `/mcp` → Authenticate; Codex `codex mcp login yes2sdk`; claude.ai reconnects automatically.";
+
+/** INVALID_KEY_HELP plus how to sign in again, used when MCP_OAUTH_ENABLED is on. */
+export const INVALID_CREDENTIAL_HELP =
+  "The dashboard rejected the sign-in or API key (INVALID_API_KEY). It expired, was revoked or is unknown, or its holder left the studio or lost upload rights. " +
+  `${SIGN_IN_AGAIN_HELP} ` +
+  "With an API key instead: create a personal key in the dashboard (avatar → Settings → Personal API keys → Create personal key), set it as YES2_API_KEY in this MCP server's config, and restart the client.";
+
+/** The icon/banner presigned upload (`/games/:id/image-uploads…`) has its own texts for shared codes. */
+function describeImageUploadFailure(code: string | undefined, tag: string, detail: string, limit: number | undefined): string | undefined {
+  switch (code) {
+    case "INVALID_BODY":
+    case "INVALID_KIND":
+      return `The image upload request was rejected${tag}${detail}. kind must be icon or banner, with the image's contentType and its exact size in bytes.`;
+    case "UNSUPPORTED_IMAGE_TYPE":
+      return `That image type is not accepted${tag}${detail}. Use a PNG, JPEG or WebP (image/png, image/jpeg or image/webp).`;
+    case "INVALID_SIZE":
+      return `The image size was rejected${tag}${detail}. Give the file's exact size in bytes, between 1 and 15728640 (15 MB): \`stat -f%z <file>\` on macOS, \`stat -c%s <file>\` on Linux.`;
+    case "IMAGE_TOO_LARGE":
+      return `The image is too large${tag}${detail}. Icons and banners are capped at 15 MB (15728640 bytes); shrink or recompress it and call set_game_image again.`;
+    case "UPLOAD_NOT_RECEIVED":
+      return `The dashboard has not received the image yet${tag}${detail}. Run (or finish) the curl PUT from set_game_image, then call finalize_image_upload again with the same uploadId.`;
+    case "UPLOAD_IN_PROGRESS":
+      return `That image upload is already being finalized${tag}${detail}. Wait a few seconds and call finalize_image_upload again with the same uploadId.`;
+    case "SIZE_MISMATCH":
+      return `The uploaded image is not the size that was declared${tag}${detail}. This upload cannot be finalized; call set_game_image again with the file's exact size and run the new curl command.`;
+    case "INVALID_IMAGE":
+      return `The uploaded file is not a valid image of the declared type${tag}${detail}. This upload cannot be finalized; check the file, then call set_game_image again.`;
+    case "UPLOAD_EXPIRED":
+      return `That image upload expired${tag}${detail}. Uploads must be finalized within 60 minutes (the PUT URL lasts 10); call set_game_image again.`;
+    case "UPLOAD_NOT_FOUND":
+      return `No image upload with that id belongs to this game${tag}${detail}. The uploadId comes from set_game_image for the same gameId.`;
+    case "TOO_MANY_OPEN_UPLOADS":
+      return `This game already has the maximum number of open image uploads${limit !== undefined ? ` (${limit})` : ""}${tag}${detail}. Finish one (run its curl PUT, then finalize_image_upload with its uploadId) or wait for them to expire, which they do within the hour, then call set_game_image again.`;
+    case "GAME_NOT_FOUND":
+      return `No game with that id is reachable${tag}${detail}. list_games shows the games this sign-in or key can reach.`;
+    case "R2_NOT_ENABLED":
+      return `This dashboard is not set up for direct image uploads${tag}${detail}. Set the image in the dashboard UI instead.`;
+    default:
+      return undefined;
+  }
+}
+
+function describeFailure(status: number, code: string | undefined, context: FailureContext): string {
+  const { error, retryAfter, signInHelp, limit, path } = context;
+  if (status === 401 || code === "INVALID_API_KEY") return signInHelp ? INVALID_CREDENTIAL_HELP : INVALID_KEY_HELP;
 
   // The dashboard's own messages often end in a period, and every template
   // below follows `detail` with its own punctuation: drop the trailing one so
@@ -73,6 +137,10 @@ function describeFailure(status: number, code: string | undefined, error: string
   const trimmed = error?.trim().replace(/[.\s]+$/, "");
   const detail = trimmed ? `: ${trimmed}` : "";
   const tag = code ? ` (${code})` : "";
+  if (path.includes("/image-uploads")) {
+    const image = describeImageUploadFailure(code, tag, detail, limit);
+    if (image !== undefined) return image;
+  }
   switch (code) {
     case "VERSION_EXISTS":
       return `This game already has a build at that version${tag}${detail}. Pick a new version string and prepare the upload again.`;
@@ -98,6 +166,19 @@ function describeFailure(status: number, code: string | undefined, error: string
       return `The build name is too long${tag}${detail}. It must be at most 100 characters after trimming.`;
     case "BUILD_NOT_FOUND":
       return `No build with that id belongs to this game${tag}${detail}. A buildId comes from get_build_status once an upload is ready, and belongs to the game it was uploaded to.`;
+    case "game_limit_reached":
+      return `This account has reached its game limit${limit !== undefined ? ` of ${limit}` : ""}${tag}${detail}. Preview accounts are capped; use an existing game from list_games, delete one in the dashboard, or ask to join a studio.`;
+    case "build_limit_reached": {
+      const cap = `This game has reached its build limit${limit !== undefined ? ` of ${limit}` : ""}${tag}${detail}.`;
+      const why =
+        "Preview accounts are capped per game, and an earlier upload to this game that is still open counts against the cap until it is finalized or expires (within the hour).";
+      if (/\/build-uploads\/[^/]+\/finalize$/.test(path)) {
+        return `${cap} The dashboard did not register this upload as a build. ${why} Remove the existing build in the dashboard, or ask to join a studio, then prepare_upload again.`;
+      }
+      return `${cap} ${why} Finish or wait out the earlier upload, remove the existing build in the dashboard, or ask to join a studio.`;
+    }
+    case "INSUFFICIENT_SCOPE":
+      return `This credential is not allowed to do that${tag}${detail}. Sign in again and allow every requested permission (games:read, games:write, builds:write), or use a personal API key that carries the scope.`;
     case "DISPLAY_NAME_COLUMN_MISSING":
       return `This dashboard cannot rename builds yet${tag}${detail}. Retrying will not help until the dashboard is updated; rename the build in the dashboard UI or ask a Yes2 admin.`;
     default:
@@ -117,7 +198,7 @@ export function createDashboardClient(options: DashboardClientOptions): Dashboar
 
   async function request<T>(method: "GET" | "POST" | "PATCH" | "DELETE", path: string, body?: unknown): Promise<T> {
     const headers: Record<string, string> = {
-      Authorization: `Bearer ${options.apiKey}`,
+      Authorization: `Bearer ${options.credential}`,
       Accept: "application/json",
       [CLIENT_HEADER.name]: CLIENT_HEADER.value,
     };
@@ -157,7 +238,13 @@ export function createDashboardClient(options: DashboardClientOptions): Dashboar
       const message =
         res.ok && envelope === undefined
           ? `The dashboard answered HTTP ${res.status} with a body that is not JSON.`
-          : describeFailure(status, code, error, res.headers.get("retry-after"));
+          : describeFailure(status, code, {
+              error,
+              retryAfter: res.headers.get("retry-after"),
+              signInHelp: options.signInHelp === true,
+              limit: typeof envelope?.limit === "number" ? envelope.limit : undefined,
+              path,
+            });
       throw new DashboardError(message, status, code);
     }
     return envelope?.data as T;

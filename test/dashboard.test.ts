@@ -15,6 +15,7 @@ const DASHBOARD_TOOLS = [
   "get_build_status",
   "update_game",
   "set_game_image",
+  "finalize_image_upload",
   "rename_build",
 ];
 
@@ -77,7 +78,7 @@ function textOf(res: CallResult): string {
 
 const isError = (res: CallResult): boolean => (res as { isError?: boolean }).isError === true;
 
-const withKey: ApiKeyAuth = { status: "ok", apiKey: KEY };
+const withKey: ApiKeyAuth = { status: "ok", kind: "key", credential: KEY };
 
 const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
   list_games: {},
@@ -86,13 +87,14 @@ const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
   finalize_upload: { gameId: "g1", uploadId: "u1" },
   get_build_status: { gameId: "g1", uploadId: "u1" },
   update_game: { gameId: "g1", name: "Zombies 2" },
-  set_game_image: { gameId: "g1", kind: "icon" },
+  set_game_image: { gameId: "g1", kind: "icon", size: 2048, contentType: "image/png" },
+  finalize_image_upload: { gameId: "g1", uploadId: "iu1" },
   rename_build: { gameId: "g1", buildId: "b1", name: "RC" },
 };
 
 describe("auth parsing", () => {
   it("accepts a y2g_ bearer header", () => {
-    expect(authFromHeaders(`Bearer ${KEY}`)).toEqual({ status: "ok", apiKey: KEY });
+    expect(authFromHeaders(`Bearer ${KEY}`)).toEqual({ status: "ok", kind: "key", credential: KEY });
   });
 
   it("treats an absent or blank header as no key", () => {
@@ -106,15 +108,15 @@ describe("auth parsing", () => {
   });
 
   it("falls back to a bare key in X-Yes2-Api-Key", () => {
-    expect(authFromHeaders(undefined, KEY)).toEqual({ status: "ok", apiKey: KEY });
-    expect(authFromHeaders("Bearer", KEY)).toEqual({ status: "ok", apiKey: KEY });
+    expect(authFromHeaders(undefined, KEY)).toEqual({ status: "ok", kind: "key", credential: KEY });
+    expect(authFromHeaders("Bearer", KEY)).toEqual({ status: "ok", kind: "key", credential: KEY });
     expect(authFromHeaders(undefined, "")).toEqual(NO_KEY);
     expect(authFromHeaders(undefined, `Bearer ${KEY}`)).toEqual({ status: "malformed", source: "header" });
   });
 
   it("prefers Authorization over X-Yes2-Api-Key", () => {
     const other = "y2g_other";
-    expect(authFromHeaders(`Bearer ${KEY}`, other)).toEqual({ status: "ok", apiKey: KEY });
+    expect(authFromHeaders(`Bearer ${KEY}`, other)).toEqual({ status: "ok", kind: "key", credential: KEY });
   });
 
   it("rejects anything that is not Bearer y2g_…", () => {
@@ -124,8 +126,8 @@ describe("auth parsing", () => {
   });
 
   it("reads YES2_API_KEY bare or with a pasted Bearer prefix", () => {
-    expect(authFromEnv(KEY)).toEqual({ status: "ok", apiKey: KEY });
-    expect(authFromEnv(`Bearer ${KEY}`)).toEqual({ status: "ok", apiKey: KEY });
+    expect(authFromEnv(KEY)).toEqual({ status: "ok", kind: "key", credential: KEY });
+    expect(authFromEnv(`Bearer ${KEY}`)).toEqual({ status: "ok", kind: "key", credential: KEY });
     expect(authFromEnv(undefined)).toEqual(NO_KEY);
     expect(authFromEnv("not-a-key")).toEqual({ status: "malformed", source: "env" });
   });
@@ -435,62 +437,127 @@ describe("update_game", () => {
 });
 
 describe("set_game_image", () => {
-  it("returns a curl command that posts a JSON data URL and reads the key from the shell", async () => {
-    const { client, calls } = await connect(withKey);
+  const presigned = (contentType = "image/png", size = 2048) =>
+    ok(
+      {
+        uploadId: "iu1",
+        kind: "icon",
+        uploadUrl: "https://r2.test/img?sig=abc",
+        method: "PUT",
+        headers: { "Content-Type": contentType, "Content-Length": String(size) },
+        expiresAt: "2026-10-24T12:15:00Z",
+      },
+      201,
+    );
+
+  it("prepares a presigned image upload and returns a credential-free curl PUT", async () => {
+    const { client, calls } = await connect(withKey, () => presigned());
     const res = await client.callTool({
       name: "set_game_image",
-      arguments: { gameId: "g1", kind: "icon", imagePath: "art/icon.png" },
+      arguments: { gameId: "g1", kind: "icon", size: 2048, imagePath: "art/icon.png" },
     });
     expect(isError(res)).toBe(false);
-    expect(calls).toHaveLength(0);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].method).toBe("POST");
+    expect(calls[0].url).toBe(`${BASE}/games/g1/image-uploads`);
+    expect(calls[0].body).toEqual({ kind: "icon", contentType: "image/png", size: 2048 });
+    expect(calls[0].headers.Authorization).toBe(`Bearer ${KEY}`);
     const text = textOf(res);
-    expect(text).toContain(
-      `{ printf '{"dataUrl":"data:image/png;base64,'; base64 < 'art/icon.png' | tr -d '\\n'; printf '"}'; } | curl -sS -X POST -H "Authorization: Bearer $YES2_API_KEY" -H 'Content-Type: application/json' --data-binary @- '${BASE}/games/g1/icon'`,
-    );
-    expect(text).toContain("$YES2_API_KEY");
-    expect(text).not.toContain(KEY);
+    expect(text).toContain("uploadId: iu1");
+    expect(text).toContain("curl -X PUT --data-binary @'art/icon.png' -H 'Content-Type: image/png' 'https://r2.test/img?sig=abc'");
+    expect(text).toContain("finalize_image_upload with gameId g1 and uploadId iu1");
+    expect(text).not.toContain("YES2_API_KEY");
+    expect(text).not.toMatch(/Authorization/);
     expect(JSON.stringify(res)).not.toContain(KEY);
   });
 
-  it("targets the banner route and picks the mime type from the extension", async () => {
-    const { client } = await connect(withKey);
-    for (const [file, mime] of [
-      ["b.JPG", "image/jpeg"],
-      ["b.jpeg", "image/jpeg"],
-      ["b.webp", "image/webp"],
-    ]) {
-      const res = await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "banner", imagePath: file } });
-      const text = textOf(res);
-      expect(text).toContain(`data:${mime};base64,`);
-      expect(text).toContain(`'${BASE}/games/g1/banner'`);
+  it("derives the type from the extension, or takes contentType", async () => {
+    for (const [args, mime] of [
+      [{ imagePath: "b.JPG" }, "image/jpeg"],
+      [{ imagePath: "b.jpeg" }, "image/jpeg"],
+      [{ imagePath: "b.webp" }, "image/webp"],
+      [{ contentType: "image/webp" }, "image/webp"],
+      [{ contentType: "image/jpeg", imagePath: "b.jpg" }, "image/jpeg"],
+    ] as const) {
+      const { client, calls } = await connect(withKey, () => presigned(mime));
+      const res = await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "banner", size: 10, ...args } });
+      expect(isError(res), JSON.stringify(args)).toBe(false);
+      expect(calls[0].body).toEqual({ kind: "banner", contentType: mime, size: 10 });
+      expect(textOf(res)).toContain(`-H 'Content-Type: ${mime}'`);
     }
   });
 
   it("uses a placeholder without imagePath, and shell-quotes a path and the game id", async () => {
-    const { client } = await connect(withKey);
-    const placeholder = textOf(await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "banner" } }));
-    expect(placeholder).toContain("base64 < <path/to/banner.png>");
-    const quoted = textOf(
-      await client.callTool({ name: "set_game_image", arguments: { gameId: "../x", kind: "icon", imagePath: "/tmp/it's here/i.png" } }),
+    const { client, calls } = await connect(withKey, () => presigned());
+    const placeholder = textOf(
+      await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "banner", size: 5, contentType: "image/png" } }),
     );
-    expect(quoted).toContain(`base64 < '/tmp/it'\\''s here/i.png'`);
-    expect(quoted).toContain(`'${BASE}/games/..%2Fx/icon'`);
+    expect(placeholder).toContain("--data-binary @<path/to/banner>");
+    const quoted = textOf(
+      await client.callTool({ name: "set_game_image", arguments: { gameId: "../x", kind: "icon", size: 5, imagePath: "/tmp/it's here/i.png" } }),
+    );
+    expect(quoted).toContain(`--data-binary @'/tmp/it'\\''s here/i.png'`);
+    expect(calls[1].url).toBe(`${BASE}/games/..%2Fx/image-uploads`);
   });
 
   it("states the route's image limits", async () => {
-    const { client } = await connect(withKey);
-    const text = textOf(await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "icon" } }));
+    const { client } = await connect(withKey, () => presigned());
+    const text = textOf(await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "icon", size: 5, contentType: "image/png" } }));
     expect(text).toMatch(/PNG, JPEG or WebP/);
-    expect(text).toContain("20 MB");
+    expect(text).toContain("15 MB");
     expect(text).toMatch(/no width or height is enforced/);
+    expect(text).toMatch(/10 minutes/);
+    expect(text).not.toMatch(/15 minutes/);
   });
 
-  it("refuses a file type the dashboard would reject, without a call", async () => {
+  it("refuses bad input without a call", async () => {
     const { client, calls } = await connect(withKey);
-    const res = await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "icon", imagePath: "icon.gif" } });
-    expect(isError(res)).toBe(true);
-    expect(textOf(res)).toMatch(/PNG, JPEG or WebP/);
+    for (const args of [
+      { imagePath: "icon.gif", size: 5 },
+      { size: 5 },
+      { contentType: "image/png" },
+      { imagePath: "i.png" },
+      { contentType: "image/png", imagePath: "i.webp", size: 5 },
+      { contentType: "image/gif", size: 5 },
+      { contentType: "image/png", size: 0 },
+      { contentType: "image/png", size: 15 * 1024 * 1024 + 1 },
+      { imagePath: "i.png", size: 5, remove: true },
+      { size: 5, remove: true },
+    ]) {
+      const res = await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "icon", ...args } });
+      expect(isError(res), JSON.stringify(args)).toBe(true);
+    }
     expect(calls).toHaveLength(0);
+  });
+
+  it("explains the dashboard's image upload errors", async () => {
+    for (const [status, code, pattern] of [
+      [400, "UNSUPPORTED_IMAGE_TYPE", /PNG, JPEG or WebP/],
+      [400, "INVALID_SIZE", /exact size in bytes/],
+      [400, "INVALID_KIND", /icon or banner/],
+      [413, "IMAGE_TOO_LARGE", /15 MB/],
+      [404, "GAME_NOT_FOUND", /list_games/],
+      [409, "R2_NOT_ENABLED", /dashboard UI/],
+    ] as const) {
+
+      const { client } = await connect(withKey, () => fail(status, "nope", code));
+      const res = await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "icon", size: 5, contentType: "image/png" } });
+      expect(isError(res), code).toBe(true);
+      expect(textOf(res), code).toMatch(pattern);
+      expect(textOf(res), code).toContain(`(${code})`);
+    }
+  });
+
+  it("TOO_MANY_OPEN_UPLOADS says to finish or wait out the open uploads", async () => {
+    const { client } = await connect(withKey, () =>
+      json(409, { success: false, code: "TOO_MANY_OPEN_UPLOADS", error: "Too many open image uploads", limit: 2 }),
+    );
+    const res = await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "icon", size: 5, contentType: "image/png" } });
+    expect(isError(res)).toBe(true);
+    const text = textOf(res);
+    expect(text).toMatch(/maximum number of open image uploads \(2\) \(TOO_MANY_OPEN_UPLOADS\)/);
+    expect(text).toMatch(/finalize_image_upload/);
+    expect(text).toMatch(/expire, which they do within the hour/);
   });
 
   it("remove: true sends DELETE /games/:id/:kind with the key", async () => {
@@ -512,21 +579,102 @@ describe("set_game_image", () => {
     expect(textOf(res)).toMatch(/does not own that game/);
   });
 
-  it("takes imagePath or remove, not both", async () => {
+  it("rejects an unknown kind", async () => {
     const { client, calls } = await connect(withKey);
-    const res = await client.callTool({
-      name: "set_game_image",
-      arguments: { gameId: "g1", kind: "icon", imagePath: "i.png", remove: true },
-    });
+    const res = await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "logo", size: 5, contentType: "image/png" } });
     expect(isError(res)).toBe(true);
     expect(calls).toHaveLength(0);
   });
 
-  it("rejects an unknown kind", async () => {
-    const { client, calls } = await connect(withKey);
-    const res = await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "logo" } });
+  it("works for an OAuth credential the same way", async () => {
+    const token = "y2a_ImageToken_1";
+    const { client, calls } = await connect({ status: "ok", kind: "oauth", credential: token }, () => presigned());
+    const res = await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "icon", size: 5, contentType: "image/png" } });
+    expect(isError(res)).toBe(false);
+    expect(calls[0].headers.Authorization).toBe(`Bearer ${token}`);
+    expect(JSON.stringify(res)).not.toContain(token);
+  });
+});
+
+describe("finalize_image_upload", () => {
+  it("POSTs .../image-uploads/:uploadId/finalize with no body and reports the image as set", async () => {
+    const { client, calls } = await connect(withKey, () =>
+      ok({ uploadId: "iu1", status: "ready", kind: "banner", id: "g1", has_banner: true, onboarding_stage: "assets" }),
+    );
+    const res = await client.callTool({ name: "finalize_image_upload", arguments: { gameId: "g1", uploadId: "iu/1" } });
+    expect(isError(res)).toBe(false);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].method).toBe("POST");
+    expect(calls[0].url).toBe(`${BASE}/games/g1/image-uploads/iu%2F1/finalize`);
+    expect(calls[0].body).toBeUndefined();
+    expect(textOf(res)).toContain("Status: ready. The banner of game g1 is set.");
+    expect(textOf(res)).toContain("onboarding_stage: assets");
+  });
+
+  it("explains each finalize error", async () => {
+    for (const [status, code, pattern] of [
+      [409, "UPLOAD_NOT_RECEIVED", /curl PUT from set_game_image, then call finalize_image_upload again/],
+      [409, "UPLOAD_IN_PROGRESS", /call finalize_image_upload again/],
+      [422, "SIZE_MISMATCH", /cannot be finalized; call set_game_image again/],
+      [422, "INVALID_IMAGE", /cannot be finalized/],
+      [410, "UPLOAD_EXPIRED", /60 minutes/],
+      [404, "UPLOAD_NOT_FOUND", /set_game_image for the same gameId/],
+    ] as const) {
+      const { client } = await connect(withKey, () => fail(status, "nope", code));
+      const res = await client.callTool({ name: "finalize_image_upload", arguments: { gameId: "g1", uploadId: "iu1" } });
+      expect(isError(res), code).toBe(true);
+      expect(textOf(res), code).toMatch(pattern);
+    }
+  });
+
+  it("keeps the build texts for the same codes on the build routes", async () => {
+    const { client } = await connect(withKey, () => fail(409, "nope", "UPLOAD_NOT_RECEIVED"));
+    const res = await client.callTool({ name: "finalize_upload", arguments: { gameId: "g1", uploadId: "u1" } });
+    expect(textOf(res)).toMatch(/has not received the zip yet/);
+  });
+});
+
+describe("preview caps", () => {
+  it("game_limit_reached and build_limit_reached name the limit", async () => {
+    const games = await connect(withKey, () => json(409, { success: false, code: "game_limit_reached", error: "Game limit reached", limit: 3 }));
+    const created = await games.client.callTool({ name: "create_game", arguments: { name: "x", engine: "unity" } });
+    expect(textOf(created)).toMatch(/game limit of 3 \(game_limit_reached\)/);
+
+    const builds = await connect(withKey, () => json(409, { success: false, code: "build_limit_reached", error: "Build limit reached", limit: 1 }));
+    const prepared = await builds.client.callTool({ name: "prepare_upload", arguments: { gameId: "g1", version: "1", size: 10 } });
+    expect(textOf(prepared)).toMatch(/build limit of 1 \(build_limit_reached\)/);
+  });
+
+  it("presign build_limit_reached says an earlier open upload counts", async () => {
+    const { client } = await connect(withKey, () => json(409, { success: false, code: "build_limit_reached", error: "Build limit reached", limit: 1 }));
+    const res = await client.callTool({ name: "prepare_upload", arguments: { gameId: "g1", version: "2", size: 10 } });
     expect(isError(res)).toBe(true);
-    expect(calls).toHaveLength(0);
+    expect(textOf(res)).toMatch(/earlier upload to this game that is still open counts/);
+    expect(textOf(res)).toMatch(/expires \(within the hour\)/);
+  });
+
+  it("finalize_upload explains a 409 build_limit_reached instead of reporting success", async () => {
+    const { client, calls } = await connect(withKey, () =>
+      json(409, { success: false, code: "build_limit_reached", error: "Build limit reached", limit: 1, uploadId: "u1" }),
+    );
+    const res = await client.callTool({ name: "finalize_upload", arguments: { gameId: "g1", uploadId: "u1" } });
+    expect(calls[0].url).toBe(`${BASE}/games/g1/build-uploads/u1/finalize`);
+    expect(isError(res)).toBe(true);
+    const text = textOf(res);
+    expect(text).toMatch(/build limit of 1 \(build_limit_reached\)/);
+    expect(text).toMatch(/did not register this upload as a build/);
+    expect(text).toMatch(/Preview accounts are capped per game/);
+    expect(text).toMatch(/earlier upload to this game that is still open/);
+    expect(text).not.toMatch(/finalized\. Status/);
+  });
+
+  it("a failed upload with build_limit_reached explains the cap", async () => {
+    const { client } = await connect(withKey, () =>
+      ok({ uploadId: "u1", status: "failed", error: { code: "build_limit_reached", message: "Build limit reached" } }),
+    );
+    const res = await client.callTool({ name: "get_build_status", arguments: { gameId: "g1", uploadId: "u1" } });
+    expect(textOf(res)).toMatch(/build limit/);
+    expect(textOf(res)).toMatch(/preview accounts are capped per game/);
   });
 });
 
@@ -654,7 +802,7 @@ describe("error mapping", () => {
 
   it("times out instead of hanging", async () => {
     const client = createDashboardClient({
-      apiKey: KEY,
+      credential: KEY,
       baseUrl: BASE,
       timeoutMs: 20,
       fetch: (_input, init) =>

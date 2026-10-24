@@ -35,7 +35,7 @@ filesystem or call the network.
 
 ### Dashboard tools: edit games and upload builds
 
-These eight call the Yes2 dashboard's machine API (`DASHBOARD_API_URL`, default
+These nine call the Yes2 dashboard's machine API (`DASHBOARD_API_URL`, default
 `https://dashboard.yes2games.com/api/v1`) with the caller's own API key, so they are
 `openWorldHint: true`. They are always listed; with no key they return the setup steps below.
 
@@ -47,7 +47,8 @@ These eight call the Yes2 dashboard's machine API (`DASHBOARD_API_URL`, default
 | `finalize_upload` | `{ gameId, uploadId }` | Tells the dashboard the zip is in storage; processing runs after it returns. Idempotent. |
 | `get_build_status` | `{ gameId, uploadId }` or `{ gameId, buildId }` | `pending` / `processing` / `ready` / `failed`. When ready: build id, engine, upload warnings, bundle errors and the `inspectorUrl`. |
 | `update_game` | `{ gameId, name?, description?, engine?, category?, tags?, orientation?, yandexMetricaCounterId?, jestAutoLoginReminders? }` | `PATCH`es only the fields given (at least one). `null` clears `description`, `engine`, `category` or `yandexMetricaCounterId`; `tags` (up to 20, each up to 50 characters) replaces the list; `category` is up to 100 characters. |
-| `set_game_image` | `{ gameId, kind, imagePath?, remove? }` | `kind` is `icon` \| `banner`. Returns a ready-to-run `curl` that posts the image from the user's machine as a JSON data URL, sending the key as `"Authorization: Bearer $YES2_API_KEY"` from the user's shell, so the key never enters the chat. PNG, JPEG or WebP, under about 15 MB (20 MB request cap after base64), no dimension check. `remove: true` deletes the image through the server instead. |
+| `set_game_image` | `{ gameId, kind, size, contentType? \| imagePath?, remove? }` | `kind` is `icon` \| `banner`. Prepares a presigned image upload (type from `contentType`, or from `imagePath`'s extension; `size` is the exact byte count) and returns an `uploadId` plus a ready-to-run `curl -X PUT` with no credential in it. PNG, JPEG or WebP, up to 15 MB, no dimension check; the URL lasts 10 minutes. `remove: true` deletes the image through the server instead. |
+| `finalize_image_upload` | `{ gameId, uploadId }` | After the PUT, makes the uploaded image the game's icon or banner (finalize within 60 minutes). Idempotent. |
 | `rename_build` | `{ gameId, buildId, name }` | Sets a build's display name (up to 100 characters, trimmed); `null` or blank clears it back to the zip file name. |
 
 The flow: zip the build with `index.html` at the zip root → `prepare_upload` (size from
@@ -55,8 +56,9 @@ The flow: zip the build with `index.html` at the zip root → `prepare_upload` (
 `finalize_upload` → poll `get_build_status` every few seconds until `ready` or `failed`.
 
 **The server never touches the zip or an image.** The `curl` runs on the user's machine and sends the file
-straight to storage, so a build never passes through this process. `set_game_image` works the same
-way for an icon or banner.
+straight to storage, so a build never passes through this process. `set_game_image` →
+`curl` → `finalize_image_upload` works the same way for an icon or banner, with the same
+presigned URL pattern, so no key ever appears in a command.
 
 **The key.** Create a personal key in the dashboard (avatar → **Settings → Personal API keys**)
 and export it as `YES2_API_KEY`. Then hand it to the server:
@@ -83,6 +85,18 @@ Over HTTP the key arrives as `Authorization: Bearer y2g_…` (or `X-Yes2-Api-Key
 the dashboard for that request only. It is never stored, logged or returned in tool output. The
 Claude connector cannot send a key yet (OAuth sign-in is planned), so the dashboard tools there
 return the setup steps.
+
+**Sign-in (coming soon, behind the `MCP_OAUTH_ENABLED` flag, off in production).** Once it is on,
+the hosted server asks you to sign in to Yes2 the first time a dashboard tool runs, and only then:
+the docs and validation tools stay anonymous in every client.
+
+- Claude Code: run `/mcp`, pick the server, choose **Authenticate**.
+- Codex: `codex mcp login yes2sdk`.
+- claude.ai: click the **Connect** card that appears on the first dashboard tool call.
+
+API keys keep working unchanged. To keep Claude Code's sign-in available alongside a key, send the
+key as `X-Yes2-Api-Key` rather than `Authorization` (a configured `Authorization` header turns
+Claude Code's OAuth off). The local stdio server only ever uses `YES2_API_KEY`.
 
 ### `validate_integration` — two modes
 
@@ -118,7 +132,7 @@ Three ways in. None of them need a checkout.
 
 ### 1. Claude connector (no setup)
 
-Claude → **Settings → Connectors → YES2SDK**. Connecting exposes all 19 tools, each with its
+Claude → **Settings → Connectors → YES2SDK**. Connecting exposes all 20 tools, each with its
 own permission control. This is the shortest path for anyone not running a local checkout.
 
 ### 2. Hosted HTTP
@@ -296,7 +310,7 @@ Notes:
 - `src/http.ts` — Streamable HTTP entry. Stateless: a fresh server + transport per request.
 - `src/tools/` — one registration per tool file: `install.ts`, `detect.ts`, `docs.ts`
   (the four docs tools), `validate.ts`, `requirements.ts`, `capabilities.ts`, `rule.ts`,
-  `troubleshoot.ts`, and `dashboard.ts` (the eight dashboard tools).
+  `troubleshoot.ts`, and `dashboard.ts` (the nine dashboard tools).
 - `src/resources/`, `src/prompts/` — the `yes2sdk://` module resources and the integrate prompts.
 - `src/lib/` — the leaf layer, importing nothing from `tools/`: docs scanner/search (`docs.ts`),
   the copied compliance engine and its types (`compliance.ts`, `inspector-types.ts`), engine
