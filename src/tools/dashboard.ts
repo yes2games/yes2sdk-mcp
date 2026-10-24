@@ -11,15 +11,17 @@ import {
 } from "../lib/dashboard.js";
 
 /**
- * The dashboard tools: list and create games, and upload a build through the
- * dashboard's presigned-upload flow. They act with the caller's own API key,
+ * The dashboard tools: list, create and edit games (details, icon and banner),
+ * upload a build through the dashboard's presigned-upload flow, and rename a
+ * build. They act with the caller's own API key,
  * which arrives per request (see src/lib/auth.ts) and is forwarded to the
  * dashboard, never stored.
  *
- * The server never touches the zip. prepare_upload returns a presigned URL and
+ * The server never touches the zip or an image. prepare_upload returns a presigned URL and
  * a ready-to-run curl command, and the agent uploads from the user's machine
  * straight to storage. That keeps the hosted server's memory flat and means a
- * build never passes through this process.
+ * build never passes through this process. set_game_image does the same for an
+ * icon or banner, with a curl command that reads the key from the user's shell.
  */
 export interface DashboardToolContext {
   auth: ApiKeyAuth;
@@ -30,6 +32,23 @@ export interface DashboardToolContext {
 export const ENGINES = ["unity", "defold", "playcanvas", "cocos", "vanilla", "other"] as const;
 export const ORIENTATIONS = ["portrait", "landscape", "both"] as const;
 export const ZIP_PLACEHOLDER = "<path/to/build.zip>";
+export const IMAGE_KINDS = ["icon", "banner"] as const;
+export type ImageKind = (typeof IMAGE_KINDS)[number];
+
+/**
+ * What POST /api/v1/games/:id/{icon,banner} accepts: a JSON `{ dataUrl }` whose
+ * data URL is base64 PNG, JPEG or WebP. The whole JSON body is capped at 20 MB,
+ * and base64 grows the bytes by a third, so the image itself tops out near 15 MB.
+ * The route checks no dimensions.
+ */
+export const IMAGE_MIME_BY_EXT: Readonly<Record<string, string>> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+};
+export const IMAGE_LIMITS =
+  "Image limits (from the dashboard route): PNG, JPEG or WebP only; the JSON request body is capped at 20 MB, so the image file must stay under about 15 MB once base64 adds its third; no width or height is enforced, and an upload replaces the current image.";
 
 const FLOW =
   "Upload flow: (1) zip the built game with index.html at the root of the zip, not inside a folder; " +
@@ -172,6 +191,54 @@ function renderBuild(build: Record<string, unknown>, gameId: string): string {
     lines.push("Mention the upload warnings to the user too; they do not block the build but may block a platform review.");
   }
   return lines.join("\n");
+}
+
+interface UpdatedGame {
+  id?: unknown;
+  name?: unknown;
+  description?: unknown;
+  engine?: unknown;
+  category?: unknown;
+  tags?: unknown;
+  orientation?: unknown;
+  yandex_metrica_counter_id?: unknown;
+  jest_auto_login_reminders?: unknown;
+}
+
+function show(value: unknown): string {
+  if (value === null || value === undefined) return "(none)";
+  if (Array.isArray(value)) return value.length === 0 ? "(none)" : value.map(String).join(", ");
+  return String(value);
+}
+
+/** The Content-Type for an image path, from its extension; undefined when the route would refuse it. */
+export function imageMimeType(imagePath: string): string | undefined {
+  const dot = imagePath.lastIndexOf(".");
+  return dot === -1 ? undefined : IMAGE_MIME_BY_EXT[imagePath.slice(dot).toLowerCase()];
+}
+
+/**
+ * The command that uploads an icon or banner from the user's machine. The
+ * route takes JSON `{ dataUrl }`, not multipart, so the body is built in the
+ * shell and streamed to curl on stdin: inlining it with -d would hit the
+ * per-argument size limit (128 KB on Linux) for any real image. `base64 <`
+ * works on macOS and Linux alike; GNU wraps its output, which tr removes.
+ *
+ * The key is `$YES2_API_KEY`, expanded by the user's shell inside double
+ * quotes. It is never filled in here, so it cannot reach the chat.
+ */
+export function imageCurlCommand(baseUrl: string, gameId: string, kind: ImageKind, imagePath: string | undefined): string {
+  const mime = imagePath ? (imageMimeType(imagePath) ?? "image/png") : "image/png";
+  const file = imagePath ? shellQuote(imagePath) : `<path/to/${kind}.png>`;
+  const url = shellQuote(`${baseUrl}/games/${seg(gameId)}/${kind}`);
+  return [
+    `{ printf '{"dataUrl":"data:${mime};base64,'; base64 < ${file} | tr -d '\\n'; printf '"}'; }`,
+    `| curl -sS -X POST`,
+    `-H "Authorization: Bearer $YES2_API_KEY"`,
+    `-H 'Content-Type: application/json'`,
+    `--data-binary @-`,
+    url,
+  ].join(" ");
 }
 
 export function registerDashboardTools(server: McpServer, ctx: DashboardToolContext): void {
@@ -380,5 +447,157 @@ export function registerDashboardTools(server: McpServer, ctx: DashboardToolCont
         return `Status: ${status}.`;
       });
     },
+  );
+
+  server.registerTool(
+    "update_game",
+    {
+      ...dashboardTool("Update a dashboard game", { readOnly: false, idempotent: true }),
+      description:
+        "Changes a game's details on the Yes2 dashboard: name, description, engine, category, tags, orientation, the Yandex Metrica counter and the Jest auto-login reminders. " +
+        "Only the fields given are touched, and at least one is required. null clears description, engine, category or yandexMetricaCounterId; tags replaces the whole list ([] clears it). " +
+        "The icon and banner are set with set_game_image, a build's display name with rename_build. " +
+        AUTH_NOTE,
+      inputSchema: {
+        gameId: z.string().trim().min(1).describe("Game id from list_games or create_game."),
+        name: z.string().trim().min(1).optional().describe("New game name. Cannot be blank."),
+        description: z.string().nullable().optional().describe("New description, trimmed by the dashboard. null clears it."),
+        engine: z
+          .enum(ENGINES)
+          .nullable()
+          .optional()
+          .describe("'unity', 'defold', 'playcanvas', 'cocos', 'vanilla' (any JavaScript/TypeScript game) or 'other'. null clears it."),
+        category: z.string().max(100).nullable().optional().describe("Category, up to 100 characters (e.g. 'Action'). null clears it."),
+        tags: z
+          .array(z.string().max(50))
+          .max(20)
+          .optional()
+          .describe("The full tag list, replacing the current one: up to 20 tags of up to 50 characters each. [] clears it."),
+        orientation: z.enum(ORIENTATIONS).optional().describe("'portrait', 'landscape' or 'both'."),
+        yandexMetricaCounterId: z
+          .number()
+          .int()
+          .positive()
+          .nullable()
+          .optional()
+          .describe("Yandex Metrica counter id used by the Yandex bundle, a positive integer. null clears it."),
+        jestAutoLoginReminders: z.boolean().optional().describe("Whether the Jest bundle shows its auto-login reminders."),
+      },
+    },
+    async ({ gameId, ...fields }) => {
+      const body = Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined));
+      if (Object.keys(body).length === 0) {
+        return result(
+          "update_game needs at least one field to change besides gameId: name, description, engine, category, tags, orientation, yandexMetricaCounterId or jestAutoLoginReminders.",
+          true,
+        );
+      }
+      return run(ctx, async (client) => {
+        const game = await client.patch<UpdatedGame>(`/games/${seg(gameId)}`, body);
+        const g = game ?? {};
+        return [
+          `Updated game "${str(g.name) ?? gameId}" (${Object.keys(body).join(", ")}).`,
+          `gameId: ${str(g.id) ?? gameId}`,
+          `name: ${show(g.name)}`,
+          `description: ${show(g.description)}`,
+          `engine: ${show(g.engine)}`,
+          `category: ${show(g.category)}`,
+          `tags: ${show(g.tags)}`,
+          `orientation: ${show(g.orientation)}`,
+          `yandexMetricaCounterId: ${show(g.yandex_metrica_counter_id)}`,
+          `jestAutoLoginReminders: ${show(g.jest_auto_login_reminders)}`,
+        ].join("\n");
+      });
+    },
+  );
+
+  server.registerTool(
+    "set_game_image",
+    {
+      ...dashboardTool("Set a game's icon or banner", { readOnly: false, idempotent: true, destructive: true }),
+      description:
+        "Sets or removes a game's icon or banner on the Yes2 dashboard. " +
+        "Setting one: this server never reads local files, so it returns a ready-to-run curl command for the user's machine that posts the image to the dashboard. " +
+        "The command reads the key from the user's shell as $YES2_API_KEY, so the key never appears in the chat; it needs `export YES2_API_KEY=y2g_…` in that shell. " +
+        "PNG, JPEG or WebP, under about 15 MB (the request is capped at 20 MB after base64); no dimensions are enforced; an upload replaces the current image. " +
+        "With remove: true it deletes the current image directly instead. " +
+        AUTH_NOTE,
+      inputSchema: {
+        gameId: z.string().trim().min(1).describe("Game id from list_games or create_game."),
+        kind: z.enum(IMAGE_KINDS).describe("'icon' or 'banner'."),
+        imagePath: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("Optional local path of the image on the user's machine (.png, .jpg, .jpeg or .webp), filled into the curl command. Omitted, the command carries a placeholder."),
+        remove: z.boolean().optional().describe("true deletes the current icon or banner instead of returning an upload command."),
+      },
+    },
+    async ({ gameId, kind, imagePath, remove }) => {
+      if (remove === true && imagePath !== undefined) {
+        return result("set_game_image takes either imagePath (to set the image) or remove: true (to delete it), not both.", true);
+      }
+      if (remove !== true && imagePath !== undefined && imageMimeType(imagePath) === undefined) {
+        return result(
+          `The dashboard accepts only PNG, JPEG or WebP images, and ${imagePath} does not end in .png, .jpg, .jpeg or .webp. Convert it first, then call set_game_image again.`,
+          true,
+        );
+      }
+      return run(ctx, async (client) => {
+        if (remove === true) {
+          await client.delete<Record<string, unknown>>(`/games/${seg(gameId)}/${kind}`);
+          return [
+            `Removed the ${kind} of game ${gameId} (removing one that was not there also succeeds).`,
+            kind === "icon" ? "The game profile needs an icon to be complete, so add a new one before publishing." : "",
+          ]
+            .filter((line) => line !== "")
+            .join("\n");
+        }
+
+        const command = imageCurlCommand(ctx.baseUrl, gameId, kind, imagePath);
+        return [
+          `Run this on the user's machine, in bash or zsh, to set the ${kind} of game ${gameId}` +
+            (imagePath ? ":" : `, replacing <path/to/${kind}.png> with the image's path (and image/png in the command with image/jpeg or image/webp for those files):`),
+          "",
+          command,
+          "",
+          "It sends the key as $YES2_API_KEY from that shell, so run `export YES2_API_KEY=y2g_…` there first if it is not set. Do not paste the key into the command.",
+          IMAGE_LIMITS,
+          `The answer is JSON: "success":true with has_${kind}:true means it is stored. HTTP 400 means the file is not a PNG, JPEG or WebP data URL; HTTP 413 means the image is too large; INVALID_API_KEY means YES2_API_KEY is unset or wrong in that shell; HTTP 403 means the key's studio does not own the game.`,
+        ].join("\n");
+      });
+    },
+  );
+
+  server.registerTool(
+    "rename_build",
+    {
+      ...dashboardTool("Rename a build", { readOnly: false, idempotent: true }),
+      description:
+        "Sets a build's display name on the Yes2 dashboard, the label shown instead of the zip file name. " +
+        "Up to 100 characters, trimmed; null or a blank name clears it back to the zip file name. " +
+        AUTH_NOTE,
+      inputSchema: {
+        gameId: z.string().trim().min(1).describe("Game id the build belongs to."),
+        buildId: z.string().trim().min(1).describe("Build id, from get_build_status once an upload is ready."),
+        name: z
+          .string()
+          .trim()
+          .max(100)
+          .nullable()
+          .describe("New display name, up to 100 characters after trimming. null or blank clears it."),
+      },
+    },
+    async ({ gameId, buildId, name }) =>
+      run(ctx, async (client) => {
+        const renamed = await client.patch<{ id?: unknown; displayName?: unknown }>(
+          `/games/${seg(gameId)}/builds/${seg(buildId)}/name`,
+          { name },
+        );
+        const displayName = str(renamed?.displayName);
+        return displayName
+          ? `Build ${str(renamed?.id) ?? buildId} is now named "${displayName}".`
+          : `Cleared the display name of build ${str(renamed?.id) ?? buildId}; the dashboard shows its zip file name again.`;
+      }),
   );
 }

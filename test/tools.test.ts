@@ -11,7 +11,16 @@ const GOODBUILD = path.join(HERE, "fixtures", "goodbuild");
 
 let client: Client;
 
-const DASHBOARD_TOOLS = new Set(["list_games", "create_game", "prepare_upload", "finalize_upload", "get_build_status"]);
+const DASHBOARD_TOOLS = new Set([
+  "list_games",
+  "create_game",
+  "prepare_upload",
+  "finalize_upload",
+  "get_build_status",
+  "update_game",
+  "set_game_image",
+  "rename_build",
+]);
 
 /** Collapse a tool result's text content blocks into a single string. */
 function textOf(res: Awaited<ReturnType<Client["callTool"]>>): string {
@@ -73,7 +82,7 @@ afterAll(async () => {
 });
 
 describe("listTools", () => {
-  it("returns exactly the 16 registered tools", async () => {
+  it("returns exactly the 19 registered tools", async () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
@@ -91,8 +100,11 @@ describe("listTools", () => {
         "list_games",
         "list_sdk_modules",
         "prepare_upload",
+        "rename_build",
         "search_docs",
+        "set_game_image",
         "troubleshoot",
+        "update_game",
         "validate_integration",
       ].sort()
     );

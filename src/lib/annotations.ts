@@ -26,18 +26,19 @@ export function readOnlyTool(title: string) {
  * The metadata for a dashboard tool: it calls the Yes2 dashboard API with the
  * caller's own key, so it is open-world, and it may change the studio's data.
  * The hints differ per tool, so each one states them rather than inheriting a
- * shared default.
+ * shared default. Only a tool that can delete something the user cannot get
+ * back (set_game_image with remove) is marked destructive.
  */
 export function dashboardTool(
   title: string,
-  hints: { readOnly: boolean; idempotent: boolean },
+  hints: { readOnly: boolean; idempotent: boolean; destructive?: boolean },
 ) {
   return {
     title,
     annotations: {
       title,
       readOnlyHint: hints.readOnly,
-      destructiveHint: false,
+      destructiveHint: hints.destructive ?? false,
       idempotentHint: hints.idempotent,
       openWorldHint: true,
     },

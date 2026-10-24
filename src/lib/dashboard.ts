@@ -38,6 +38,8 @@ export interface DashboardClientOptions {
 export interface DashboardClient {
   get<T>(path: string): Promise<T>;
   post<T>(path: string, body?: unknown): Promise<T>;
+  patch<T>(path: string, body?: unknown): Promise<T>;
+  delete<T>(path: string): Promise<T>;
 }
 
 interface Envelope {
@@ -65,7 +67,11 @@ export const INVALID_KEY_HELP =
 function describeFailure(status: number, code: string | undefined, error: string | undefined, retryAfter: string | null): string {
   if (status === 401 || code === "INVALID_API_KEY") return INVALID_KEY_HELP;
 
-  const detail = error ? `: ${error}` : "";
+  // The dashboard's own messages often end in a period, and every template
+  // below follows `detail` with its own punctuation: drop the trailing one so
+  // the result never reads "finalize.." or "finalize.. Run".
+  const trimmed = error?.trim().replace(/[.\s]+$/, "");
+  const detail = trimmed ? `: ${trimmed}` : "";
   const tag = code ? ` (${code})` : "";
   switch (code) {
     case "VERSION_EXISTS":
@@ -86,11 +92,20 @@ function describeFailure(status: number, code: string | undefined, error: string
       return `That upload was already finalized${tag}${detail}. Use get_build_status with its uploadId to follow it.`;
     case "R2_NOT_ENABLED":
       return `This dashboard is not set up for direct uploads${tag}${detail}. Upload through the dashboard instead.`;
+    case "INVALID_NAME":
+      return `The build name was rejected${tag}${detail}. It must be a string, or null to clear it.`;
+    case "NAME_TOO_LONG":
+      return `The build name is too long${tag}${detail}. It must be at most 100 characters after trimming.`;
+    case "BUILD_NOT_FOUND":
+      return `No build with that id belongs to this game${tag}${detail}. A buildId comes from get_build_status once an upload is ready, and belongs to the game it was uploaded to.`;
+    case "DISPLAY_NAME_COLUMN_MISSING":
+      return `This dashboard cannot rename builds yet${tag}${detail}. Retrying will not help until the dashboard is updated; rename the build in the dashboard UI or ask a Yes2 admin.`;
     default:
       break;
   }
   if (status === 403) return `This key's studio does not own that game (HTTP 403${tag})${detail}. list_games shows the games the key can reach.`;
   if (status === 404) return `Not found (HTTP 404${tag})${detail}. list_games shows the games the key can reach; an upload id belongs to the game it was prepared for.`;
+  if (status === 413) return `The request was too large for the dashboard (HTTP 413${tag})${detail}. A JSON body is capped at 20 MB.`;
   if (status === 429) return `The dashboard is rate limiting this key (HTTP 429)${detail}. Retry ${retryAfter ? `after ${retryAfter} seconds` : "in a minute"}.`;
   if (status >= 500) return `The dashboard had a server error (HTTP ${status}${tag})${detail}. It is safe to retry.`;
   return `The dashboard rejected the request (HTTP ${status}${tag})${detail}.`;
@@ -100,7 +115,7 @@ export function createDashboardClient(options: DashboardClientOptions): Dashboar
   const doFetch: FetchLike = options.fetch ?? ((input, init) => fetch(input, init));
   const timeoutMs = options.timeoutMs ?? DASHBOARD_TIMEOUT_MS;
 
-  async function request<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
+  async function request<T>(method: "GET" | "POST" | "PATCH" | "DELETE", path: string, body?: unknown): Promise<T> {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${options.apiKey}`,
       Accept: "application/json",
@@ -151,5 +166,7 @@ export function createDashboardClient(options: DashboardClientOptions): Dashboar
   return {
     get: <T>(path: string) => request<T>("GET", path),
     post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
+    patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, body),
+    delete: <T>(path: string) => request<T>("DELETE", path),
   };
 }

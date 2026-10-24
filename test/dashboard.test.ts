@@ -7,7 +7,16 @@ import { createDashboardClient, DashboardError, resolveDashboardUrl, DEFAULT_DAS
 
 const KEY = "y2g_TestKey_abc-123";
 const BASE = "https://dash.test/api/v1";
-const DASHBOARD_TOOLS = ["list_games", "create_game", "prepare_upload", "finalize_upload", "get_build_status"];
+const DASHBOARD_TOOLS = [
+  "list_games",
+  "create_game",
+  "prepare_upload",
+  "finalize_upload",
+  "get_build_status",
+  "update_game",
+  "set_game_image",
+  "rename_build",
+];
 
 interface Call {
   url: string;
@@ -76,6 +85,9 @@ const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
   prepare_upload: { gameId: "g1", version: "1.0.0", size: 1234 },
   finalize_upload: { gameId: "g1", uploadId: "u1" },
   get_build_status: { gameId: "g1", uploadId: "u1" },
+  update_game: { gameId: "g1", name: "Zombies 2" },
+  set_game_image: { gameId: "g1", kind: "icon" },
+  rename_build: { gameId: "g1", buildId: "b1", name: "RC" },
 };
 
 describe("auth parsing", () => {
@@ -125,14 +137,14 @@ describe("auth parsing", () => {
 });
 
 describe("dashboard tools without a key", () => {
-  it("are always listed, open-world, and never claim to be destructive", async () => {
+  it("are always listed, open-world, and only set_game_image (which can delete) is destructive", async () => {
     const { client } = await connect(NO_KEY);
     const { tools } = await client.listTools();
     for (const name of DASHBOARD_TOOLS) {
       const tool = tools.find((t) => t.name === name);
       expect(tool, name).toBeDefined();
       expect(tool?.annotations?.openWorldHint, name).toBe(true);
-      expect(tool?.annotations?.destructiveHint, name).toBe(false);
+      expect(tool?.annotations?.destructiveHint, name).toBe(name === "set_game_image");
     }
     const readOnly = tools.filter((t) => DASHBOARD_TOOLS.includes(t.name) && t.annotations?.readOnlyHint).map((t) => t.name);
     expect(readOnly.sort()).toEqual(["get_build_status", "list_games"]);
@@ -329,6 +341,244 @@ describe("get_build_status", () => {
   });
 });
 
+describe("update_game", () => {
+  const updated = {
+    id: "g1",
+    name: "Zombies 2",
+    description: null,
+    engine: "unity",
+    category: "Action",
+    tags: ["shooter", "zombies"],
+    orientation: "landscape",
+    yandex_metrica_counter_id: 12345,
+    jest_auto_login_reminders: false,
+  };
+
+  it("PATCHes only the fields given, nulls included", async () => {
+    const { client, calls } = await connect(withKey, () => ok(updated));
+    const res = await client.callTool({
+      name: "update_game",
+      arguments: {
+        gameId: "g1",
+        category: "Action",
+        tags: ["shooter", "zombies"],
+        description: null,
+        yandexMetricaCounterId: 12345,
+        jestAutoLoginReminders: false,
+      },
+    });
+    expect(isError(res)).toBe(false);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe(`${BASE}/games/g1`);
+    expect(calls[0].method).toBe("PATCH");
+    expect(calls[0].headers.Authorization).toBe(`Bearer ${KEY}`);
+    expect(calls[0].headers["Content-Type"]).toBe("application/json");
+    expect(calls[0].body).toEqual({
+      category: "Action",
+      tags: ["shooter", "zombies"],
+      description: null,
+      yandexMetricaCounterId: 12345,
+      jestAutoLoginReminders: false,
+    });
+    const text = textOf(res);
+    expect(text).toContain("tags: shooter, zombies");
+    expect(text).toContain("yandexMetricaCounterId: 12345");
+    expect(text).toContain("description: (none)");
+  });
+
+  it("trims the name and can clear the engine", async () => {
+    const { client, calls } = await connect(withKey, () => ok(updated));
+    await client.callTool({ name: "update_game", arguments: { gameId: " g1 ", name: "  Zombies 2 ", engine: null } });
+    expect(calls[0].url).toBe(`${BASE}/games/g1`);
+    expect(calls[0].body).toEqual({ name: "Zombies 2", engine: null });
+  });
+
+  it("requires at least one field and calls nothing without one", async () => {
+    const { client, calls } = await connect(withKey);
+    const res = await client.callTool({ name: "update_game", arguments: { gameId: "g1" } });
+    expect(isError(res)).toBe(true);
+    expect(textOf(res)).toMatch(/at least one field/);
+    expect(calls).toHaveLength(0);
+  });
+
+  it.each([
+    ["a blank name", { name: "   " }],
+    ["an unknown engine", { engine: "godot" }],
+    ["an unknown orientation", { orientation: "square" }],
+    ["a category over 100 characters", { category: "x".repeat(101) }],
+    ["more than 20 tags", { tags: Array.from({ length: 21 }, (_, i) => `t${i}`) }],
+    ["a tag over 50 characters", { tags: ["x".repeat(51)] }],
+    ["a zero Metrica counter", { yandexMetricaCounterId: 0 }],
+    ["a fractional Metrica counter", { yandexMetricaCounterId: 1.5 }],
+    ["a string Metrica counter", { yandexMetricaCounterId: "123" }],
+    ["a non-boolean reminders flag", { jestAutoLoginReminders: "yes" }],
+  ])("rejects %s before calling the dashboard", async (_label, fields) => {
+    const { client, calls } = await connect(withKey);
+    const res = await client.callTool({ name: "update_game", arguments: { gameId: "g1", ...fields } });
+    expect(isError(res)).toBe(true);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("maps a 403 to the ownership message", async () => {
+    const { client } = await connect(withKey, () => fail(403, "No permission to modify this game"));
+    const res = await client.callTool({ name: "update_game", arguments: { gameId: "g1", name: "x" } });
+    expect(isError(res)).toBe(true);
+    expect(textOf(res)).toMatch(/does not own that game/);
+    expect(textOf(res)).toContain("No permission to modify this game");
+  });
+
+  it("passes the dashboard's validation message on for a 400", async () => {
+    const { client } = await connect(withKey, () => fail(400, "No updatable fields supplied"));
+    const res = await client.callTool({ name: "update_game", arguments: { gameId: "g1", name: "x" } });
+    expect(textOf(res)).toContain("No updatable fields supplied");
+  });
+});
+
+describe("set_game_image", () => {
+  it("returns a curl command that posts a JSON data URL and reads the key from the shell", async () => {
+    const { client, calls } = await connect(withKey);
+    const res = await client.callTool({
+      name: "set_game_image",
+      arguments: { gameId: "g1", kind: "icon", imagePath: "art/icon.png" },
+    });
+    expect(isError(res)).toBe(false);
+    expect(calls).toHaveLength(0);
+    const text = textOf(res);
+    expect(text).toContain(
+      `{ printf '{"dataUrl":"data:image/png;base64,'; base64 < 'art/icon.png' | tr -d '\\n'; printf '"}'; } | curl -sS -X POST -H "Authorization: Bearer $YES2_API_KEY" -H 'Content-Type: application/json' --data-binary @- '${BASE}/games/g1/icon'`,
+    );
+    expect(text).toContain("$YES2_API_KEY");
+    expect(text).not.toContain(KEY);
+    expect(JSON.stringify(res)).not.toContain(KEY);
+  });
+
+  it("targets the banner route and picks the mime type from the extension", async () => {
+    const { client } = await connect(withKey);
+    for (const [file, mime] of [
+      ["b.JPG", "image/jpeg"],
+      ["b.jpeg", "image/jpeg"],
+      ["b.webp", "image/webp"],
+    ]) {
+      const res = await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "banner", imagePath: file } });
+      const text = textOf(res);
+      expect(text).toContain(`data:${mime};base64,`);
+      expect(text).toContain(`'${BASE}/games/g1/banner'`);
+    }
+  });
+
+  it("uses a placeholder without imagePath, and shell-quotes a path and the game id", async () => {
+    const { client } = await connect(withKey);
+    const placeholder = textOf(await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "banner" } }));
+    expect(placeholder).toContain("base64 < <path/to/banner.png>");
+    const quoted = textOf(
+      await client.callTool({ name: "set_game_image", arguments: { gameId: "../x", kind: "icon", imagePath: "/tmp/it's here/i.png" } }),
+    );
+    expect(quoted).toContain(`base64 < '/tmp/it'\\''s here/i.png'`);
+    expect(quoted).toContain(`'${BASE}/games/..%2Fx/icon'`);
+  });
+
+  it("states the route's image limits", async () => {
+    const { client } = await connect(withKey);
+    const text = textOf(await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "icon" } }));
+    expect(text).toMatch(/PNG, JPEG or WebP/);
+    expect(text).toContain("20 MB");
+    expect(text).toMatch(/no width or height is enforced/);
+  });
+
+  it("refuses a file type the dashboard would reject, without a call", async () => {
+    const { client, calls } = await connect(withKey);
+    const res = await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "icon", imagePath: "icon.gif" } });
+    expect(isError(res)).toBe(true);
+    expect(textOf(res)).toMatch(/PNG, JPEG or WebP/);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("remove: true sends DELETE /games/:id/:kind with the key", async () => {
+    const { client, calls } = await connect(withKey, () => ok({ id: "g1", has_banner: false }));
+    const res = await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "banner", remove: true } });
+    expect(isError(res)).toBe(false);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe(`${BASE}/games/g1/banner`);
+    expect(calls[0].method).toBe("DELETE");
+    expect(calls[0].headers.Authorization).toBe(`Bearer ${KEY}`);
+    expect(calls[0].body).toBeUndefined();
+    expect(textOf(res)).toContain("Removed the banner");
+  });
+
+  it("remove maps a 403", async () => {
+    const { client } = await connect(withKey, () => fail(403, "No permission to modify this game"));
+    const res = await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "icon", remove: true } });
+    expect(isError(res)).toBe(true);
+    expect(textOf(res)).toMatch(/does not own that game/);
+  });
+
+  it("takes imagePath or remove, not both", async () => {
+    const { client, calls } = await connect(withKey);
+    const res = await client.callTool({
+      name: "set_game_image",
+      arguments: { gameId: "g1", kind: "icon", imagePath: "i.png", remove: true },
+    });
+    expect(isError(res)).toBe(true);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("rejects an unknown kind", async () => {
+    const { client, calls } = await connect(withKey);
+    const res = await client.callTool({ name: "set_game_image", arguments: { gameId: "g1", kind: "logo" } });
+    expect(isError(res)).toBe(true);
+    expect(calls).toHaveLength(0);
+  });
+});
+
+describe("rename_build", () => {
+  it("PATCHes the trimmed name to the build's name route", async () => {
+    const { client, calls } = await connect(withKey, () => ok({ id: "b1", displayName: "Release candidate" }));
+    const res = await client.callTool({
+      name: "rename_build",
+      arguments: { gameId: "g1", buildId: "b1", name: "  Release candidate " },
+    });
+    expect(calls[0].url).toBe(`${BASE}/games/g1/builds/b1/name`);
+    expect(calls[0].method).toBe("PATCH");
+    expect(calls[0].headers.Authorization).toBe(`Bearer ${KEY}`);
+    expect(calls[0].body).toEqual({ name: "Release candidate" });
+    expect(textOf(res)).toContain(`now named "Release candidate"`);
+  });
+
+  it("clears the name with null", async () => {
+    const { client, calls } = await connect(withKey, () => ok({ id: "b1", displayName: null }));
+    const res = await client.callTool({ name: "rename_build", arguments: { gameId: "g1", buildId: "b1", name: null } });
+    expect(calls[0].body).toEqual({ name: null });
+    expect(textOf(res)).toMatch(/Cleared the display name/);
+  });
+
+  it("rejects a name over 100 characters before calling", async () => {
+    const { client, calls } = await connect(withKey);
+    const res = await client.callTool({ name: "rename_build", arguments: { gameId: "g1", buildId: "b1", name: "x".repeat(101) } });
+    expect(isError(res)).toBe(true);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("encodes both ids", async () => {
+    const { client, calls } = await connect(withKey, () => ok({ id: "b", displayName: "n" }));
+    await client.callTool({ name: "rename_build", arguments: { gameId: "g/1", buildId: "../b", name: "n" } });
+    expect(calls[0].url).toBe(`${BASE}/games/g%2F1/builds/..%2Fb/name`);
+  });
+
+  it.each([
+    ["BUILD_NOT_FOUND", 404, /get_build_status/],
+    ["NAME_TOO_LONG", 400, /100 characters/],
+    ["INVALID_NAME", 400, /string, or null/],
+    ["DISPLAY_NAME_COLUMN_MISSING", 503, /cannot rename builds yet/],
+  ] as const)("maps %s", async (code, status, pattern) => {
+    const { client } = await connect(withKey, () => fail(status, "upstream", code));
+    const res = await client.callTool({ name: "rename_build", arguments: { gameId: "g1", buildId: "b1", name: "n" } });
+    expect(isError(res)).toBe(true);
+    expect(textOf(res)).toContain(code);
+    expect(textOf(res)).toMatch(pattern);
+    expect(textOf(res)).not.toMatch(/safe to retry/);
+  });
+});
+
 describe("error mapping", () => {
   async function errorFor(response: () => Response | Promise<Response>): Promise<string> {
     const { client } = await connect(withKey, response);
@@ -356,6 +606,17 @@ describe("error mapping", () => {
     expect(text).toMatch(/curl PUT/);
   });
 
+  it("never doubles a period when the dashboard's message already ends in one", async () => {
+    const text = await errorFor(() =>
+      fail(409, "Nothing has been uploaded for this upload yet. PUT the zip to uploadUrl, then finalize.", "UPLOAD_NOT_RECEIVED"),
+    );
+    expect(text).toContain("then finalize. Run (or finish) the curl PUT");
+    expect(text).not.toMatch(/\.\./);
+    for (const status of [400, 403, 404, 503]) {
+      expect(await errorFor(() => fail(status, "Something went wrong."))).not.toMatch(/\.\./);
+    }
+  });
+
   it("413 FILE_TOO_LARGE names the cap", async () => {
     expect(await errorFor(() => fail(413, "too big", "FILE_TOO_LARGE"))).toContain("500 MB");
   });
@@ -369,6 +630,10 @@ describe("error mapping", () => {
   it("403 and 404 carry the dashboard's message", async () => {
     expect(await errorFor(() => fail(403, "Forbidden"))).toMatch(/does not own that game/);
     expect(await errorFor(() => fail(404, "Game not found"))).toContain("Game not found");
+  });
+
+  it("413 without a code names the 20 MB body cap", async () => {
+    expect(await errorFor(() => fail(413, "request entity too large"))).toContain("20 MB");
   });
 
   it("5xx says retrying is safe", async () => {

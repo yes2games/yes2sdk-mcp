@@ -76,6 +76,9 @@ const expected = [
   "prepare_upload",
   "finalize_upload",
   "get_build_status",
+  "update_game",
+  "set_game_image",
+  "rename_build",
 ];
 const names = tools.map((t) => t.name).sort();
 const ok = expected.every((e) => names.includes(e)) && names.length === expected.length;
