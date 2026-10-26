@@ -635,46 +635,104 @@ describe("finalize_image_upload", () => {
 });
 
 describe("preview caps", () => {
-  it("game_limit_reached and build_limit_reached name the limit", async () => {
-    const games = await connect(withKey, () => json(409, { success: false, code: "game_limit_reached", error: "Game limit reached", limit: 3 }));
-    const created = await games.client.callTool({ name: "create_game", arguments: { name: "x", engine: "unity" } });
-    expect(textOf(created)).toMatch(/game limit of 3 \(game_limit_reached\)/);
+  const RULE = /Preview accounts: unlimited games; one build per game, and a new upload replaces the previous one unless that build is in review or live\./;
 
-    const builds = await connect(withKey, () => json(409, { success: false, code: "build_limit_reached", error: "Build limit reached", limit: 1 }));
-    const prepared = await builds.client.callTool({ name: "prepare_upload", arguments: { gameId: "g1", version: "1", size: 10 } });
-    expect(textOf(prepared)).toMatch(/build limit of 1 \(build_limit_reached\)/);
+  it("game_limit_reached names the admin-set limit, without the old 3-game advice", async () => {
+    const games = await connect(withKey, () => json(409, { success: false, code: "game_limit_reached", error: "Game limit reached", limit: 5 }));
+    const created = await games.client.callTool({ name: "create_game", arguments: { name: "x", engine: "unity" } });
+    const text = textOf(created);
+    expect(isError(created)).toBe(true);
+    expect(text).toMatch(/game limit an admin set on it of 5 \(game_limit_reached\)/);
+    expect(text).toMatch(RULE);
+    expect(text).not.toMatch(/delete one in the dashboard/);
   });
 
-  it("presign build_limit_reached says an earlier open upload counts", async () => {
-    const { client } = await connect(withKey, () => json(409, { success: false, code: "build_limit_reached", error: "Build limit reached", limit: 1 }));
+  it("build_limit_reached means an admin-set cap of 0, not 'remove the existing build'", async () => {
+    const { client } = await connect(withKey, () => json(409, { success: false, code: "build_limit_reached", error: "Build limit reached", limit: 0 }));
     const res = await client.callTool({ name: "prepare_upload", arguments: { gameId: "g1", version: "2", size: 10 } });
     expect(isError(res)).toBe(true);
-    expect(textOf(res)).toMatch(/earlier upload to this game that is still open counts/);
-    expect(textOf(res)).toMatch(/expires \(within the hour\)/);
+    const text = textOf(res);
+    expect(text).toMatch(/build limit 0\) \(build_limit_reached\)/);
+    expect(text).toMatch(/admin has set this account's build limit to 0/);
+    expect(text).toMatch(RULE);
+    expect(text).not.toMatch(/Remove the existing build/);
+    expect(text).not.toMatch(/did not register/);
   });
 
   it("finalize_upload explains a 409 build_limit_reached instead of reporting success", async () => {
     const { client, calls } = await connect(withKey, () =>
-      json(409, { success: false, code: "build_limit_reached", error: "Build limit reached", limit: 1, uploadId: "u1" }),
+      json(409, { success: false, code: "build_limit_reached", error: "Build limit reached", limit: 0, uploadId: "u1" }),
     );
     const res = await client.callTool({ name: "finalize_upload", arguments: { gameId: "g1", uploadId: "u1" } });
     expect(calls[0].url).toBe(`${BASE}/games/g1/build-uploads/u1/finalize`);
     expect(isError(res)).toBe(true);
     const text = textOf(res);
-    expect(text).toMatch(/build limit of 1 \(build_limit_reached\)/);
+    expect(text).toMatch(/\(build_limit_reached\)/);
     expect(text).toMatch(/did not register this upload as a build/);
-    expect(text).toMatch(/Preview accounts are capped per game/);
-    expect(text).toMatch(/earlier upload to this game that is still open/);
     expect(text).not.toMatch(/finalized\. Status/);
   });
 
-  it("a failed upload with build_limit_reached explains the cap", async () => {
+  it("prepare_upload explains UPLOAD_ALREADY_OPEN: finish the open upload or wait up to 60 minutes", async () => {
+    const { client } = await connect(withKey, () =>
+      json(409, { success: false, code: "UPLOAD_ALREADY_OPEN", error: "This game already has an upload in progress." }),
+    );
+    const res = await client.callTool({ name: "prepare_upload", arguments: { gameId: "g1", version: "2", size: 10 } });
+    expect(isError(res)).toBe(true);
+    const text = textOf(res);
+    expect(text).toMatch(/already has an open upload \(pending or processing\) \(UPLOAD_ALREADY_OPEN\)/);
+    expect(text).toMatch(/finalize_upload/);
+    expect(text).toMatch(/up to 60 minutes/);
+  });
+
+  it("build_protected on prepare_upload says the current build is in review or live", async () => {
+    const { client } = await connect(withKey, () => json(409, { success: false, code: "build_protected", error: "Build is in review" }));
+    const res = await client.callTool({ name: "prepare_upload", arguments: { gameId: "g1", version: "2", size: 10 } });
+    expect(isError(res)).toBe(true);
+    const text = textOf(res);
+    expect(text).toMatch(/in admin review or live \(build_protected\): Build is in review, so a new upload cannot replace it/);
+    expect(text).toMatch(RULE);
+    expect(text).toMatch(/once the review has ended/);
+    expect(text).not.toMatch(/did not register/);
+  });
+
+  it("build_protected on finalize_upload says the upload was not registered", async () => {
+    const { client } = await connect(withKey, () => json(409, { success: false, code: "build_protected", error: "Build is in review", uploadId: "u1" }));
+    const res = await client.callTool({ name: "finalize_upload", arguments: { gameId: "g1", uploadId: "u1" } });
+    expect(isError(res)).toBe(true);
+    const text = textOf(res);
+    expect(text).toMatch(/\(build_protected\)/);
+    expect(text).toMatch(/did not register this upload as a build/);
+    expect(text).not.toMatch(/finalized\. Status/);
+  });
+
+  it("a failed upload with build_protected explains the review or live build", async () => {
+    const { client } = await connect(withKey, () =>
+      ok({ uploadId: "u1", status: "failed", error: { code: "build_protected", message: "Build is in review" } }),
+    );
+    const res = await client.callTool({ name: "get_build_status", arguments: { gameId: "g1", uploadId: "u1" } });
+    const text = textOf(res);
+    expect(text).toMatch(/Status: failed \(build_protected\)/);
+    expect(text).toMatch(/in admin review or live/);
+    expect(text).toMatch(RULE);
+  });
+
+  it("a failed upload with build_limit_reached explains the admin-set cap", async () => {
     const { client } = await connect(withKey, () =>
       ok({ uploadId: "u1", status: "failed", error: { code: "build_limit_reached", message: "Build limit reached" } }),
     );
     const res = await client.callTool({ name: "get_build_status", arguments: { gameId: "g1", uploadId: "u1" } });
-    expect(textOf(res)).toMatch(/build limit/);
-    expect(textOf(res)).toMatch(/preview accounts are capped per game/);
+    const text = textOf(res);
+    expect(text).toMatch(/build limit to 0/);
+    expect(text).toMatch(RULE);
+    expect(text).not.toMatch(/Remove the existing build/);
+  });
+
+  it("prepare_upload's description states the preview rule", async () => {
+    const { client } = await connect(withKey, () => ok({}));
+    const { tools } = await client.listTools();
+    const prepare = tools.find((t) => t.name === "prepare_upload");
+    expect(prepare?.description).toMatch(RULE);
+    expect(prepare?.description).toMatch(/replaces the game's current one/);
   });
 });
 

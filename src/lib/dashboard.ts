@@ -127,6 +127,12 @@ function describeImageUploadFailure(code: string | undefined, tag: string, detai
   }
 }
 
+/** The preview account rule, as every tool text states it. */
+export const PREVIEW_LIMITS_TEXT =
+  "Preview accounts: unlimited games; one build per game, and a new upload replaces the previous one unless that build is in review or live.";
+
+const FINALIZE_PATH = /\/build-uploads\/[^/]+\/finalize$/;
+
 function describeFailure(status: number, code: string | undefined, context: FailureContext): string {
   const { error, retryAfter, signInHelp, limit, path } = context;
   if (status === 401 || code === "INVALID_API_KEY") return signInHelp ? INVALID_CREDENTIAL_HELP : INVALID_KEY_HELP;
@@ -167,16 +173,19 @@ function describeFailure(status: number, code: string | undefined, context: Fail
     case "BUILD_NOT_FOUND":
       return `No build with that id belongs to this game${tag}${detail}. A buildId comes from get_build_status once an upload is ready, and belongs to the game it was uploaded to.`;
     case "game_limit_reached":
-      return `This account has reached its game limit${limit !== undefined ? ` of ${limit}` : ""}${tag}${detail}. Preview accounts are capped; use an existing game from list_games, delete one in the dashboard, or ask to join a studio.`;
+      return `This account has reached a game limit an admin set on it${limit !== undefined ? ` of ${limit}` : ""}${tag}${detail}. ${PREVIEW_LIMITS_TEXT} This cap is specific to the account: upload to an existing game from list_games, or ask a Yes2 admin to lift it.`;
     case "build_limit_reached": {
-      const cap = `This game has reached its build limit${limit !== undefined ? ` of ${limit}` : ""}${tag}${detail}.`;
-      const why =
-        "Preview accounts are capped per game, and an earlier upload to this game that is still open counts against the cap until it is finalized or expires (within the hour).";
-      if (/\/build-uploads\/[^/]+\/finalize$/.test(path)) {
-        return `${cap} The dashboard did not register this upload as a build. ${why} Remove the existing build in the dashboard, or ask to join a studio, then prepare_upload again.`;
-      }
-      return `${cap} ${why} Finish or wait out the earlier upload, remove the existing build in the dashboard, or ask to join a studio.`;
+      const cap = `This account cannot add a build to this game${limit !== undefined ? ` (build limit ${limit})` : ""}${tag}${detail}.`;
+      const why = `An admin has set this account's build limit to 0. ${PREVIEW_LIMITS_TEXT}`;
+      const registered = FINALIZE_PATH.test(path) ? " The dashboard did not register this upload as a build." : "";
+      return `${cap}${registered} ${why} Retrying will not help; ask a Yes2 admin to lift the limit, or ask to join a studio.`;
     }
+    case "build_protected": {
+      const registered = FINALIZE_PATH.test(path) ? " The dashboard did not register this upload as a build, and the uploaded zip was discarded." : "";
+      return `This game's current build is in admin review or live${tag}${detail}, so a new upload cannot replace it.${registered} ${PREVIEW_LIMITS_TEXT} Upload again once the review has ended; a build sent back for changes or rejected is replaced normally.`;
+    }
+    case "UPLOAD_ALREADY_OPEN":
+      return `This game already has an open upload (pending or processing)${tag}${detail}. A preview account may have only one open upload per game. Finish that upload (its curl PUT, then finalize_upload, then get_build_status until it is ready or failed), or wait for it to expire (up to 60 minutes), then prepare_upload again.`;
     case "INSUFFICIENT_SCOPE":
       return `This credential is not allowed to do that${tag}${detail}. Sign in again and allow every requested permission (games:read, games:write, builds:write), or use a personal API key that carries the scope.`;
     case "DISPLAY_NAME_COLUMN_MISSING":

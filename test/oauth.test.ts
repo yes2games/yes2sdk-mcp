@@ -307,8 +307,8 @@ describe("dashboard client texts", () => {
   });
 
   it("explains the preview caps and a missing scope", async () => {
-    expect(await errorFor(409, { success: false, error: "Game limit reached", code: "game_limit_reached", limit: 3 })).toMatch(/game limit of 3 \(game_limit_reached\).*Preview accounts are capped/);
-    expect(await errorFor(409, { success: false, error: "Build limit reached", code: "build_limit_reached" })).toMatch(/build limit \(build_limit_reached\).*capped per game/);
+    expect(await errorFor(409, { success: false, error: "Game limit reached", code: "game_limit_reached", limit: 3 })).toMatch(/game limit an admin set on it of 3 \(game_limit_reached\).*Preview accounts: unlimited games/);
+    expect(await errorFor(409, { success: false, error: "Build limit reached", code: "build_limit_reached" })).toMatch(/cannot add a build to this game \(build_limit_reached\).*build limit to 0/);
     expect(await errorFor(403, { success: false, error: "Missing scope", code: "INSUFFICIENT_SCOPE", scope: "builds:write" })).toMatch(
       /not allowed to do that \(INSUFFICIENT_SCOPE\).*Sign in again/,
     );
