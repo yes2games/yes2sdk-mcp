@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { dashboardTool } from "../lib/annotations.js";
 import { redactKeys, type ApiKeyAuth } from "../lib/auth.js";
-import { identityOf, signedInSummary, SIGN_IN_TOOL, type WhoamiIdentity } from "../lib/oauth.js";
+import { identityOf, signedInSummary, SIGN_IN_CLIENT_STEPS, SIGN_IN_TOOL, type WhoamiIdentity } from "../lib/oauth.js";
 import {
   createDashboardClient,
   DashboardError,
@@ -75,11 +75,13 @@ const AUTH_NOTE =
   "Acts with the caller's own Yes2 dashboard API key (a y2g_ personal key from Dashboard → Settings), sent as the Authorization: Bearer header (or the bare key in X-Yes2-Api-Key) or, for the local stdio server, the YES2_API_KEY env var. The key is passed through to the dashboard and never stored. Without a key it returns the setup steps instead.";
 
 const AUTH_NOTE_OAUTH =
-  "Acts as the signed-in Yes2 dashboard user. Sign-in is opt-in and only needed for the dashboard tools, never for the docs tools: call sign_in (or in Claude Code run /mcp → Authenticate, in Codex `codex mcp login yes2sdk`), or provide an API key instead (a y2g_ personal key from Dashboard → Settings, sent as the bare key in X-Yes2-Api-Key, or for the local stdio server the YES2_API_KEY env var). Without either it returns the sign-in steps. The credential is passed through to the dashboard and never stored.";
+  "Acts as the signed-in Yes2 dashboard user. Sign-in is opt-in and only needed for the dashboard tools, never for the docs tools: call sign_in, then in Claude Code the user runs /mcp, picks the Yes2SDK server and chooses Authenticate (in claude.ai a Connect card appears; in Codex the user runs `codex mcp login yes2sdk`), or provide an API key instead (a y2g_ personal key from Dashboard → Settings, sent as the bare key in X-Yes2-Api-Key, or for the local stdio server the YES2_API_KEY env var). Without either it returns the sign-in steps. The credential is passed through to the dashboard and never stored.";
 
 /** What every dashboard tool answers, with MCP_OAUTH_ENABLED, when no Yes2 credential arrived. */
 export const NOT_SIGNED_IN_TEXT =
-  "You're not signed in to Yes2. To use dashboard tools, sign in: ask me to 'sign in to Yes2' (I'll call the sign_in tool), or in Claude Code run /mcp → Authenticate, or in Codex run `codex mcp login yes2sdk`. Alternatively set YES2_API_KEY (y2g_ key) and send it as X-Yes2-Api-Key.";
+  "You're not signed in to Yes2. To use dashboard tools, sign in: ask me to 'sign in to Yes2' (I'll call the sign_in tool). " +
+  `${SIGN_IN_CLIENT_STEPS} ` +
+  "Alternatively set YES2_API_KEY (y2g_ key) and send it as X-Yes2-Api-Key.";
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: true };
 
@@ -121,7 +123,9 @@ export function missingKeyText(auth: ApiKeyAuth, oauth = false): string {
 }
 
 export const SIGN_IN_EXPIRED_TEXT =
-  "Your Yes2 sign-in has expired or was revoked. To keep using dashboard tools, sign in again: ask me to 'sign in to Yes2' (I'll call the sign_in tool), or in Claude Code run /mcp → Authenticate, or in Codex run `codex mcp login yes2sdk`. Every other tool keeps working without signing in.";
+  "Your Yes2 sign-in has expired or was revoked. To keep using dashboard tools, sign in again: ask me to 'sign in to Yes2' (I'll call the sign_in tool). " +
+  `${SIGN_IN_CLIENT_STEPS} ` +
+  "Every other tool keeps working without signing in.";
 
 function missingCredentialText(auth: ApiKeyAuth): string {
   if (auth.status === "expired") return SIGN_IN_EXPIRED_TEXT;
@@ -288,7 +292,9 @@ function registerSignInTool(server: McpServer, ctx: DashboardToolContext): void 
       ...dashboardTool("Sign in to Yes2", { readOnly: true, idempotent: true }),
       description:
         "Sign in to the Yes2 dashboard so dashboard tools (upload, edit games) work; only needed for those tools. " +
-        "Call it when the user asks to sign in to Yes2, or after a dashboard tool answered that they are not signed in: the client then opens the Yes2 sign-in in the browser and retries. " +
+        "Call it when the user asks to sign in to Yes2, or after a dashboard tool answered that they are not signed in. Calling it does not open a browser by itself; after calling it, tell the user the step for their client. " +
+        "In Claude Code: run /mcp, pick the Yes2SDK server and choose Authenticate (the dashboard opens in the browser). Until Authenticate finishes, Claude Code pauses all of this server's tools, docs included; Disable then Enable on the server in /mcp reverts it to anonymous use without signing in. " +
+        "In claude.ai: a Connect card appears for the user to click. In Codex: the user runs `codex mcp login yes2sdk`. " +
         "Already signed in (or with an API key), it reports who the user is, the studio and the scopes. The docs and validation tools never need it.",
       inputSchema: {},
     },

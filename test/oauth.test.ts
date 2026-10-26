@@ -4,7 +4,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createServer } from "../src/server.js";
 import { authFromEnv, authFromHeaders, redactKeys, NO_KEY, type ApiKeyAuth } from "../src/lib/auth.js";
 import { createDashboardClient, DashboardError, INVALID_KEY_HELP, type FetchLike } from "../src/lib/dashboard.js";
-import { missingKeyText, NOT_SIGNED_IN_TEXT } from "../src/tools/dashboard.js";
+import { missingKeyText, NOT_SIGNED_IN_TEXT, SIGN_IN_EXPIRED_TEXT } from "../src/tools/dashboard.js";
 import {
   challenge401,
   challenge403,
@@ -126,8 +126,10 @@ describe("challenges", () => {
     );
     const body = JSON.parse(c.body) as { error: string; error_description: string };
     expect(body.error).toBe("invalid_token");
-    expect(body.error_description).toContain("or set YES2_API_KEY");
-    expect(body.error_description).toContain("codex mcp login yes2sdk");
+    expect(body.error_description).toBe(
+      "Sign in to Yes2 to use dashboard tools. In Claude Code, after sign_in run /mcp, pick the Yes2SDK server and choose Authenticate (the dashboard opens in the browser); in claude.ai, a Connect card appears; in Codex, run `codex mcp login yes2sdk`. " +
+        "Or set YES2_API_KEY to a personal dashboard API key (y2g_…, from Dashboard → Settings → Personal API keys) and send it as X-Yes2-Api-Key.",
+    );
   });
 
   it("the PRM is the design's JSON", () => {
@@ -328,7 +330,11 @@ describe("texts with OAuth on", () => {
     const instructions = client.getInstructions() ?? "";
     expect(instructions).toContain("sign-in is opt-in");
     expect(instructions).toContain("call sign_in");
-    expect(instructions).toContain("/mcp → Authenticate");
+    expect(instructions).toContain("tell the user to run /mcp, pick the Yes2SDK server and choose Authenticate");
+    expect(instructions).toContain("in claude.ai a Connect card appears");
+    expect(instructions).toContain("in Codex the user runs `codex mcp login yes2sdk`");
+    expect(instructions).toContain("Disable → Enable in /mcp reverts to anonymous");
+    expect(instructions).toContain("does not open a browser by itself");
     expect(instructions).toContain("docs and validation tools never need it");
     const { tools } = await client.listTools();
     for (const tool of tools.filter((t) => t.name in TOOL_SCOPES)) {
@@ -343,6 +349,12 @@ describe("texts with OAuth on", () => {
     expect(on.tools).toHaveLength(21);
     const signIn = on.tools.find((t) => t.name === "sign_in");
     expect(signIn?.description).toMatch(/^Sign in to the Yes2 dashboard so dashboard tools \(upload, edit games\) work; only needed for those tools\./);
+    expect(signIn?.description).toContain("Calling it does not open a browser by itself");
+    expect(signIn?.description).toContain("In Claude Code: run /mcp, pick the Yes2SDK server and choose Authenticate (the dashboard opens in the browser).");
+    expect(signIn?.description).toContain("Until Authenticate finishes, Claude Code pauses all of this server's tools");
+    expect(signIn?.description).toContain("Disable then Enable on the server in /mcp reverts it to anonymous use");
+    expect(signIn?.description).toContain("In claude.ai: a Connect card appears");
+    expect(signIn?.description).toContain("In Codex: the user runs `codex mcp login yes2sdk`.");
     expect(signIn?.annotations?.readOnlyHint).toBe(true);
     expect(signIn?.annotations?.idempotentHint).toBe(true);
     expect(signIn?.annotations?.destructiveHint).toBe(false);
@@ -371,7 +383,29 @@ describe("texts with OAuth on", () => {
 
   it("the not-signed-in text is exactly the product wording", () => {
     expect(NOT_SIGNED_IN_TEXT).toBe(
-      "You're not signed in to Yes2. To use dashboard tools, sign in: ask me to 'sign in to Yes2' (I'll call the sign_in tool), or in Claude Code run /mcp → Authenticate, or in Codex run `codex mcp login yes2sdk`. Alternatively set YES2_API_KEY (y2g_ key) and send it as X-Yes2-Api-Key.",
+      "You're not signed in to Yes2. To use dashboard tools, sign in: ask me to 'sign in to Yes2' (I'll call the sign_in tool). In Claude Code, after sign_in run /mcp, pick the Yes2SDK server and choose Authenticate (the dashboard opens in the browser); in claude.ai, a Connect card appears; in Codex, run `codex mcp login yes2sdk`. Alternatively set YES2_API_KEY (y2g_ key) and send it as X-Yes2-Api-Key.",
     );
+  });
+
+  it("the expired text is exactly the product wording", () => {
+    expect(SIGN_IN_EXPIRED_TEXT).toBe(
+      "Your Yes2 sign-in has expired or was revoked. To keep using dashboard tools, sign in again: ask me to 'sign in to Yes2' (I'll call the sign_in tool). In Claude Code, after sign_in run /mcp, pick the Yes2SDK server and choose Authenticate (the dashboard opens in the browser); in claude.ai, a Connect card appears; in Codex, run `codex mcp login yes2sdk`. Every other tool keeps working without signing in.",
+    );
+  });
+
+  it("no sign-in text claims the client opens the browser on sign_in by itself", async () => {
+    const client = await connect(true);
+    const { tools } = await client.listTools();
+    const texts = [
+      client.getInstructions() ?? "",
+      ...tools.map((t) => t.description ?? ""),
+      NOT_SIGNED_IN_TEXT,
+      SIGN_IN_EXPIRED_TEXT,
+      challenge401().body,
+    ];
+    for (const text of texts) {
+      expect(text).not.toMatch(/client (then )?opens? the (Yes2 )?sign-in/i);
+      expect(text).not.toContain("/mcp → Authenticate");
+    }
   });
 });
