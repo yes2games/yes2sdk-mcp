@@ -2,7 +2,7 @@
 import { createServer as createHttpServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createServer } from "./server.js";
-import { authFromHeaders } from "./lib/auth.js";
+import { authFromHeaders, type ApiKeyAuth } from "./lib/auth.js";
 import { resolveDashboardUrl } from "./lib/dashboard.js";
 import { gate, oauthEnabled, PRM, PRM_PATH, PRM_ROOT_PATH, type Challenge, type WhoamiIdentity } from "./lib/oauth.js";
 
@@ -218,15 +218,15 @@ async function handleMcpPost(req: IncomingMessage, res: ServerResponse): Promise
     return;
   }
 
-  const auth = OAUTH_ENABLED
+  let auth: ApiKeyAuth = OAUTH_ENABLED
     ? authFromHeaders(req.headers.authorization, req.headers["x-yes2-api-key"], { oauth: true })
     : authFromHeaders(req.headers.authorization, req.headers["x-yes2-api-key"]);
 
   // The opt-in sign-in gate. It must answer before the MCP SDK runs: a tool
   // handler can only produce a 200, and only an HTTP 401 with WWW-Authenticate
   // makes a client start sign-in. It refuses only sign_in without a valid
-  // credential and a y2a_ token the dashboard rejects (or that lacks a scope);
-  // a dashboard tool with no credential gets a normal "not signed in" result.
+  // credential; a dashboard tool with no credential, or with a sign-in the
+  // dashboard no longer accepts, gets a normal text result instead.
   let identity: WhoamiIdentity | undefined;
   if (OAUTH_ENABLED) {
     const decision = await gate(body, auth, DASHBOARD_API_URL);
@@ -235,6 +235,7 @@ async function handleMcpPost(req: IncomingMessage, res: ServerResponse): Promise
       return;
     }
     identity = decision.identity;
+    if (decision.expired) auth = { status: "expired" };
   }
 
   // Stateless: one server + one transport per request, torn down on close. The

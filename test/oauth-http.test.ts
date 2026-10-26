@@ -267,26 +267,30 @@ describe("sign_in is the opt-in", () => {
 });
 
 describe("y2a_ tokens are pre-checked with whoami", () => {
-  it("an expired y2a_ on a dashboard tool: the 401 challenge (the user opted in; the client refreshes or re-auths)", async () => {
+  it("an expired y2a_ on a dashboard tool: a 200 'sign in again' result, never a 401 (Claude Code would drop the whole connector)", async () => {
     stub.calls.length = 0;
     const res = await post(callTool("list_games"), bearer(CREDS.oauthExpired));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("www-authenticate")).toBeNull();
+    const out = await toolResult(res);
+    expect(out.isError).toBe(true);
+    expect(out.text).toContain("Your Yes2 sign-in has expired or was revoked");
+    expect(out.text).not.toContain(CREDS.oauthExpired);
+    expect(stub.calls.map((c) => c.url)).toEqual(["/api/v1/whoami"]);
+  });
+
+  it("an expired y2a_ on sign_in: the 401 challenge, so the client refreshes or re-authenticates", async () => {
+    const res = await post(callTool("sign_in"), bearer(CREDS.oauthExpired));
     expect(res.status).toBe(401);
     expect(res.headers.get("www-authenticate")).toBe(EXACT_401_CHALLENGE);
     await res.text();
-    expect(stub.calls.map((c) => c.url)).toEqual(["/api/v1/whoami"]);
-    expect(stub.calls[0].authorization).toBe(`Bearer ${CREDS.oauthExpired}`);
   });
 
-  it("a missing scope: 403 insufficient_scope", async () => {
-    stub.calls.length = 0;
+  it("a missing scope: no 403 from the MCP; the call goes to the dashboard, which enforces scopes per route", async () => {
     const res = await post(callTool("create_game", { name: "x", engine: "unity" }), bearer(CREDS.oauthReadOnly));
-    expect(res.status).toBe(403);
-    const header = res.headers.get("www-authenticate") ?? "";
-    expect(header).toMatch(/^Bearer error="insufficient_scope", /);
-    expect(header).toContain('scope="games:read games:write builds:write"');
-    expect(header).toContain('resource_metadata="https://mcp.yes2games.com/.well-known/oauth-protected-resource/mcp"');
-    expect(((await res.json()) as { error: string }).error).toBe("insufficient_scope");
-    expect(stub.calls.map((c) => c.url)).toEqual(["/api/v1/whoami"]);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("www-authenticate")).toBeNull();
+    await res.text();
   });
 
   it("the same read-only token runs a games:read tool", async () => {
