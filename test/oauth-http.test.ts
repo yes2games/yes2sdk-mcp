@@ -28,7 +28,7 @@ const EXACT_401_CHALLENGE =
   'scope="games:read games:write builds:write"';
 
 const NOT_SIGNED_IN =
-  "You're not signed in to Yes2. To use dashboard tools, sign in: ask me to 'sign in to Yes2' (I'll call the sign_in tool), or in Claude Code run /mcp → Authenticate, or in Codex run `codex mcp login yes2sdk`. Alternatively set YES2_API_KEY (y2g_ key) and send it as X-Yes2-Api-Key.";
+  "You're not signed in to Yes2. To use dashboard tools, sign in: ask me to 'sign in to Yes2' (I'll call the sign_in tool). In Claude Code, after sign_in run /mcp, pick the Yes2SDK server and choose Authenticate (the dashboard opens in the browser); in claude.ai, a Connect card appears; in Codex, run `codex mcp login yes2sdk`. Alternatively set YES2_API_KEY (y2g_ key) and send it as X-Yes2-Api-Key.";
 
 const EXPECTED_PRM = {
   resource: "https://mcp.yes2games.com/mcp",
@@ -201,7 +201,7 @@ describe("sign_in is the opt-in", () => {
     const body = (await res.json()) as { error: string; error_description: string };
     expect(body.error).toBe("invalid_token");
     expect(body.error_description).toContain("codex mcp login yes2sdk");
-    expect(body.error_description).toContain("or set YES2_API_KEY");
+    expect(body.error_description).toContain("Or set YES2_API_KEY");
     expect(stub.calls).toHaveLength(0);
   });
 

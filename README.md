@@ -87,13 +87,20 @@ claude.ai connector cannot send a key; there, sign in instead (below).
 
 **Sign-in (opt-in, hosted server with `MCP_OAUTH_ENABLED=1`).** Not signing in behaves like the
 original server: the docs and validation tools never need it, and a dashboard tool without a
-credential answers with the sign-in steps instead of failing the connection. To sign in:
+credential answers with the sign-in steps instead of failing the connection. Sign-in is a
+feature of the hosted server only; the local stdio server has no OAuth and uses an API key
+(`YES2_API_KEY`). To sign in, ask your assistant to "sign in to Yes2". That calls the `sign_in`
+tool, which does **not** open a browser by itself. The next step depends on the client:
 
-- Any client: ask to "sign in to Yes2". That calls the `sign_in` tool, which makes Claude Code,
-  claude.ai and Codex open the Yes2 sign-in in the browser. Once signed in, `sign_in` reports
-  the account, studio and scopes.
-- Claude Code: or run `/mcp`, pick the server, choose **Authenticate**.
-- Codex: or run `codex mcp login yes2sdk`.
+- **Claude Code**: `sign_in` marks the server as needing sign-in. Run `/mcp`, pick the Yes2SDK
+  server (`claude.ai/yes2sdk` for the claude.ai connector) and choose **Authenticate**; the
+  dashboard opens in the browser. Until Authenticate finishes, Claude Code pauses all of the
+  server's tools, docs included. To go back to anonymous use without signing in, choose
+  **Disable** and then **Enable** on the server in `/mcp`.
+- **claude.ai**: a **Connect** card appears in the chat; click it to sign in.
+- **Codex**: run `codex mcp login yes2sdk` (the name you gave the server).
+
+Once signed in, `sign_in` reports the account, studio and scopes.
 
 `sign_in` is listed only when the flag is on, so the hosted server lists 21 tools and the stdio
 server 20.

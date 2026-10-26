@@ -4,10 +4,12 @@
  *
  * Not signing in behaves like the original server: every tool answers with a
  * normal result, and a dashboard tool without a credential returns the sign-in
- * steps as text. Sign-in is opt-in through the `sign_in` tool (or Claude Code
- * /mcp → Authenticate, Codex `codex mcp login`): only `sign_in` without a
- * valid credential gets the HTTP 401 + `WWW-Authenticate` challenge that makes
- * a client open the browser sign-in. A 401 on an ordinary dashboard tool made
+ * steps as text. Sign-in is opt-in through the `sign_in` tool: only `sign_in`
+ * without a valid credential gets the HTTP 401 + `WWW-Authenticate` challenge.
+ * No client opens a browser on that 401 by itself: claude.ai shows a Connect
+ * card; Claude Code marks the server "needs sign-in" and pauses its tools
+ * until the user runs /mcp → the server → Authenticate; Codex signs in through
+ * `codex mcp login yes2sdk`. A 401 on an ordinary dashboard tool made
  * Claude Code mark the whole connector as needing auth, docs included, so that
  * is reserved for a `y2a_` token the user presented and the dashboard rejected.
  * `initialize`, `tools/list` and the docs tools are never gated.
@@ -105,9 +107,17 @@ export function callsSignIn(body: unknown): boolean {
   return calledTools(body).includes(SIGN_IN_TOOL);
 }
 
+/**
+ * How each client finishes signing in. Verified live: calling sign_in does not
+ * open a browser in any client by itself.
+ */
+export const SIGN_IN_CLIENT_STEPS =
+  "In Claude Code, after sign_in run /mcp, pick the Yes2SDK server and choose Authenticate (the dashboard opens in the browser); " +
+  "in claude.ai, a Connect card appears; in Codex, run `codex mcp login yes2sdk`.";
+
 export const SIGN_IN_HOWTO =
-  "Sign in to Yes2: Claude Code, run /mcp and choose Authenticate; Codex, run `codex mcp login yes2sdk`; claude.ai, use the Connect card or call sign_in; " +
-  "or set YES2_API_KEY to a personal dashboard API key (y2g_…, from Dashboard → Settings → Personal API keys) and send it as X-Yes2-Api-Key.";
+  `${SIGN_IN_CLIENT_STEPS} ` +
+  "Or set YES2_API_KEY to a personal dashboard API key (y2g_…, from Dashboard → Settings → Personal API keys) and send it as X-Yes2-Api-Key.";
 
 export interface Challenge {
   status: 401 | 403;
