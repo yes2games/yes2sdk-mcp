@@ -253,15 +253,21 @@ describe("Origin validation", () => {
 // The container has 192 MB of RAM; an unbounded body buffer is a cheap way to
 // knock it over.
 describe("request body cap", () => {
+  // Sent several times because the failure this guards against was a race:
+  // closing the socket while the client was still uploading reset about one
+  // request in seven (EPIPE/ECONNRESET in fetch) instead of delivering the 413.
   it("answers 413 for a body over 1 MB", async () => {
-    const res = await fetch(`${BASE}/mcp`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: { pad: "x".repeat(2 * 1024 * 1024) } }),
-    });
-    expect(res.status).toBe(413);
-    const body = await res.json();
-    expect(body.error.message).toMatch(/exceeds/);
+    const payload = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: { pad: "x".repeat(2 * 1024 * 1024) } });
+    for (let i = 0; i < 20; i++) {
+      const res = await fetch(`${BASE}/mcp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+        body: payload,
+      });
+      expect(res.status).toBe(413);
+      const body = await res.json();
+      expect(body.error.message).toMatch(/exceeds/);
+    }
   }, 20_000);
 
   it("still serves a normal-sized request afterwards", async () => {
