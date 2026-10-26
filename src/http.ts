@@ -337,3 +337,16 @@ const httpServer = createHttpServer((req: IncomingMessage, res: ServerResponse) 
 httpServer.listen(PORT, "0.0.0.0", () => {
   process.stderr.write(`[yes2sdk-mcp] HTTP transport listening on 0.0.0.0:${PORT}\n`);
 });
+
+const SHUTDOWN_GRACE_MS = 8000;
+let stopping = false;
+const shutdown = (signal: NodeJS.Signals): void => {
+  if (stopping) return;
+  stopping = true;
+  process.stderr.write(`[yes2sdk-mcp] ${signal}: closing the HTTP server\n`);
+  setTimeout(() => process.exit(1), SHUTDOWN_GRACE_MS).unref();
+  setInterval(() => httpServer.closeIdleConnections(), 100).unref();
+  httpServer.close(() => process.exit(0));
+};
+process.once("SIGTERM", shutdown);
+process.once("SIGINT", shutdown);

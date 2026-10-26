@@ -304,3 +304,16 @@ describe("dashboard tools over HTTP", () => {
     expect(stubRequests).toHaveLength(0);
   }, 30_000);
 });
+
+describe("SIGTERM", () => {
+  it("closes the server and exits 0 within 2 s, where node as the container's PID 1 ignored SIGTERM and was killed with 137 at the 10 s stop timeout", async () => {
+    const exited = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve) =>
+      child.once("exit", (code, signal) => resolve({ code, signal })),
+    );
+    const started = Date.now();
+    child.kill("SIGTERM");
+    expect(await exited).toEqual({ code: 0, signal: null });
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(childStderr).toContain("SIGTERM: closing the HTTP server");
+  }, 10_000);
+});
