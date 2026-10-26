@@ -130,14 +130,6 @@ describe("challenges", () => {
     expect(body.error_description).toContain("codex mcp login yes2sdk");
   });
 
-  it("403 is insufficient_scope and asks for all three scopes", () => {
-    const c = challenge403();
-    expect(c.status).toBe(403);
-    expect(c.headers["WWW-Authenticate"]).toMatch(/^Bearer error="insufficient_scope", /);
-    expect(c.headers["WWW-Authenticate"]).toContain('scope="games:read games:write builds:write"');
-    expect(JSON.parse(c.body).error).toBe("insufficient_scope");
-  });
-
   it("the PRM is the design's JSON", () => {
     expect(JSON.parse(JSON.stringify(PRM))).toEqual({
       resource: "https://mcp.yes2games.com/mcp",
@@ -179,9 +171,9 @@ describe("whoami", () => {
     };
     expect(await whoami(BASE, TOKEN, fetchAnswering(200, personal).fn)).toMatchObject({ kind: "ok", scopes: ALL });
     const keyNoUser = { success: true, data: { principal: { kind: "team", teamId: "t1", teamName: "S" }, credential: { kind: "key" }, scopes: ALL } };
+    // A missing scope is the dashboard's per-route check to answer (as text), never a 403 here.
     expect(await gate(call("prepare_upload"), { status: "ok", kind: "oauth", credential: TOKEN }, BASE, fetchAnswering(200, team).fn)).toMatchObject({
-      kind: "refuse",
-      challenge: { status: 403 },
+      kind: "pass",
     });
     expect(await gate(call("prepare_upload"), { status: "ok", kind: "oauth", credential: TOKEN }, BASE, fetchAnswering(200, keyNoUser).fn)).toMatchObject({ kind: "pass" });
   });
@@ -260,13 +252,13 @@ describe("gate", () => {
     expect(f.urls).toHaveLength(0);
   });
 
-  it("y2a_: whoami 401 → 401, missing scope → 403, all scopes → pass, 5xx → pass", async () => {
-    const r401 = await gate(call("list_games"), oauthAuth, BASE, fetchAnswering(401, {}).fn);
+  it("y2a_: whoami 401 → expired pass on a dashboard tool and 401 on sign_in, missing scope → pass, 5xx → pass", async () => {
+    expect(await gate(call("list_games"), oauthAuth, BASE, fetchAnswering(401, {}).fn)).toEqual({ kind: "pass", expired: true });
+    const r401 = await gate(call("sign_in"), oauthAuth, BASE, fetchAnswering(401, {}).fn);
     expect(r401.kind === "refuse" && r401.challenge.status).toBe(401);
 
     const readOnly = fetchAnswering(200, { success: true, data: { scopes: ["games:read"] } }).fn;
-    const r403 = await gate(call("prepare_upload"), oauthAuth, BASE, readOnly);
-    expect(r403.kind === "refuse" && r403.challenge.status).toBe(403);
+    expect(await gate(call("prepare_upload"), oauthAuth, BASE, readOnly)).toMatchObject({ kind: "pass" });
     expect(await gate(call("get_build_status"), oauthAuth, BASE, readOnly)).toMatchObject({ kind: "pass" });
 
     expect(await gate(call("create_game"), oauthAuth, BASE, fetchAnswering(200, { success: true, data: { scopes: ALL } }).fn)).toMatchObject({ kind: "pass" });

@@ -135,17 +135,6 @@ export function challenge401(): Challenge {
   return challenge(401, "invalid_token", short, `${short}. ${SIGN_IN_HOWTO}`);
 }
 
-/** A live `y2a_` token that lacks a scope the call needs. */
-export function challenge403(): Challenge {
-  const short = "Sign in again and allow every requested Yes2 permission";
-  return challenge(
-    403,
-    "insufficient_scope",
-    short,
-    `${short} (${CHALLENGE_SCOPE}). Claude Code: /mcp → Authenticate; Codex: \`codex mcp login yes2sdk\`; claude.ai reconnects from the Connect card.`,
-  );
-}
-
 /** Who a credential belongs to, from the dashboard's whoami. Every field is optional: only what was sent. */
 export interface WhoamiIdentity {
   principal?: { kind: "team"; teamId?: string; teamName?: string } | { kind: "personal" };
@@ -243,8 +232,12 @@ export function signedInSummary(identity: WhoamiIdentity, fallbackKind: "key" | 
 }
 
 export type GateDecision =
-  /** Hand the request to the MCP SDK. `identity` is set when a y2a_ token was checked. */
-  | { kind: "pass"; identity?: WhoamiIdentity }
+  /**
+   * Hand the request to the MCP SDK. `identity` is set when a y2a_ token was
+   * checked; `expired` when the dashboard rejected it on a dashboard tool, which
+   * then answers with a "sign in again" result instead of an HTTP 401.
+   */
+  | { kind: "pass"; identity?: WhoamiIdentity; expired?: true }
   | { kind: "refuse"; challenge: Challenge };
 
 /**
@@ -253,8 +246,13 @@ export type GateDecision =
  *   signal that makes a client start the browser sign-in;
  * - a dashboard tool without a credential (or with a foreign bearer) passes,
  *   and the tool answers with a normal "not signed in" result, as in phase 1;
- * - a `y2a_` token the user did present is checked with whoami: rejected → 401
- *   (so the client refreshes or re-authenticates), missing scope → 403;
+ * - a `y2a_` token the user did present is checked with whoami. On sign_in a
+ *   rejected token gets the 401 (so the client refreshes or re-authenticates);
+ *   on a dashboard tool it passes as `expired` and the tool answers with text.
+ *   A missing scope is left to the dashboard's per-route check, which answers
+ *   INSUFFICIENT_SCOPE as text. Only sign_in ever gets a non-200: a 401 or 403
+ *   on any other call makes some clients (Claude Code) drop the whole
+ *   connector, docs tools included, until the user signs in;
  * - everything else (initialize, tools/list, docs tools) is never touched.
  */
 export async function gate(
@@ -276,12 +274,9 @@ export async function gate(
   if (auth.kind === "key") return { kind: "pass" };
 
   const who = await whoami(baseUrl, auth.credential, fetchImpl);
-  if (who.kind === "unauthorized") return { kind: "refuse", challenge: challenge401() };
-  if (who.kind === "unavailable") return { kind: "pass" };
-  // A whoami without a scope list cannot prove a scope is missing; the
-  // dashboard still enforces scopes per route.
-  if (who.scopes !== undefined && needed.some((scope) => !who.scopes?.includes(scope))) {
-    return { kind: "refuse", challenge: challenge403() };
+  if (who.kind === "unauthorized") {
+    return signIn ? { kind: "refuse", challenge: challenge401() } : { kind: "pass", expired: true };
   }
+  if (who.kind === "unavailable") return { kind: "pass" };
   return { kind: "pass", identity: who.identity };
 }

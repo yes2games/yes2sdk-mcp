@@ -24,7 +24,9 @@ export type ApiKeyAuth =
   | { status: "malformed"; source: "header" | "env" }
   | { status: "ok"; kind: CredentialKind; credential: string }
   /** OAuth mode only: an Authorization header that carries no Yes2 credential. */
-  | { status: "foreign" };
+  | { status: "foreign" }
+  /** OAuth mode only: a y2a_ sign-in the dashboard no longer accepts (expired or revoked). */
+  | { status: "expired" };
 
 const BEARER_KEY = /^Bearer (y2g_[A-Za-z0-9_-]+)$/;
 const BEARER_OAUTH = /^Bearer (y2a_[A-Za-z0-9_-]+)$/;

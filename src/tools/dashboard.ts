@@ -120,7 +120,11 @@ export function missingKeyText(auth: ApiKeyAuth, oauth = false): string {
   ].join("\n");
 }
 
+export const SIGN_IN_EXPIRED_TEXT =
+  "Your Yes2 sign-in has expired or was revoked. To keep using dashboard tools, sign in again: ask me to 'sign in to Yes2' (I'll call the sign_in tool), or in Claude Code run /mcp → Authenticate, or in Codex run `codex mcp login yes2sdk`. Every other tool keeps working without signing in.";
+
 function missingCredentialText(auth: ApiKeyAuth): string {
+  if (auth.status === "expired") return SIGN_IN_EXPIRED_TEXT;
   if (auth.status === "malformed") {
     return `${NOT_SIGNED_IN_TEXT}\n\nThe X-Yes2-Api-Key header sent to this server is not a Yes2 dashboard API key (expected \`y2g_…\`).`;
   }
