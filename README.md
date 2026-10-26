@@ -177,6 +177,10 @@ content instead of a path — see the `validate_integration` and `detect_sdk` no
 Published on npm, so the client spawns it directly. Requires Node 20+. The package carries its
 own copy of the docs (`docs/`), so a local run needs no other checkout.
 
+The local server has no sign-in and no `sign_in` tool: OAuth is a hosted-server feature. Its
+dashboard tools use an API key instead, read from `YES2_API_KEY` in the server entry's `env`
+(see "The key" above). The docs and validation tools need neither.
+
 ```bash
 npx -y @yes2games/yes2sdk-mcp
 ```
@@ -289,27 +293,37 @@ to keep in step.
 
 ## Releasing
 
-**Manual, tag-driven.** A human publishes; no workflow does. The hosted container and the
-connector are the primary channels and deploy on merge to `main`, so npm is the slow lane and
-releases are rare enough that automating them would buy less than the credentials it would cost.
+**Tag-driven, published by CI through npm Trusted Publishing.** The hosted container and the
+connector are the primary channels and deploy on merge to `main`; npm is the slow lane for the
+local stdio server. No npm token exists anywhere: `.github/workflows/publish.yml` is registered on
+npmjs.com as the package's trusted publisher (repository `yes2games/yes2sdk-mcp`, workflow
+`publish.yml`, environment `npm`), and npm exchanges the job's OIDC token for a short-lived
+publish credential. Never run `npm publish` from a laptop.
 
-```bash
-npm version <major|minor|patch>   # bumps package.json, commits, tags
-git push --follow-tags
-npm publish                       # from a real terminal: 2FA needs a TTY
-gh release create v<version> --generate-notes
-```
+1. Open a PR that bumps `version` in `package.json` (`npm version <x.y.z> --no-git-tag-version`
+   keeps the lockfile in step) and adds the `CHANGELOG.md` entry. The phase-1 parity fixture
+   records `serverInfo.version`, so re-record it (`npx tsx test/helpers/capture-phase1.ts "$PWD"`
+   after `npm run build`) and check that only the version changed. Merge when CI is green.
+2. Tag the merge commit and push the tag:
+   ```bash
+   git switch main && git pull
+   git tag v<x.y.z> && git push origin v<x.y.z>
+   ```
+3. Run the workflow: `gh workflow run publish.yml -f tag=v<x.y.z>` (or Actions → Publish to npm
+   → Run workflow). It checks that the tag is `vX.Y.Z` and matches `package.json`, checks out the
+   tag, builds, runs the tests and the smoke test, publishes with provenance, and creates the
+   GitHub release (generated notes) if there is none. A re-run skips a version already on npm.
+4. Verify: `npm view @yes2games/yes2sdk-mcp version`, then `npx -y @yes2games/yes2sdk-mcp@<x.y.z>`
+   with a stdio `tools/list`.
 
 Notes:
 
 - `publishConfig.access` is `public`; the scope would otherwise default to restricted and the
   first publish would fail `402`.
-- `prepare` runs `tsc` on publish, so `dist/` is always built from the committed source.
+- `prepare` runs `tsc` on publish, so `dist/` is always built from the tagged source.
+- Trusted publishing needs npm 11.5.1 or newer; the workflow installs 11.6.2.
 - The registry's read path lags its write path by roughly a minute. A `404` from `npm view`
-  straight after a publish is that lag, not a failure. The authoritative signal is `PUT 200`
-  in the npm debug log.
-- Publishing from CI would need either a token in repository secrets or npm Trusted Publishing
-  (OIDC). Neither is set up, and neither is worth it at this cadence.
+  straight after a publish is that lag, not a failure.
 
 ## Architecture
 

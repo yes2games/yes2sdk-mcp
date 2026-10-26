@@ -23,7 +23,9 @@ import { PARITY_PORTS } from "./helpers/parity-ports.js";
  * It was re-recorded again when preview accounts moved to unlimited games
  * and one replaced build per game (yes2dashboard#887); that diff was only the
  * preview-rule sentence added to prepare_upload's description in tools/list,
- * and the matching content-length.
+ * and the matching content-length. It was re-recorded again for the 0.4.0
+ * release; that diff was only serverInfo.version ("0.3.2" -> "0.4.0") in the
+ * two initialize answers.
  * See helpers/capture-phase1.ts.
  */
 const HERE = path.dirname(fileURLToPath(import.meta.url));
