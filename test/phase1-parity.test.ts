@@ -20,6 +20,10 @@ import { PARITY_PORTS } from "./helpers/parity-ports.js";
  * by the inserted matrix rows. It was re-recorded again when the image
  * upload URL lifetime went from 15 to 10 minutes; that diff was only
  * "15 minutes" -> "10 minutes" in tools/list and the set_game_image answer.
+ * It was re-recorded again when preview accounts moved to unlimited games
+ * and one replaced build per game (yes2dashboard#887); that diff was only the
+ * preview-rule sentence added to prepare_upload's description in tools/list,
+ * and the matching content-length.
  * See helpers/capture-phase1.ts.
  */
 const HERE = path.dirname(fileURLToPath(import.meta.url));

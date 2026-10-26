@@ -6,6 +6,7 @@ import { identityOf, signedInSummary, SIGN_IN_TOOL, type WhoamiIdentity } from "
 import {
   createDashboardClient,
   DashboardError,
+  PREVIEW_LIMITS_TEXT,
   seg,
   type DashboardClient,
   type FetchLike,
@@ -368,6 +369,8 @@ export function registerDashboardTools(server: McpServer, ctx: DashboardToolCont
         "Step 2 of uploading a build to the Yes2 dashboard: reserves the version and returns an uploadId, an expiry, and a ready-to-run curl command that PUTs the zip to a presigned storage URL. " +
         "The URL is signed to the exact size given, so the size has to be the zip's byte count: `stat -f%z build.zip` on macOS, `stat -c%s build.zip` on Linux. " +
         "This server never reads the zip; the curl command runs on the user's machine. " +
+        PREVIEW_LIMITS_TEXT +
+        " For a preview account, tell the user before uploading that the new build replaces the game's current one. " +
         FLOW +
         " " +
         authNote,
@@ -486,8 +489,14 @@ export function registerDashboardTools(server: McpServer, ctx: DashboardToolCont
             lines.push("Yes2SDK was not detected in the build, so uploading the same zip again fails the same way. validate_integration on the build output shows what is missing.");
           } else if (code === "VERSION_EXISTS") {
             lines.push("This game already has a build at that version; prepare_upload with a new version.");
+          } else if (code === "build_protected") {
+            lines.push(
+              `The game's current build is in admin review or live, so this upload could not replace it and was discarded. ${PREVIEW_LIMITS_TEXT} Upload again with prepare_upload once the review has ended.`,
+            );
           } else if (code === "build_limit_reached") {
-            lines.push("This account's build limit for the game is reached (preview accounts are capped per game). Remove the existing build in the dashboard or ask to join a studio, then prepare_upload again.");
+            lines.push(
+              `An admin has set this account's build limit to 0, so the game cannot take a build. ${PREVIEW_LIMITS_TEXT} Retrying will not help; ask a Yes2 admin to lift the limit, or ask to join a studio.`,
+            );
           } else if (code === "UPLOAD_EXPIRED") {
             lines.push("The zip was not uploaded and finalized within the hour; start again with prepare_upload.");
           } else if (code === "PROCESSING_INTERRUPTED" || code === "PROCESSING_FAILED") {
