@@ -84,6 +84,11 @@ const JSONRPC_BODY_TOO_LARGE = JSON.stringify({
   id: null,
 });
 
+// How much of an oversized body is read and thrown away so its 413 can be
+// delivered. Past this the connection is cut instead: the client then sees a
+// reset, but nobody gets to stream without limit into a discard loop.
+const MAX_DISCARD_BYTES = 16 * MAX_BODY_BYTES;
+
 class BodyTooLargeError extends Error {
   constructor() {
     super("Request body too large");
@@ -169,6 +174,35 @@ function readBody(req: IncomingMessage): Promise<unknown> {
   });
 }
 
+/**
+ * Answers 413 once the client has finished sending. `Connection: close` shuts
+ * the socket as soon as the response is out, and a socket closed while the
+ * client is still uploading is reset: the client then fails with ECONNRESET or
+ * EPIPE and never reads the 413 (about 1 request in 7 for a 2 MB body over
+ * loopback). So the rest of the body is read and discarded first, up to
+ * MAX_DISCARD_BYTES, and the response goes out after the request's last byte.
+ */
+function sendBodyTooLarge(req: IncomingMessage, res: ServerResponse): void {
+  const respond = (): void => {
+    if (res.writableEnded) return;
+    res.writeHead(413, { "Content-Type": "application/json", Connection: "close" });
+    res.end(JSONRPC_BODY_TOO_LARGE);
+  };
+  // The parser can finish the request before this runs (its last chunk is what
+  // crossed the cap), and then "end" has already fired.
+  if (req.complete) {
+    respond();
+    return;
+  }
+  let discarded = 0;
+  req.on("data", (chunk: Buffer) => {
+    discarded += chunk.length;
+    if (discarded > MAX_DISCARD_BYTES) req.socket.destroy();
+  });
+  req.once("end", respond);
+  req.resume();
+}
+
 function sendChallenge(res: ServerResponse, challenge: Challenge): void {
   // A browser-hosted client can only read the challenge cross-origin if the
   // header is exposed.
@@ -207,9 +241,7 @@ async function handleMcpPost(req: IncomingMessage, res: ServerResponse): Promise
     body = await readBody(req);
   } catch (err) {
     if (err instanceof BodyTooLargeError) {
-      res.writeHead(413, { "Content-Type": "application/json", Connection: "close" });
-      res.end(JSONRPC_BODY_TOO_LARGE);
-      req.resume();
+      sendBodyTooLarge(req, res);
       return;
     }
     // Not JSON. Answered as a JSON-RPC parse error; the body is never echoed or logged.
