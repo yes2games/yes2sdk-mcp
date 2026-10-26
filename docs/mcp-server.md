@@ -75,7 +75,7 @@ Once you sign in with your Yes2 dashboard account (optional, and only for these 
 
 | Tool | What it does |
 |---|---|
-| `sign_in` | Start signing in to the dashboard (your browser opens), or, if you already are, say which account and studio the assistant acts as. |
+| `sign_in` | Start signing in to the dashboard (your client then shows how to finish), or, if you already are, say which account and studio the assistant acts as. |
 | `list_games` | The games your studio owns, or your personal games on a preview account. |
 | `create_game` | Create a new game in your studio (a personal game on a preview account). |
 | `prepare_upload` | Start an upload for a game and version; returns a command that sends the zip from your machine straight to storage. |
@@ -94,10 +94,10 @@ The tools use the [Build Upload API](/docs/build-upload-api), which you can also
 
 Signing in is opt-in. The docs, API reference, platform rules and validator tools never need it: they work without an account, in every client, whether or not you sign in. Until you sign in, a dashboard tool just replies that you're not signed in and how to do it; nothing else changes.
 
-To sign in, say **"sign in to Yes2"**. Your assistant calls the `sign_in` tool, and your client opens the dashboard in your browser:
+To sign in, say **"sign in to Yes2"**. Your assistant calls the `sign_in` tool. That does not open your browser by itself; the next step depends on your client:
 
-- **Claude Code**: the browser approval opens from `sign_in`. You can also run `/mcp`, pick `yes2sdk`, and choose **Authenticate**.
-- **claude.ai** (and Claude Desktop): add `https://mcp.yes2games.com/mcp` as a custom connector; adding it needs no sign-in. `sign_in` shows a **Connect** card; approve in the pop-up.
+- **Claude Code**: `sign_in` marks the server as needing sign-in. Run `/mcp`, pick the Yes2SDK server and choose **Authenticate**; the dashboard opens in your browser. Until you finish, Claude Code pauses all of the server's tools, docs included. To go back to using it without signing in, choose **Disable** and then **Enable** on the server in `/mcp`.
+- **claude.ai** (and Claude Desktop): add `https://mcp.yes2games.com/mcp` as a custom connector; adding it needs no sign-in. `sign_in` shows a **Connect** card; click it and approve in the pop-up.
 - **Codex**: run `codex mcp login yes2sdk` (use the name you gave the server) and approve in the browser.
 
 Once you're signed in, asking again ("am I signed in to Yes2?") makes `sign_in` report the account, the studio and the permissions the assistant is using.
