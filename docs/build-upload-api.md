@@ -1,6 +1,6 @@
 # Build Upload API
 
-> Create and read games, set their icon and banner, and upload versioned builds from CI with an API key, instead of clicking through the dashboard.
+> Create and read games, set their icon and banner, and upload versioned builds from CI with an API key (or from an AI assistant signed in with OAuth), instead of clicking through the dashboard.
 
 Every action here has an equivalent in the dashboard UI. Use this API when a build should be uploaded by a pipeline: a tagged release, a nightly job, an engine build step. Interactive uploads keep working exactly as before and are unaffected by anything on this page.
 
@@ -55,6 +55,91 @@ Store the key as a secret in your CI provider. It is a credential: treat it like
 
 Revoke a team key with **Revoke** next to it on the **Team** page (owners and managers). Revoke a personal key with **Revoke** next to it in **Settings** (the holder). Revocation takes effect immediately and cannot be undone. A revoked key answers `401` on its next request. Revoke and create a fresh key whenever one may have been exposed.
 
+### OAuth access tokens
+
+An AI assistant connected through the [Yes2SDK MCP server](/docs/mcp-server) (Claude Code, claude.ai, Codex) can sign in to the dashboard with OAuth instead of using a key. You approve it once in the browser, and the app gets an access token that starts with `y2a_`. It sends it the same way:
+
+```
+Authorization: Bearer y2a_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+Most people never see one of these tokens: the app stores and refreshes it itself. You can list and revoke these connections in **Settings** under **Connected apps**.
+
+A token acts as you, in one of two places fixed when you approved it:
+
+- **Your studio**, if you hold an owner, manager or developer seat. It reaches the same games and endpoints as a personal key, and uploads show your name.
+- **Your personal games**, if you have no studio yet (a preview account). See [Personal games](#personal-games-preview-accounts).
+
+A token carries only the scopes you approved, never admin rights. It stops working, with the same `401 INVALID_API_KEY` as an unknown key, when it is revoked or expires (the app refreshes it), when you lose your seat or are banned, and when a personal-games token's account joins a studio. Joining a studio does not silently widen a connection: sign in again and approve it for the studio.
+
+### Personal games (preview accounts)
+
+A credential acting for your personal games sees only those games: `GET /games` lists them, and every studio's games answer as if they did not exist. `principal.kind` is `personal` in [`GET /whoami`](#check-a-credential).
+
+The preview limits from the dashboard apply unchanged: unlimited games, 1 build per game (a new upload replaces the previous one).
+
+- `POST /games` creates a personal game. There is no game limit by default. If an admin has set one on your account, creating past it answers `409` with `game_limit_reached` and the limit in `limit`.
+- A game keeps one build. Uploading to a game that already has its build **replaces** it, through any upload route: the new build is stored and the old one (its bundles, Inspector results and files) is removed in the same step. The upload response carries the removed build in `replacedBuildIds`, and a version is free to reuse when the build that holds it is the one being replaced.
+- An upload cannot replace a build that is in review or live (an open publish request, or the game's live build). That upload answers `409 build_protected`, at presign, finalize or the multipart post, until the review finishes. A build that was sent back for changes or rejected is replaced normally, which is how you resubmit.
+- One presigned upload per game may be open at a time. Creating a second while the first is waiting for its finalize or still processing answers `409 UPLOAD_ALREADY_OPEN`: finalize the open one, or wait for it to expire (an hour). Retrying the same request with the same `Idempotency-Key` replays the open upload instead.
+
+```json
+{ "success": false, "error": "This game already has an upload in progress. Finalize it, or wait for it to expire (up to 60 minutes), then request a new upload.", "code": "UPLOAD_ALREADY_OPEN" }
+```
+
+The limits lift once your account is verified.
+
+### Scopes
+
+Each endpoint needs one scope. A credential without it answers `403` with `INSUFFICIENT_SCOPE` and the missing scope in `scope`:
+
+```json
+{ "success": false, "error": "This credential lacks the builds:write scope", "code": "INSUFFICIENT_SCOPE", "scope": "builds:write" }
+```
+
+| Scope | Endpoints |
+|---|---|
+| `games:read` | `GET /games`, `GET /games/:gameId`, `GET /games/:gameId/builds`, `GET /games/:gameId/builds/:buildId`, `GET /games/:gameId/build-uploads/:uploadId` |
+| `games:write` | `POST /games`, `PATCH /games/:gameId`, `PATCH /games/:gameId/builds/:buildId/name`, `POST` and `DELETE /games/:gameId/icon` and `/banner`, `POST /games/:gameId/image-uploads`, `POST /games/:gameId/image-uploads/:uploadId/finalize` |
+| `builds:write` | `POST /games/:gameId/builds`, `POST /games/:gameId/build-uploads`, `POST /games/:gameId/build-uploads/:uploadId/finalize` |
+
+A write scope does not include read. `GET /whoami` needs no scope.
+
+Every API key currently carries all three scopes, so nothing on this page changes for an existing key. An OAuth token carries the scopes approved when it was issued.
+
+### Check a credential
+
+```
+GET /api/v1/whoami
+```
+
+Describes the credential you sent: the studio it acts in, the person it credits, and its scopes. It never returns the key, its prefix or its id. Use it to check a key before a pipeline relies on it.
+
+```bash
+curl https://dashboard.yes2games.com/api/v1/whoami \
+  -H "Authorization: Bearer $YES2_API_KEY"
+```
+
+```json
+{
+  "success": true,
+  "data": {
+    "principal": { "kind": "team", "teamId": "7d1c…", "teamName": "Demo Studio" },
+    "user": { "id": "b52e…", "email": "jonas@example.com", "name": "Jonas" },
+    "credential": { "kind": "key" },
+    "scopes": ["games:read", "games:write", "builds:write"]
+  }
+}
+```
+
+| Field | Notes |
+|---|---|
+| `principal.kind` | `team`, or `personal` for an OAuth token acting for your [personal games](#personal-games-preview-accounts) |
+| `principal.teamId`, `principal.teamName` | The studio whose games the credential reaches. Absent for `personal` |
+| `user` | The person the credential acts as: the holder of a personal key, or the user who approved an OAuth token. Absent for a team key, which credits nobody |
+| `credential.kind` | `key` for an API key, `oauth` for an OAuth access token |
+| `scopes` | What the credential may do. See [Scopes](#scopes) |
+
 ---
 
 ## Create a game
@@ -64,7 +149,7 @@ POST /api/v1/games
 Content-Type: application/json
 ```
 
-The new game is owned by the key's team.
+The new game is owned by the credential's studio. For a [personal-games](#personal-games-preview-accounts) credential it is a personal game. There is no game limit by default; an admin-set limit on the account answers `409 game_limit_reached`.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
@@ -292,7 +377,7 @@ POST /api/v1/games/:gameId/banner
 Content-Type: application/json
 ```
 
-The body is JSON, not multipart: one `dataUrl` field holding a base64 data URL of type `image/png`, `image/jpeg`, or `image/webp`. The whole request body is capped at 20 MB. An upload replaces the image that is already there.
+The body is JSON, not multipart: one `dataUrl` field holding a base64 data URL of type `image/png`, `image/jpeg`, or `image/webp`. The decoded bytes must really be that type (its file signature is checked). The whole request body is capped at 20 MB. An upload replaces the image that is already there.
 
 ```bash
 curl -X POST https://dashboard.yes2games.com/api/v1/games/$GAME_ID/icon \
@@ -314,6 +399,74 @@ An icon can complete the game profile, so the icon response carries the game's r
 ```json
 { "success": true, "data": { "id": "3f6c1b8e-...", "has_banner": true } }
 ```
+
+### Upload an icon or banner (presigned)
+
+For a client that cannot put the image into a JSON body, such as an AI assistant whose tools run away from your files. The image goes straight to storage, the same way as a [presigned build](#upload-a-large-build-presigned), and the dashboard checks it before storing it. The `dataUrl` route above is unchanged.
+
+**1. Create the upload.**
+
+```
+POST /api/v1/games/:gameId/image-uploads
+Content-Type: application/json
+```
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `kind` | string | yes | `icon` or `banner` |
+| `contentType` | string | yes | `image/png`, `image/jpeg` or `image/webp` |
+| `size` | integer | yes | The file's exact size in bytes. At most 15728640 (15 MB) |
+
+`201 Created`:
+
+```json
+{
+  "success": true,
+  "data": {
+    "uploadId": "0b9a7c1e-...",
+    "kind": "icon",
+    "uploadUrl": "https://...r2.cloudflarestorage.com/...",
+    "method": "PUT",
+    "headers": { "Content-Type": "image/png", "Content-Length": "48213" },
+    "expiresAt": "2026-10-24T09:29:02.887Z"
+  }
+}
+```
+
+**2. PUT the image** to `uploadUrl` with exactly the returned `headers` and no `Authorization` header, before `expiresAt` (10 minutes). The URL only accepts that type and that many bytes. Do not log it.
+
+```bash
+curl --fail-with-body -s -X PUT "$URL" -H 'Content-Type: image/png' --upload-file icon.png
+```
+
+**3. Finalize.**
+
+```
+POST /api/v1/games/:gameId/image-uploads/:uploadId/finalize
+```
+
+The dashboard reads the image back, checks that its size is the declared `size` and that its bytes really are the declared type, stores it as the icon or banner (replacing the current one), and deletes the staged copy. The answer is the same as the `dataUrl` route's, plus the upload's id and status:
+
+```json
+{ "success": true, "data": { "uploadId": "0b9a7c1e-...", "status": "ready", "kind": "icon", "id": "3f6c1b8e-...", "has_icon": true, "onboarding_stage": "qa" } }
+```
+
+Finalizing again after success answers the same `200`. Finalizing before the PUT has finished is a `409 UPLOAD_NOT_RECEIVED`, and the upload stays usable. An upload that fails a check answers `422`, stores nothing and cannot be reused: create a new one.
+
+| Status | `code` | Meaning |
+|---|---|---|
+| `400` | `INVALID_KIND` | `kind` is not `icon` or `banner` |
+| `400` | `UNSUPPORTED_IMAGE_TYPE` | `contentType` is not PNG, JPEG or WebP |
+| `400` | `INVALID_SIZE` | `size` is missing or not a positive whole number |
+| `413` | `IMAGE_TOO_LARGE` | `size` is over 15 MB |
+| `409` | `TOO_MANY_OPEN_UPLOADS` | This game already has 2 image uploads waiting to be finalized. Finalize them, or wait for them to expire |
+| `409` | `UPLOAD_NOT_RECEIVED` | Finalize was called before the image was PUT |
+| `409` | `UPLOAD_IN_PROGRESS` | Another finalize call is storing it. Call again shortly |
+| `422` | `SIZE_MISMATCH` | The stored image is not the declared size |
+| `422` | `INVALID_IMAGE` | The bytes are not a valid image of the declared type |
+| `410` | `UPLOAD_EXPIRED` | Not finalized within an hour of being created |
+| `404` | `UPLOAD_NOT_FOUND` | No upload with that id belongs to the game and this credential's studio or account |
+| `409` | `R2_NOT_ENABLED` | Presigned uploads are not available on this server. Use the `dataUrl` route |
 
 ### Remove an icon or banner
 
@@ -384,7 +537,7 @@ The upload is not a publish. Requesting publish for a platform stays a dashboard
 
 The version is a free-form string, so `1.4.2`, `2026.08.24-nightly`, and `1.2.3-rc4+build567` are all fine. Feed it whatever your engine or CI already produces.
 
-It is unique **per game**. Re-posting a version that a game already has returns `409` and changes nothing, which is what makes a retried or re-run pipeline job safe: the second attempt cannot create a duplicate build. When you genuinely mean to replace a build, upload a new version.
+It is unique **per game**. Re-posting a version that a game already has returns `409` and changes nothing, which is what makes a retried or re-run pipeline job safe: the second attempt cannot create a duplicate build. When you genuinely mean to replace a build, upload a new version. The one exception is a [personal game](#personal-games-preview-accounts), where an upload replaces the game's only build: it may reuse that build's version, because the old build is gone once the new one lands.
 
 Builds uploaded through the dashboard by hand carry no version, and they never collide with a versioned one.
 
@@ -476,7 +629,7 @@ GET /api/v1/games/:gameId/build-uploads/:uploadId
 | `ready` | The build exists. `buildId` and `build` (the [Get a build](#get-a-build) shape) are set |
 | `failed` | Nothing was stored. `error` is `{ "code", "message" }`. Fix the cause and create a new upload |
 
-`error.code` is one of the multipart route's codes (`SDK_NOT_INTEGRATED`, `INDEX_HTML_MISSING`, `UPLOAD_ANALYSIS_FAILED`, `VERSION_EXISTS`, `FILE_TOO_LARGE`) or one of these: `SIZE_MISMATCH` (the stored object is not the declared size), `UPLOAD_EXPIRED` (not finalized in time, or nothing was uploaded), `PROCESSING_INTERRUPTED` (the server restarted mid-processing) or `PROCESSING_FAILED` (an unexpected server error). The last two are safe to retry with a new upload.
+`error.code` is one of the multipart route's codes (`SDK_NOT_INTEGRATED`, `INDEX_HTML_MISSING`, `UPLOAD_ANALYSIS_FAILED`, `VERSION_EXISTS`, `FILE_TOO_LARGE`, `build_protected`, `build_limit_reached`) or one of these: `SIZE_MISMATCH` (the stored object is not the declared size), `UPLOAD_EXPIRED` (not finalized in time, or nothing was uploaded), `PROCESSING_INTERRUPTED` (the server restarted mid-processing) or `PROCESSING_FAILED` (an unexpected server error). The last two are safe to retry with a new upload.
 
 A status is kept for a day after the upload finishes.
 
@@ -519,7 +672,7 @@ done
 
 ## Rate limits and client tags
 
-Write requests (every `POST`, `PATCH` and `DELETE` on this page) are limited per key, to 60 a minute. Past the limit the answer is `429` with `RATE_LIMITED` and a `Retry-After` header in seconds. Reads, including status polling, are not counted.
+Write requests (every `POST`, `PATCH` and `DELETE` on this page) are limited per key, or per OAuth connection, to 60 a minute. OAuth connections also share a limit of 120 a minute per user, however many apps are connected. Past the limit the answer is `429` with `RATE_LIMITED` and a `Retry-After` header in seconds. Reads, including status polling, are not counted.
 
 An integration can name itself with an `X-Yes2-Client` header, for example `X-Yes2-Client: mcp`: lowercase letters, digits and `-`, up to 32 characters. The dashboard records it on the build's upload activity. Anything else is ignored.
 
@@ -531,10 +684,15 @@ Every failure answers with `{"success": false, "error": "..."}`, plus a `code` w
 
 | Status | `code` | Meaning |
 |---|---|---|
-| `401` | `INVALID_API_KEY` | Missing, malformed, revoked, or unknown key. Also a personal key whose holder lost upload rights |
-| `403` | | The key's team does not own this game. Returned by the endpoints that change a game |
+| `401` | `INVALID_API_KEY` | Missing, malformed, revoked, or unknown key or OAuth token. Also a personal key or OAuth token whose user lost upload rights, was banned, or (for a personal-games token) joined a studio |
+| `403` | `INSUFFICIENT_SCOPE` | The credential lacks the scope this endpoint needs. `scope` names it. See [Scopes](#scopes) |
+| `403` | | The credential's studio (or, for a personal-games credential, its user) does not own this game. Returned by the endpoints that change a game |
+| `409` | `game_limit_reached` | A preview account is at an admin-set game limit (there is none by default). `limit` carries it. See [Personal games](#personal-games-preview-accounts) |
+| `409` | `build_protected` | A preview account's upload would replace a build that is in review or live |
+| `409` | `build_limit_reached` | A preview account has an admin-set build limit of 0. `limit` carries it |
+| `409` | `UPLOAD_ALREADY_OPEN` | A preview account already has an open presigned upload for this game. Finalize it, or wait for it to expire |
 | `404` | | `Game not found` from a read endpoint. See [Read games and builds](#read-games-and-builds) |
-| `400` | | `dataUrl` is missing, or is not a PNG, JPEG, or WebP base64 data URL |
+| `400` | | `dataUrl` is missing, is not a PNG, JPEG, or WebP base64 data URL, or its bytes are not the declared type |
 | `400` | `INVALID_NAME` | A build `name` is neither a string nor `null` |
 | `400` | `NAME_TOO_LONG` | A build `name` is over 100 characters after trimming |
 | `404` | `BUILD_NOT_FOUND` | No build with that id belongs to the game |
@@ -553,7 +711,7 @@ Every failure answers with `{"success": false, "error": "..."}`, plus a `code` w
 | `409` | `UPLOAD_NOT_RECEIVED` | Finalize was called before the zip was PUT. The upload stays usable |
 | `409` | `R2_NOT_ENABLED` | Presigned uploads are not available on this server. Use the multipart route |
 | `404` | `UPLOAD_NOT_FOUND` | No upload with that id belongs to the game |
-| `429` | `RATE_LIMITED` | Too many writes for this key. Wait `Retry-After` seconds |
+| `429` | `RATE_LIMITED` | Too many writes for this key or OAuth connection. Wait `Retry-After` seconds |
 | `400` | | A field failed validation. The message names the field |
 | `500` | | Server error. Safe to retry |
 

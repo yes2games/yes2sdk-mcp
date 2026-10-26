@@ -128,6 +128,8 @@ A quick summary of the game: icon, description, screenshot carousel, review stat
 
 Every build you've uploaded, newest first. Each row has a status badge, a **Preview** link for a quick visual check, and a link to open the build in the **Inspector**. You can upload a new build from here at any time.
 
+**Preview accounts** (not yet verified, no studio) can create unlimited games, with 1 build per game: a new upload replaces the previous one, along with its Inspector results. A build that is in review or live cannot be replaced until the review finishes. A build sent back for changes is replaced normally, which is how you resubmit. The limit lifts once your account is verified.
+
 ### Assets
 
 Manage your **icon**, **banner** (1200×630 PNG recommended), and **screenshots**. Delete any individual screenshot you don't want. Screenshots can also be captured straight from the Inspector.
