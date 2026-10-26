@@ -1,0 +1,99 @@
+name: Publish to npm
+
+# The only workflow that publishes @yes2games/yes2sdk-mcp to npm. npm trusted publishing
+# (OIDC) is configured on npmjs.com for this file and the `npm` environment, so no npm token
+# is stored anywhere. Run it by hand after pushing a vX.Y.Z tag; it publishes only an existing
+# tag whose package.json version matches, then creates the GitHub release if it is missing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish (vX.Y.Z)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yes2sdk-mcp-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: npm
+    permissions:
+      contents: write # gh release create
+      id-token: write # npm trusted publishing
+    steps:
+      - name: Check the tag format
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::tag must look like vX.Y.Z, got '$TAG'"
+            exit 1
+          fi
+
+      - name: Checkout the release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26.12.1"
+          registry-url: "https://registry.npmjs.org"
+
+      # Trusted publishing needs npm 11.5.1 or newer.
+      - name: Update npm
+        run: npm install -g npm@11.6.2
+
+      - name: Check package.json matches the tag
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          VERSION="v$(node -p "require('./package.json').version")"
+          if [ "$VERSION" != "$TAG" ]; then
+            echo "::error::package.json is $VERSION but the tag is $TAG"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify before publishing
+        run: |
+          npm run build
+          npm test
+          node scripts/smoke-test.mjs
+
+      # Trusted publishing: npm exchanges the job's OIDC token for a short-lived publish
+      # credential. Provenance is generated automatically. `prepare` rebuilds dist/ from
+      # the tagged source.
+      # A re-run after a failed release step skips the publish instead of failing on it.
+      - name: Publish
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          if npm view "@yes2games/yes2sdk-mcp@${TAG#v}" version >/dev/null 2>&1; then
+            echo "@yes2games/yes2sdk-mcp@${TAG#v} is already on npm, skipping publish"
+          else
+            npm publish --access public
+          fi
+
+      - name: Create the GitHub release if missing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG already exists"
+          else
+            gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes
+          fi
