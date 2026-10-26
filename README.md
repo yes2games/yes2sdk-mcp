@@ -177,6 +177,10 @@ content instead of a path — see the `validate_integration` and `detect_sdk` no
 Published on npm, so the client spawns it directly. Requires Node 20+. The package carries its
 own copy of the docs (`docs/`), so a local run needs no other checkout.
 
+The local server has no sign-in and no `sign_in` tool: OAuth is a hosted-server feature. Its
+dashboard tools use an API key instead, read from `YES2_API_KEY` in the server entry's `env`
+(see "The key" above). The docs and validation tools need neither.
+
 ```bash
 npx -y @yes2games/yes2sdk-mcp
 ```
