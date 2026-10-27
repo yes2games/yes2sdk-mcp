@@ -41,7 +41,7 @@
     "check:sdk-meta": "node scripts/check-sdk-meta-sync.mjs"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "zod": "^3.25.0"
   },
   "devDependencies": {
