@@ -828,19 +828,18 @@ const CG007: ComplianceRule = {
   id: "CG-007",
   platform: "crazygames",
   severity: "WARN",
-  description: "Settings change listener registered",
+  description: "CrazyGames mute forwarded (settings listener)",
   check: (logs) => {
-    const settingsListener = logs.find(
-      (l) =>
-        (l.type === "call" && l.method.includes("settingsChange")) ||
-        (l.type === "event" && l.method === "settingsChange") ||
-        (l.type === "call" && l.method.includes("addEventListener") && l.params?.event === "settingsChange")
-    );
-    return makeResult(CG007, !!settingsListener,
-      settingsListener
-        ? "Settings change listener registered"
-        : "No settingsChange listener detected — CG player may send mute/unmute commands",
-      { autoFix: "Register sdk.game.addEventListener('settingsChange', handler) to handle mute/unmute from CG player" }
+    // Yes2SDK registers the CrazyGames settings listener itself during init and
+    // forwards settings.muteAudio as session.isAudioEnabled() plus the
+    // audioEnabledChange event, so a successful init is what this rule needs.
+    // Whether the game actually mutes is graded by the "Audio mute honored" check.
+    const init = findCall(logs, "initializeAsync");
+    return makeResult(CG007, !!init,
+      init
+        ? "Yes2SDK forwards CrazyGames muteAudio as audioEnabledChange"
+        : "SDK not initialized, so CrazyGames mute/unmute is not forwarded to the game",
+      { autoFix: "Read Yes2SDK.session.isAudioEnabled() at startup and subscribe to Yes2SDK.on('audioEnabledChange') so the CrazyGames mute overrides your in-game sound setting" }
     );
   },
 };
@@ -1967,7 +1966,7 @@ const J014: ComplianceRule = {
       return makeResult(J014, true, `startGameAsync() not seen yet ${NOT_APPLICABLE_MARKER}`);
     }
     return makeResult(J014, false, "No exitRequested handler registered: nothing saves progress when the player leaves", {
-      autoFix: "Register Yes2SDK.on('exitRequested', ...) (Unity OnExitRequested, Defold on_exit_requested) and save synchronously inside it",
+      autoFix: "Register Yes2SDK.on('exitRequested', ...) directly in JavaScript/TypeScript (Unity OnExitRequested, Defold on_exit_requested) and save synchronously inside it",
     });
   },
 };
@@ -2112,7 +2111,7 @@ export const RULE_FIXES: Record<string, string[]> = {
     "Space interstitial ads at least 3 minutes apart — CG enforces this server-side"
   ],
   "CG-007": [
-    "Register sdk.game.addEventListener('settingsChange', handler) to handle mute/unmute from CG player"
+    "Read Yes2SDK.session.isAudioEnabled() at startup and subscribe to Yes2SDK.on('audioEnabledChange') so the CrazyGames mute overrides your in-game sound setting"
   ],
   "CG-008": [
     "Call setLoadingProgress() during loading and startGameAsync() when ready — these map to CG loadingStart/loadingStop"
@@ -2255,7 +2254,7 @@ export const RULE_FIXES: Record<string, string[]> = {
   ],
   "J-014": [
     "In Yes2SDK.on('exitRequested', ...) write progress synchronously (data.setString); async work started there is not awaited",
-    "Register Yes2SDK.on('exitRequested', ...) (Unity OnExitRequested, Defold on_exit_requested) and save synchronously inside it"
+    "Register Yes2SDK.on('exitRequested', ...) directly in JavaScript/TypeScript (Unity OnExitRequested, Defold on_exit_requested) and save synchronously inside it"
   ]
 };
 
