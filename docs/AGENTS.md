@@ -101,6 +101,10 @@ platform SDK directly. Only the method-naming convention differs per engine:
 - Bracket active gameplay with `gameplayStart()` / `gameplayStop()` — CG's QA tool
   checks for this. No ads during active gameplay.
 - Mute audio during ads (CG QA checks audio).
+- Required (Full Implementation): honor the CrazyGames mute. Read
+  `session.isAudioEnabled()` at startup and subscribe to
+  `Yes2SDK.on('audioEnabledChange', ...)`, same as YouTube. The platform mute wins
+  over the in-game sound toggle.
 - CG enforces a 3-minute minimum between interstitials server-side.
 - On ad error, check `adError.code`: `'unfilled'` / `'adblock'` mean no-fill, not a
   dismissal.
