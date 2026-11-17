@@ -25,6 +25,8 @@ The Yes2SDK methods below cover every CrazyGames-platform call you need. The mid
 | `sdk.game.loadingStop()` | `Yes2SDK.startGameAsync()` | **Required** |
 | `sdk.game.gameplayStart()` | `game.gameplayStart()` | **Required** (CG QA checks this) |
 | `sdk.game.gameplayStop()` | `game.gameplayStop()` | **Required** (before every ad) |
+| `sdk.game.settings.muteAudio` | `session.isAudioEnabled()` | **Required** (Full Implementation): read at startup |
+| `sdk.game.addSettingsChangeListener(fn)` | `Yes2SDK.on('audioEnabledChange', fn)` | **Required** (Full Implementation): match the CrazyGames mute |
 | `sdk.ad.requestAd('midgame', cbs)` | `ads.showInterstitial(placement, cbs)` | Recommended |
 | `sdk.ad.requestAd('rewarded', cbs)` | `ads.showRewarded(placement, cbs)` | Recommended |
 | Mute audio in `adStarted`, restore in `adFinished` / `adError` | `beforeAd` / `afterAd` callbacks (mute/unmute yourself) | **Required** (CG QA checks audio) |
@@ -63,7 +65,7 @@ The Yes2SDK methods below cover every CrazyGames-platform call you need. The mid
 | No ads during gameplay | Interstitials only when gameplay is stopped |
 | 3-minute ad frequency | CG enforces 3-min minimum between interstitials server-side |
 | happytime on positive moments | Recommended (not mandatory) for CG promotion algorithms |
-| Settings change listener | Handle mute/unmute commands from the CG player |
+| Honor the CrazyGames mute | When the player mutes the game in CrazyGames, your game must go silent. Read `isAudioEnabled()` at startup, then subscribe to `audioEnabledChange`. The platform mute wins over your in-game sound setting. See [Mute audio](#mute-audio). |
 
 ## Integration Example
 
@@ -223,6 +225,7 @@ If reviewers send back changes, upload a new build and request publish again on 
 - [ ] SDK init with wrapper options
 - [ ] `gameplayStart` / `gameplayStop` called around active gameplay
 - [ ] Audio muted during ads
+- [ ] Game audio matches `isAudioEnabled()` at startup and on every change, and the in-game sound toggle cannot unmute it
 - [ ] `loadingStart` / `loadingStop` sequence completes
 - [ ] No ads during active gameplay
 - [ ] Ad error codes mapped correctly (unfilled / adblock → noFill)
@@ -233,6 +236,7 @@ If reviewers send back changes, upload a new build and request publish again on 
 |-------|-----|
 | Missing wrapper options in init | Pass `{ wrapper: { engine: 'unity', sdkVersion: '2.0.0' } }` to `SDK.init()` |
 | Audio plays during ads | Mute in `beforeAd`/`adStarted`, restore in `afterAd`/`adFinished` |
+| Audio plays after the player muted CrazyGames | Read `session.isAudioEnabled()` at startup AND subscribe to `audioEnabledChange`. Do not let an in-game sound toggle turn it back on. |
 | No gameplay lifecycle | Add `gameplayStart()`/`gameplayStop()` around active gameplay |
 | Ads during active gameplay | Call `gameplayStop()` before requesting any ad |
 | Missing loading progress | Call `loadingStart()` during loading, `loadingStop()` when ready |
@@ -269,12 +273,65 @@ await Yes2SDK.banners.showBanner('main-menu', '300x250');
 Yes2SDK.banners.hideBanner('main-menu');
 ```
 
-### Settings Change Listener
+### Mute audio
 
-CrazyGames can send settings changes (e.g., mute audio from the CG player). The SDK handles this automatically, but you can also listen for platform events:
+Players can mute a game from the CrazyGames player (`game.settings.muteAudio`). A Full Implementation of an HTML5 game must honor it, and the platform mute takes priority over your own sound setting: an in-game "sound on" toggle must not bring back audio CrazyGames muted. For a game submitted to CrazyGames as a Unity build, CrazyGames mutes it automatically, and wiring the event below is still safe.
+
+This is the same integration as [YouTube Playables](/docs/youtube): read `session.isAudioEnabled()` at startup, then subscribe to `audioEnabledChange`. Yes2SDK listens to CrazyGames' settings changes for you and emits the event when the mute flips. You never call a CrazyGames API. A game already wired for YouTube mute works here after a rebundle, with no code change.
 
 ```typescript
-// The SDK dispatches OnPause/OnResume events when CG requests it
-Yes2SDK.OnPause += () => MuteAudio();
-Yes2SDK.OnResume += () => UnmuteAudio();
+let platformMuted = !Yes2SDK.session.isAudioEnabled();
+let soundOn = true; // your in-game sound setting
+
+function applyAudio() {
+    setAudioMuted(platformMuted || !soundOn);
+}
+
+Yes2SDK.on('audioEnabledChange', ({ enabled }) => {
+    platformMuted = !enabled;
+    applyAudio();
+});
+applyAudio();
 ```
+
+Unity C#:
+
+```csharp
+bool platformMuted;
+bool soundOn = true; // your in-game sound setting
+
+void ApplyAudio() => AudioListener.volume = (platformMuted || !soundOn) ? 0f : 1f;
+
+// After InitializeAsync succeeds
+platformMuted = !Yes2SDK.Yes2SDK.Session.IsAudioEnabled();
+Yes2SDK.Yes2SDK.OnAudioEnabledChange += (enabled) => {
+    platformMuted = !enabled;
+    ApplyAudio();
+};
+ApplyAudio();
+```
+
+Defold Lua:
+
+```lua
+local platform_muted = false
+local sound_on = true -- your in-game sound setting
+
+local function apply_audio()
+    local muted = platform_muted or not sound_on
+    sound.set_group_gain("master", muted and 0 or 1)
+end
+
+yes2sdk.initialize(function(self, success, error)
+    if not success then return end
+
+    platform_muted = not yes2sdk.session_is_audio_enabled()
+    yes2sdk.on_audio_enabled_change(function(self, enabled)
+        platform_muted = not enabled
+        apply_audio()
+    end)
+    apply_audio()
+end)
+```
+
+Restore audio after an ad through the same check, so an ad never unmutes a game the player muted. To test locally, add `?muteAudio=true` to the game URL: CrazyGames treats the game as muted.

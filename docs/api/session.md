@@ -25,7 +25,7 @@ Information about the current play session: device, locale, country, entry point
 | `getEntryPointDataJson()` | `string` | `JSON.stringify(getEntryPointData())` (Unity bridge). |
 | `getPlatform()` | `string` | Platform identifier string. |
 | `getSDKVersion()` | `string` | SDK version string. |
-| `isAudioEnabled()` | `boolean` | Whether platform audio is enabled. `true` where no native signal. Pair with the `audioEnabledChange` event. |
+| `isAudioEnabled()` | `boolean` | Whether platform audio is enabled. Follows the platform mute on YouTube and CrazyGames, `true` elsewhere. Pair with the `audioEnabledChange` event. |
 
 **Types:** `DeviceOrientation = "portrait" | "landscape"`; `DeviceType = "desktop" | "mobile" | "tablet" | "tv" | "unknown"`; `DeviceInfo = { type: DeviceType; isMobile: boolean; isDesktop: boolean; isTablet: boolean; isTV: boolean }` (at most one flag is `true`; all `false` when `type` is `"unknown"`); `EntryPointData = Record<string, unknown>`; `TrafficSource = { referrer, utmCampaign, utmSource, utmMedium }` (each `string | null`).
 
@@ -45,18 +45,19 @@ Information about the current play session: device, locale, country, entry point
 | `getTrafficSource` | Ready | Partial | Ready | Partial⁴ | Partial⁴ | Partial | Partial⁴ |
 | `getPlatform` | Ready | Ready | Ready | Ready | Ready | Ready | Ready |
 | `getSDKVersion` | None⁵ | None⁵ | None⁵ | None⁵ | None⁵ | None⁵ | None⁵ |
-| `isAudioEnabled` | None⁶ | None⁶ | None⁶ | None⁶ | Ready² | None⁶ | None⁶ |
+| `isAudioEnabled` | None⁶ | None⁶ | Ready¹¹ | None⁶ | Ready² | None⁶ | None⁶ |
 
 ¹ Locale is derived, not from a dedicated locale API: Poki prefers `PokiSDK.getLanguage()`; CrazyGames uses the system **country code** (`getSystemInfo().countryCode`), not a language; GameDistribution and Jest use the browser. All fall back to `navigator.language` (Jest falls back to `"en"` when the browser gives none).
 ² From `ytgame.system.getLanguage()` / `ytgame.system.isAudioEnabled()`.
 ³ Derived from `window.innerWidth/Height` or user-agent sniffing, not a platform API.
 ⁴ Only `document.referrer`; UTM fields are `null`.
 ⁵ Returns a hardcoded version string.
-⁶ Returns `true` (no native audio signal). On YouTube this is a real call: important for certification.
+⁶ Returns `true` (no native audio signal). On YouTube and CrazyGames it reads the platform mute: YouTube certification and a CrazyGames Full Implementation both check it.
 ⁷ CrazyGames maps to `getSystemInfo().device.type` (desktop/mobile/tablet; no TV class), falling back to user-agent detection.
 ⁸ Yandex maps to the native `ysdk.deviceInfo` form-factor flags (more accurate than UA parsing).
 ⁹ Jest: the `source` field of Jest's entry payload when it is a string, otherwise `""`.
 ¹⁰ Jest: Jest's entry payload, unchanged. It is always an object (empty when nothing was supplied) and the page URL is never read. It carries the `data` you passed to a referral share (`referrals.shareAsync`), a notification (`notifications.scheduleAsync`), the registration prompt (`auth.showRegistrationPrompt`) or an image share (`context.shareAsync`). `getPlatform()` returns `"jest"`. See the [Jest guide](/docs/jest).
+¹¹ From CrazyGames `game.settings.muteAudio`, inverted: `false` while the player has muted the game in CrazyGames. Changes arrive as the `audioEnabledChange` event. See the [CrazyGames guide](/docs/crazygames).
 
 ---
 
@@ -97,7 +98,7 @@ The Defold `session_*` namespace also hosts the gameplay-lifecycle signals (they
 | `yes2sdk.session_gameplay_start()` | Mark active gameplay start (monetization timing). |
 | `yes2sdk.session_gameplay_stop()` | Mark active gameplay stop. Wrap ad calls between stop/start. |
 | `yes2sdk.session_get_locale()` | Locale string (default `"en"`). |
-| `yes2sdk.session_is_audio_enabled()` | Platform audio state (boolean; `true` where no native signal). |
+| `yes2sdk.session_is_audio_enabled()` | Platform audio state (boolean). Follows the platform mute on YouTube and CrazyGames, `true` elsewhere. |
 | `yes2sdk.session_get_entry_point_data()` | Launch data as a Lua table, already decoded. `{}` when there is none, on platforms without it, or on bad JSON. Synchronous. Includes the data from a referral share or a registration prompt. |
 
 ```lua
