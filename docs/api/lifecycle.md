@@ -78,7 +78,7 @@ sub.unsubscribe();
 | `loadingProgress` | `{ progress: number }` | Each `setLoadingProgress` call. |
 | `pause` | `void` | Platform requested pause (backgrounded, overlay, ad). Falls back to `document.visibilitychange` where no native signal exists. |
 | `resume` | `void` | Platform allows resume. **Not** guaranteed to follow every `pause`. |
-| `audioEnabledChange` | `{ enabled: boolean }` | Platform mute/unmute (via platform UI). Game **MUST** update its audio state. Emitted only where a native signal exists. |
+| `audioEnabledChange` | `{ enabled: boolean }` | Platform mute/unmute (via platform UI). Game **MUST** update its audio state. Emitted only where a native signal exists: YouTube and CrazyGames. |
 | `accountDialogOpen` | `void` | Yandex account-selection dialog opened. **Yandex-only**; pause gameplay/audio while it is open. |
 | `accountDialogClose` | `void` | Yandex account-selection dialog closed. **Yandex-only**; resume gameplay/audio. |
 | `exitRequested` | `void` | The platform started its exit flow (back navigation or a platform close control). The player has not confirmed yet, so do not tear the game down. Save recent progress **synchronously** inside the handler; Yes2SDK flushes player data right after the handler returns. Async work started in the handler is not awaited. **Jest only**: never emitted on Poki, GameDistribution, CrazyGames, Yandex or YouTube. |
@@ -183,7 +183,7 @@ A build is accepted when:
 - [ ] `setLoadingProgress` is called as assets load
 - [ ] `startGame` is called when the game becomes playable
 - [ ] `pause` / `resume` are handled (mute audio, pause gameplay)
-- [ ] `audioEnabledChange` (and `isAudioEnabled`) is honored: required for YouTube Playables certification
+- [ ] `audioEnabledChange` (and `isAudioEnabled`) is honored: required for YouTube Playables certification and a CrazyGames Full Implementation
 - [ ] Interstitials run at natural break points; rewarded grants reward only on the "viewed" callback
 - [ ] `gameplayStop` before every ad, `gameplayStart` after; gameplay resumes in both the after-ad and error paths
 
